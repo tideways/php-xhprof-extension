@@ -27,6 +27,7 @@
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include "ext/curl/php_curl.h"
+#include "ext/pcre/php_pcre.h"
 
 #include "php.h"
 #include "php_ini.h"
@@ -933,6 +934,68 @@ static const char *hp_get_base_filename(const char *filename) {
   return filename;
 }
 
+static char *hp_get_sql_summary(char *sql, int len) {
+    zval *parts, **data;
+    HashTable *arrayParts;
+    pcre_cache_entry	*pce;			/* Compiled regular expression */
+    HashPosition pointer;
+    int array_count, result_len;
+    char *result, *token;
+
+    result = "";
+    MAKE_STD_ZVAL(parts);
+
+    if ((pce = pcre_get_compiled_regex_cache("(([\\s]+))", 8 TSRMLS_CC)) == NULL) {
+        return "";
+    }
+
+    php_pcre_split_impl(pce, sql, len, parts, -1, 0 TSRMLS_CC);
+
+    arrayParts = Z_ARRVAL_P(parts);
+
+    result_len = XHPROF_MAX_ARGUMENT_LEN;
+    result = emalloc(result_len);
+
+    for(zend_hash_internal_pointer_reset_ex(arrayParts, &pointer); zend_hash_get_current_data_ex(arrayParts, (void**) &data, &pointer) == SUCCESS; zend_hash_move_forward_ex(arrayParts, &pointer)) {
+        char *key;
+        int key_len;
+        long index;
+
+        zend_hash_get_current_key_ex(arrayParts, &key, &key_len, &index, 0, &pointer);
+
+        token = Z_STRVAL_PP(data);
+        php_strtolower(token, Z_STRLEN_PP(data));
+
+        if ((strcmp(token, "insert") == 0 || strcmp(token, "delete") == 0) &&
+            zend_hash_index_exists(arrayParts, index+2)) {
+            snprintf(result, result_len, "%s", token);
+
+            zend_hash_index_find(arrayParts, index+2, (void**) &data);
+            snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
+
+            break;
+        } else if (strcmp(token, "update") == 0 && zend_hash_index_exists(arrayParts, index+1)) {
+            snprintf(result, result_len, "%s", token);
+
+            zend_hash_index_find(arrayParts, index+1, (void**) &data);
+            snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
+
+            break;
+        } else if (strcmp(token, "select") == 0) {
+            snprintf(result, result_len, "%s", token);
+        } else if (strcmp(token, "from") == 0) {
+            zend_hash_index_find(arrayParts, index+1, (void**) &data);
+            snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
+
+            break;
+        }
+    }
+
+    zval_ptr_dtor(&parts);
+
+    return result;
+}
+
 static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data *data) {
     void **p;
     int arg_count = 0;
@@ -983,9 +1046,14 @@ static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data
         }
 
     } else if (strcmp(ret, "PDOStatement::execute#") == 0) {
+        char *sql_summary;
         pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object_by_handle( (((*((*data).object)).value).obj).handle TSRMLS_CC);
 
-        snprintf(ret, len, "%s%s", ret, stmt->query_string);
+        sql_summary = hp_get_sql_summary(stmt->query_string, stmt->query_stringlen);
+
+        snprintf(ret, len, "%s%s", ret, sql_summary);
+
+        efree(sql_summary);
     } else {
         for (i=0; i < arg_count; i++) {
           argument_element = *(p-(arg_count-i));
