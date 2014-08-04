@@ -934,7 +934,7 @@ static const char *hp_get_base_filename(const char *filename) {
   return filename;
 }
 
-static char *hp_get_sql_summary(char *sql, int len) {
+static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC) {
     zval *parts, **data;
     HashTable *arrayParts;
     pcre_cache_entry	*pce;			/* Compiled regular expression */
@@ -996,7 +996,7 @@ static char *hp_get_sql_summary(char *sql, int len) {
     return result;
 }
 
-static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data *data) {
+static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data *data TSRMLS_DC) {
     void **p;
     int arg_count = 0;
     int i;
@@ -1049,7 +1049,7 @@ static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data
         char *sql_summary;
         pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object_by_handle( (((*((*data).object)).value).obj).handle TSRMLS_CC);
 
-        sql_summary = hp_get_sql_summary(stmt->query_string, stmt->query_stringlen);
+        sql_summary = hp_get_sql_summary(stmt->query_string, stmt->query_stringlen TSRMLS_CC);
 
         snprintf(ret, len, "%s%s", ret, sql_summary);
 
@@ -1141,7 +1141,7 @@ static char *hp_get_function_name(zend_op_array *ops TSRMLS_DC) {
       uint8 class_hash_code  = hp_inline_hash(ret);
 
       if (hp_argument_entry(class_hash_code, ret)) {
-        ret = hp_get_function_argument_info(ret, len, data);
+        ret = hp_get_function_argument_info(ret, len, data TSRMLS_CC);
       }
 
     } else {
