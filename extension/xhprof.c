@@ -939,9 +939,10 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC) {
     HashTable *arrayParts;
     pcre_cache_entry	*pce;			/* Compiled regular expression */
     HashPosition pointer;
-    int array_count, result_len;
+    int array_count, result_len, found;
     char *result, *token;
 
+    found = 0;
     result = "";
     MAKE_STD_ZVAL(parts);
 
@@ -956,7 +957,10 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC) {
     result_len = XHPROF_MAX_ARGUMENT_LEN;
     result = emalloc(result_len);
 
-    for(zend_hash_internal_pointer_reset_ex(arrayParts, &pointer); zend_hash_get_current_data_ex(arrayParts, (void**) &data, &pointer) == SUCCESS; zend_hash_move_forward_ex(arrayParts, &pointer)) {
+    for(zend_hash_internal_pointer_reset_ex(arrayParts, &pointer);
+        zend_hash_get_current_data_ex(arrayParts, (void**) &data, &pointer) == SUCCESS;
+        zend_hash_move_forward_ex(arrayParts, &pointer)) {
+
         char *key;
         int key_len;
         long index;
@@ -972,6 +976,7 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC) {
 
             zend_hash_index_find(arrayParts, index+2, (void**) &data);
             snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
+            found = 1;
 
             break;
         } else if (strcmp(token, "update") == 0 && zend_hash_index_exists(arrayParts, index+1)) {
@@ -979,6 +984,7 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC) {
 
             zend_hash_index_find(arrayParts, index+1, (void**) &data);
             snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
+            found = 1;
 
             break;
         } else if (strcmp(token, "select") == 0) {
@@ -986,12 +992,17 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC) {
         } else if (strcmp(token, "from") == 0) {
             zend_hash_index_find(arrayParts, index+1, (void**) &data);
             snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
+            found = 1;
 
             break;
         }
     }
 
     zval_ptr_dtor(&parts);
+
+    if (found == 0) {
+        snprintf(result, result_len, "%s", "other");
+    }
 
     return result;
 }
@@ -1044,6 +1055,14 @@ static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data
         if (ch && curl_easy_getinfo(ch->cp, CURLINFO_EFFECTIVE_URL, &s_code) == CURLE_OK) {
             snprintf(ret, len, "%s%s", ret, s_code);
         }
+    } else if (strcmp(ret, "PDO::exec#") == 0 || strcmp(ret, "PDO::query#") == 0) {
+        argument_element = *(p-arg_count);
+        char *sql_summary;
+
+        sql_summary = hp_get_sql_summary(argument_element->value.str.val, argument_element->value.str.len TSRMLS_CC);
+
+        snprintf(ret, len, "%s%s", ret, sql_summary);
+        efree(sql_summary);
 
     } else if (strcmp(ret, "PDOStatement::execute#") == 0) {
         char *sql_summary;

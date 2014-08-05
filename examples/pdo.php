@@ -1,7 +1,6 @@
 <?php
 
-echo phpversion('xhprof') . "\n";
-xhprof_enable(0, array('argument_functions' => array('PDOStatement::execute', 'PDO::query')));
+xhprof_enable(0, array('argument_functions' => array('PDOStatement::execute', 'PDO::query', 'PDO::exec')));
 
 $pdo = new PDO('sqlite:memory:', 'root', '');
 
