@@ -28,6 +28,8 @@
 #include <curl/easy.h>
 #include "ext/curl/php_curl.h"
 #include "ext/pcre/php_pcre.h"
+#include "ext/standard/url.h"
+#include "ext/pdo/php_pdo_driver.h"
 
 #include "php.h"
 #include "php_ini.h"
@@ -35,7 +37,6 @@
 #include "ext/standard/file.h"
 #include "php_xhprof.h"
 #include "zend_extensions.h"
-#include "ext/pdo/php_pdo_driver.h"
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <stdlib.h>
@@ -1014,6 +1015,7 @@ static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data
     zval *argument_element;
     /* oldret holding function name or class::function. We will reuse the string and free it after */
     char *oldret = ret;
+    php_url *url;
 
     p = data->function_state.arguments;
     arg_count = (int)(zend_uintptr_t) *p;       /* this is the amount of arguments passed to function */
@@ -1028,7 +1030,8 @@ static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data
         strcmp(ret, "fwrite#") == 0 ||
         strcmp(ret, "fputs#") == 0 ||
         strcmp(ret, "fputcsv#") == 0 ||
-        strcmp(ret, "stream_get_contents#") == 0
+        strcmp(ret, "stream_get_contents#") == 0 ||
+        strcmp(ret, "fclose#") == 0
     ) {
 
         php_stream *stream;
@@ -1038,7 +1041,41 @@ static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data
         php_stream_from_zval_no_verify(stream, &argument_element);
 
         if (stream != NULL && stream->orig_path) {
-            snprintf(ret, len, "%s%s", ret, stream->orig_path);
+            snprintf(ret, len, "%s%d", ret, stream->rsrc_id);
+        }
+    } else if (strcmp(ret, "fopen#") == 0 || strcmp(ret, "file_get_contents#") == 0 || strcmp(ret, "file_put_contents") == 0) {
+        argument_element = *(p-arg_count);
+
+        if (argument_element->type == IS_STRING) {
+            url = php_url_parse_ex(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element));
+
+            if (url->scheme) {
+                snprintf(ret, len, "%s%s://", ret, url->scheme);
+            }
+
+            if (url->host) {
+                snprintf(ret, len, "%s%s", ret, url->host);
+            }
+
+            if (url->port) {
+                snprintf(ret, len, "%s%d", ret, url->port);
+            }
+
+            if (url->path) {
+                snprintf(ret, len, "%s%s", ret, url->path);
+            }
+
+            /*
+             * We assume the stream will be opened,
+             * pointing to the next free element in resource list.
+             *
+             * This does not reliably work however, the first opened stream
+             * (http,file) will open two entries, creating an offset. We can
+             * handle this in the profiler parsing for now.
+             */
+            snprintf(ret, len, "%s#%d", ret, EG(regular_list).nNextFreeElement);
+
+            php_url_free(url);
         }
 
     } else if (strcmp(ret, "curl_exec#") == 0) {
@@ -1055,9 +1092,18 @@ static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data
         if (ch && curl_easy_getinfo(ch->cp, CURLINFO_EFFECTIVE_URL, &s_code) == CURLE_OK) {
             snprintf(ret, len, "%s%s", ret, s_code);
         }
-    } else if (strcmp(ret, "PDO::exec#") == 0 || strcmp(ret, "PDO::query#") == 0) {
-        argument_element = *(p-arg_count);
+    } else if (strcmp(ret, "PDO::exec#") == 0 ||
+               strcmp(ret, "PDO::query#") == 0 ||
+               strcmp(ret, "mysql_query#") == 0 ||
+               strcmp(ret, "mysqli_query#") == 0 ||
+               strcmp(ret, "mysqli::query#") == 0) {
         char *sql_summary;
+
+        if (strcmp(ret, "mysqli_query#") == 0) {
+            argument_element = *(p-arg_count+1);
+        } else {
+            argument_element = *(p-arg_count);
+        }
 
         sql_summary = hp_get_sql_summary(argument_element->value.str.val, argument_element->value.str.len TSRMLS_CC);
 
@@ -1103,7 +1149,7 @@ static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data
           }
 
           if (i < arg_count-1) {
-              snprintf(ret, len, ", ", ret);
+              snprintf(ret, len, "%s, ", ret);
           }
         }
     }
