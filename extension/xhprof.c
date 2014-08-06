@@ -1008,6 +1008,48 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC) {
     return result;
 }
 
+static char *hp_get_file_summary(char *filename, int filename_len) {
+    php_url *url;
+    char *ret;
+    int len;
+
+    len = XHPROF_MAX_ARGUMENT_LEN;
+    ret = emalloc(len);
+    snprintf(ret, len, "");
+
+    url = php_url_parse_ex(filename, filename_len);
+
+    if (url->scheme) {
+        snprintf(ret, len, "%s%s://", ret, url->scheme);
+    }
+
+    if (url->host) {
+        snprintf(ret, len, "%s%s", ret, url->host);
+    }
+
+    if (url->port) {
+        snprintf(ret, len, "%s%d", ret, url->port);
+    }
+
+    if (url->path) {
+        snprintf(ret, len, "%s%s", ret, url->path);
+    }
+
+    /*
+     * We assume the stream will be opened,
+     * pointing to the next free element in resource list.
+     *
+     * This does not reliably work however, the first opened stream
+     * (http,file) will open two entries, creating an offset. We can
+     * handle this in the profiler parsing for now.
+     */
+    snprintf(ret, len, "%s#%d", ret, EG(regular_list).nNextFreeElement);
+
+    php_url_free(url);
+
+    return ret;
+}
+
 static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data *data TSRMLS_DC) {
     void **p;
     int arg_count = 0;
@@ -1015,7 +1057,7 @@ static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data
     zval *argument_element;
     /* oldret holding function name or class::function. We will reuse the string and free it after */
     char *oldret = ret;
-    php_url *url;
+    char *sql_summary;
 
     p = data->function_state.arguments;
     arg_count = (int)(zend_uintptr_t) *p;       /* this is the amount of arguments passed to function */
@@ -1047,37 +1089,12 @@ static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data
         argument_element = *(p-arg_count);
 
         if (argument_element->type == IS_STRING) {
-            url = php_url_parse_ex(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element));
+            sql_summary = hp_get_file_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element));
 
-            if (url->scheme) {
-                snprintf(ret, len, "%s%s://", ret, url->scheme);
-            }
+            snprintf(ret, len, "%s%s", ret, sql_summary);
 
-            if (url->host) {
-                snprintf(ret, len, "%s%s", ret, url->host);
-            }
-
-            if (url->port) {
-                snprintf(ret, len, "%s%d", ret, url->port);
-            }
-
-            if (url->path) {
-                snprintf(ret, len, "%s%s", ret, url->path);
-            }
-
-            /*
-             * We assume the stream will be opened,
-             * pointing to the next free element in resource list.
-             *
-             * This does not reliably work however, the first opened stream
-             * (http,file) will open two entries, creating an offset. We can
-             * handle this in the profiler parsing for now.
-             */
-            snprintf(ret, len, "%s#%d", ret, EG(regular_list).nNextFreeElement);
-
-            php_url_free(url);
+            efree(sql_summary);
         }
-
     } else if (strcmp(ret, "curl_exec#") == 0) {
         php_curl *ch;
         int  le_curl;
@@ -1090,14 +1107,15 @@ static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data
         ZEND_FETCH_RESOURCE_NO_RETURN(ch, php_curl *, &argument_element, -1, "cURL handle", le_curl);
 
         if (ch && curl_easy_getinfo(ch->cp, CURLINFO_EFFECTIVE_URL, &s_code) == CURLE_OK) {
-            snprintf(ret, len, "%s%s", ret, s_code);
+            sql_summary = hp_get_file_summary(s_code, strlen(s_code));
+            snprintf(ret, len, "%s%s", ret, sql_summary);
+            efree(sql_summary);
         }
     } else if (strcmp(ret, "PDO::exec#") == 0 ||
                strcmp(ret, "PDO::query#") == 0 ||
                strcmp(ret, "mysql_query#") == 0 ||
                strcmp(ret, "mysqli_query#") == 0 ||
                strcmp(ret, "mysqli::query#") == 0) {
-        char *sql_summary;
 
         if (strcmp(ret, "mysqli_query#") == 0) {
             argument_element = *(p-arg_count+1);
