@@ -1060,6 +1060,11 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
     char *sql_summary;
 
     p = data->function_state.arguments;
+
+    if (p == NULL) {
+        return ret;
+    }
+
     arg_count = (int)(zend_uintptr_t) *p;       /* this is the amount of arguments passed to function */
     len = XHPROF_MAX_ARGUMENT_LEN;
     ret = emalloc(len);
@@ -1137,6 +1142,16 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
         snprintf(ret, len, "%s%s", ret, sql_summary);
 
         efree(sql_summary);
+    } else if (strcmp(ret, "Twig_Template::render#") == 0 || strcmp(ret, "Twig_Template::doDdisplay#") == 0) {
+        zval fname, *retval_ptr;
+        argument_element = (*data).object;
+
+        ZVAL_STRING(&fname, "getTemplate", 0);
+
+        if(SUCCESS == call_user_function_ex(NULL, &argument_element, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
+            snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(retval_ptr));
+        }
+
     } else {
         for (i=0; i < arg_count; i++) {
           argument_element = *(p-(arg_count-i));
