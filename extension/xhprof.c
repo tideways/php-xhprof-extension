@@ -1062,10 +1062,11 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
     p = data->function_state.arguments;
 
     if (p == NULL) {
-        return ret;
+        arg_count = 0;
+    } else {
+        arg_count = (int)(zend_uintptr_t) *p;       /* this is the amount of arguments passed to function */
     }
 
-    arg_count = (int)(zend_uintptr_t) *p;       /* this is the amount of arguments passed to function */
     len = XHPROF_MAX_ARGUMENT_LEN;
     ret = emalloc(len);
     snprintf(ret, len, "%s#", oldret);
@@ -1142,16 +1143,14 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
         snprintf(ret, len, "%s%s", ret, sql_summary);
 
         efree(sql_summary);
-    } else if (strcmp(ret, "Twig_Template::render#") == 0 || strcmp(ret, "Twig_Template::doDdisplay#") == 0) {
+    } else if (strcmp(ret, "Twig_Template::render#") == 0 || strcmp(ret, "Twig_Template::doDisplay#") == 0) {
         zval fname, *retval_ptr;
-        argument_element = (*data).object;
 
-        ZVAL_STRING(&fname, "getTemplate", 0);
+        ZVAL_STRING(&fname, "getTemplateName", 0);
 
-        if(SUCCESS == call_user_function_ex(NULL, &argument_element, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
+        if(SUCCESS == call_user_function_ex(EG(function_table), &(*data).object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
             snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(retval_ptr));
         }
-
     } else {
         for (i=0; i < arg_count; i++) {
           argument_element = *(p-(arg_count-i));
@@ -1244,7 +1243,7 @@ static char *hp_get_function_name(zend_op_array *ops TSRMLS_DC) {
 
     } else {
       long     curr_op;
-      int      add_filename = 0;
+      int      add_filename = 1;
 
       /* we are dealing with a special directive/function like
        * include, eval, etc.
@@ -1255,44 +1254,19 @@ static char *hp_get_function_name(zend_op_array *ops TSRMLS_DC) {
       curr_op = data->opline->op2.u.constant.value.lval;
 #endif
 
-      switch (curr_op) {
-        case ZEND_EVAL:
-          func = "eval";
-          break;
-        case ZEND_INCLUDE:
-          func = "include";
-          add_filename = 1;
-          break;
-        case ZEND_REQUIRE:
-          func = "require";
-          add_filename = 1;
-          break;
-        case ZEND_INCLUDE_ONCE:
-          func = "include_once";
-          add_filename = 1;
-          break;
-        case ZEND_REQUIRE_ONCE:
-          func = "require_once";
-          add_filename = 1;
-          break;
-        default:
-          func = "???_op";
-          break;
-      }
-
       /* For some operations, we'll add the filename as part of the function
        * name to make the reports more useful. So rather than just "include"
        * you'll see something like "run_init::foo.php" in your reports.
        */
-      if (add_filename){
-        const char *filename;
-        int   len;
-        filename = hp_get_base_filename((curr_func->op_array).filename);
-        len      = strlen("run_init") + strlen(filename) + 3;
-        ret      = (char *)emalloc(len);
-        snprintf(ret, len, "run_init::%s", filename);
+      if (curr_op == ZEND_EVAL){
+          ret = estrdup(func);
       } else {
-        ret = estrdup(func);
+          const char *filename;
+          int   len;
+          filename = hp_get_base_filename((curr_func->op_array).filename);
+          len      = strlen("run_init") + strlen(filename) + 3;
+          ret      = (char *)emalloc(len);
+          snprintf(ret, len, "run_init::%s", filename);
       }
     }
   }
