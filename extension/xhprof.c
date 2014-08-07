@@ -1050,7 +1050,7 @@ static char *hp_get_file_summary(char *filename, int filename_len) {
     return ret;
 }
 
-static char *hp_get_function_argument_info(char *ret, int len, zend_execute_data *data TSRMLS_DC) {
+static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_data *data TSRMLS_DC) {
     void **p;
     int arg_count = 0;
     int i;
@@ -1224,7 +1224,7 @@ static char *hp_get_function_name(zend_op_array *ops TSRMLS_DC) {
       uint8 class_hash_code  = hp_inline_hash(ret);
 
       if (hp_argument_entry(class_hash_code, ret)) {
-        ret = hp_get_function_argument_info(ret, len, data TSRMLS_CC);
+        ret = hp_get_function_argument_summary(ret, len, data TSRMLS_CC);
       }
 
     } else {
