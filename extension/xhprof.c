@@ -1148,9 +1148,11 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 
         ZVAL_STRING(&fname, "getTemplateName", 0);
 
-        if(SUCCESS == call_user_function_ex(EG(function_table), &(*data).object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
+        if(SUCCESS == call_user_function_ex(EG(function_table), &((*((*data).prev_execute_data)).object), &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
             snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(retval_ptr));
         }
+
+        FREE_ZVAL(retval_ptr);
     } else {
         for (i=0; i < arg_count; i++) {
           argument_element = *(p-(arg_count-i));
