@@ -1143,7 +1143,7 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
         snprintf(ret, len, "%s%s", ret, sql_summary);
 
         efree(sql_summary);
-    } else if (strcmp(ret, "Twig_Template::render#") == 0 || strcmp(ret, "Twig_Template::doDisplay#") == 0) {
+    } else if (strcmp(ret, "Twig_Template::render#") == 0 || strcmp(ret, "Twig_Template::display#") == 0) {
         zval fname, *retval_ptr;
 
         ZVAL_STRING(&fname, "getTemplateName", 0);
