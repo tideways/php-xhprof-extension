@@ -1061,11 +1061,20 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 
     p = data->function_state.arguments;
 
+#if PHP_VERSION_ID >= 50500
+    /*
+     * With PHP 5.5 zend_execute cannot be overwritten by extensions anymore.
+     * instead zend_execute_ex has to be used. That however does not have
+     * function_state.arguments populated for non-internal functions.
+     * As per UPGRADING.INTERNALS we are accessing prev_execute_data which
+     * has this information (for whatever reasons).
+     */
     if (p == NULL) {
-        arg_count = 0;
-    } else {
-        arg_count = (int)(zend_uintptr_t) *p;       /* this is the amount of arguments passed to function */
+        p = (*data).prev_execute_data->function_state.arguments;
     }
+#endif
+
+    arg_count = (int)(zend_uintptr_t) *p;       /* this is the amount of arguments passed to function */
 
     len = XHPROF_MAX_ARGUMENT_LEN;
     ret = emalloc(len);
@@ -1148,11 +1157,17 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 
         ZVAL_STRING(&fname, "getTemplateName", 0);
 
-        if(SUCCESS == call_user_function_ex(EG(function_table), &((*((*data).prev_execute_data)).object), &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
+        if (SUCCESS == call_user_function_ex(EG(function_table), &((*((*data).prev_execute_data)).object), &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
             snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(retval_ptr));
         }
 
         FREE_ZVAL(retval_ptr);
+    } else if (strcmp(ret, "Smarty::fetch#") == 0 || strcmp(ret, "Smarty_Internal_TemplateBase::fetch#") == 0) {
+        argument_element = *(p-arg_count);
+
+        if (argument_element->type == IS_STRING) {
+            snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(argument_element));
+        }
     } else {
         for (i=0; i < arg_count; i++) {
           argument_element = *(p-(arg_count-i));
