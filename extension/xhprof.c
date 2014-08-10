@@ -1219,6 +1219,7 @@ static char *hp_get_function_name(zend_op_array *ops TSRMLS_DC) {
   char              *ret = NULL;
   int                len;
   zend_function      *curr_func;
+  uint8 hash_code;
 
   data = EG(current_execute_data);
 
@@ -1243,7 +1244,6 @@ static char *hp_get_function_name(zend_op_array *ops TSRMLS_DC) {
         cls = Z_OBJCE(*data->object)->name;
       }
 
-      uint8 hash_code  = hp_inline_hash(func);
       if (cls) {
         len = strlen(cls) + strlen(func) + 10;
         ret = (char*)emalloc(len);
@@ -1252,9 +1252,9 @@ static char *hp_get_function_name(zend_op_array *ops TSRMLS_DC) {
         ret = estrdup(func);
       }
 
-      uint8 class_hash_code  = hp_inline_hash(ret);
+      hash_code  = hp_inline_hash(ret);
 
-      if (hp_argument_entry(class_hash_code, ret)) {
+      if (hp_argument_entry(hash_code, ret)) {
         ret = hp_get_function_argument_summary(ret, len, data TSRMLS_CC);
       }
 
