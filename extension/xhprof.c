@@ -1057,7 +1057,7 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
     zval *argument_element;
     /* oldret holding function name or class::function. We will reuse the string and free it after */
     char *oldret = ret;
-    char *sql_summary;
+    char *summary;
 
     p = data->function_state.arguments;
 
@@ -1104,11 +1104,11 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
         argument_element = *(p-arg_count);
 
         if (argument_element->type == IS_STRING) {
-            sql_summary = hp_get_file_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element));
+            summary = hp_get_file_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element));
 
-            snprintf(ret, len, "%s%s", ret, sql_summary);
+            snprintf(ret, len, "%s%s", ret, summary);
 
-            efree(sql_summary);
+            efree(summary);
         }
     } else if (strcmp(ret, "curl_exec#") == 0) {
         php_curl *ch;
@@ -1122,9 +1122,9 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
         ZEND_FETCH_RESOURCE_NO_RETURN(ch, php_curl *, &argument_element, -1, "cURL handle", le_curl);
 
         if (ch && curl_easy_getinfo(ch->cp, CURLINFO_EFFECTIVE_URL, &s_code) == CURLE_OK) {
-            sql_summary = hp_get_file_summary(s_code, strlen(s_code));
-            snprintf(ret, len, "%s%s", ret, sql_summary);
-            efree(sql_summary);
+            summary = hp_get_file_summary(s_code, strlen(s_code));
+            snprintf(ret, len, "%s%s", ret, summary);
+            efree(summary);
         }
     } else if (strcmp(ret, "PDO::exec#") == 0 ||
                strcmp(ret, "PDO::query#") == 0 ||
@@ -1138,20 +1138,19 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
             argument_element = *(p-arg_count);
         }
 
-        sql_summary = hp_get_sql_summary(argument_element->value.str.val, argument_element->value.str.len TSRMLS_CC);
+        summary = hp_get_sql_summary(argument_element->value.str.val, argument_element->value.str.len TSRMLS_CC);
 
-        snprintf(ret, len, "%s%s", ret, sql_summary);
-        efree(sql_summary);
+        snprintf(ret, len, "%s%s", ret, summary);
+        efree(summary);
 
     } else if (strcmp(ret, "PDOStatement::execute#") == 0) {
-        char *sql_summary;
         pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object_by_handle( (((*((*data).object)).value).obj).handle TSRMLS_CC);
 
-        sql_summary = hp_get_sql_summary(stmt->query_string, stmt->query_stringlen TSRMLS_CC);
+        summary = hp_get_sql_summary(stmt->query_string, stmt->query_stringlen TSRMLS_CC);
 
-        snprintf(ret, len, "%s%s", ret, sql_summary);
+        snprintf(ret, len, "%s%s", ret, summary);
 
-        efree(sql_summary);
+        efree(summary);
     } else if (strcmp(ret, "Twig_Template::render#") == 0 || strcmp(ret, "Twig_Template::display#") == 0) {
         zval fname, *retval_ptr;
 
