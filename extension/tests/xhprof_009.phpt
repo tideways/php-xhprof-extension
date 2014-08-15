@@ -1,6 +1,5 @@
 --TEST--
-XHPRrof: Test excluding call_user_func and similar functions
-Author: mpal
+XHProf: Function Argument Profiling
 --FILE--
 <?php
 

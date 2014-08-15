@@ -24,9 +24,17 @@
 # define _GNU_SOURCE
 #endif
 
+#include <curl/curl.h>
+#include <curl/easy.h>
+#include "ext/curl/php_curl.h"
+#include "ext/pcre/php_pcre.h"
+#include "ext/standard/url.h"
+#include "ext/pdo/php_pdo_driver.h"
+
 #include "php.h"
 #include "php_ini.h"
 #include "ext/standard/info.h"
+#include "ext/standard/file.h"
 #include "php_xhprof.h"
 #include "zend_extensions.h"
 #include <sys/time.h>
@@ -76,7 +84,7 @@
  */
 
 /* XHProf version                           */
-#define XHPROF_VERSION       "0.9.5"
+#define XHPROF_VERSION       "0.9.6"
 
 /* Fictitious function name to represent top of the call tree. The paranthesis
  * in the name is to ensure we don't conflict with user function names.  */
@@ -107,6 +115,7 @@
 #define XHPROF_MAX_FILTERED_FUNCTIONS  256
 #define XHPROF_FILTERED_FUNCTION_SIZE                           \
                ((XHPROF_MAX_FILTERED_FUNCTIONS + 7)/8)
+#define XHPROF_MAX_ARGUMENT_LEN 256
 
 #if !defined(uint64)
 typedef unsigned long long uint64;
@@ -223,6 +232,10 @@ typedef struct hp_global_t {
   char  **filtered_function_names;
   uint8   filtered_function_filter[XHPROF_FILTERED_FUNCTION_SIZE];
 
+  /* Table of function which get extended with their arguments */
+  char  **argument_function_names;
+  uint8   argument_function_filter[XHPROF_FILTERED_FUNCTION_SIZE];
+
 } hp_global_t;
 
 
@@ -289,10 +302,15 @@ static void hp_get_filtered_functions_from_arg(zval *args);
 static void hp_filtered_functions_filter_clear();
 static void hp_filtered_functions_filter_init();
 
+static void hp_get_argument_functions_from_arg(zval *args);
+static void hp_argument_functions_filter_clear();
+static void hp_argument_functions_filter_init();
+
 static inline zval  *hp_zval_at_key(char  *key,
                                     zval  *values);
 static inline char **hp_strings_in_zval(zval  *values);
 static inline void   hp_array_del(char **name_array);
+static inline int  hp_argument_entry(uint8 hash_code, char *curr_func);
 
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_xhprof_enable, 0, 0, 0)
@@ -389,6 +407,7 @@ PHP_FUNCTION(xhprof_enable) {
   }
 
   hp_get_filtered_functions_from_arg(optional_array);
+  hp_get_argument_functions_from_arg(optional_array);
 
   hp_begin(XHPROF_MODE_HIERARCHICAL, xhprof_flags TSRMLS_CC);
 }
@@ -418,6 +437,7 @@ PHP_FUNCTION(xhprof_disable) {
 PHP_FUNCTION(xhprof_sample_enable) {
   long  xhprof_flags = 0;                                    /* XHProf flags */
   hp_get_filtered_functions_from_arg(NULL);
+  hp_get_argument_functions_from_arg(NULL);
   hp_begin(XHPROF_MODE_SAMPLED, xhprof_flags TSRMLS_CC);
 }
 
@@ -476,6 +496,7 @@ PHP_MINIT_FUNCTION(xhprof) {
   }
 
   hp_filtered_functions_filter_clear();
+  hp_argument_functions_filter_clear();
 
 #if defined(DEBUG)
   /* To make it random number generator repeatable to ease testing. */
@@ -692,6 +713,7 @@ void hp_init_profiler_state(int level TSRMLS_DC) {
 
   /* Set up filter of functions which may be ignored during profiling */
   hp_filtered_functions_filter_init();
+  hp_argument_functions_filter_init();
 }
 
 /**
@@ -716,6 +738,9 @@ void hp_clean_profiler_state(TSRMLS_D) {
   /* Delete the array storing ignored function names */
   hp_array_del(hp_globals.filtered_function_names);
   hp_globals.filtered_function_names = NULL;
+
+  hp_array_del(hp_globals.argument_function_names);
+  hp_globals.argument_function_names = NULL;
 }
 
 /*
@@ -932,6 +957,276 @@ static const char *hp_get_base_filename(const char *filename) {
   return filename;
 }
 
+static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC) {
+    zval *parts, **data;
+    HashTable *arrayParts;
+    pcre_cache_entry	*pce;			/* Compiled regular expression */
+    HashPosition pointer;
+    int array_count, result_len, found;
+    char *result, *token;
+
+    found = 0;
+    result = "";
+    MAKE_STD_ZVAL(parts);
+
+    if ((pce = pcre_get_compiled_regex_cache("(([\\s]+))", 8 TSRMLS_CC)) == NULL) {
+        return "";
+    }
+
+    php_pcre_split_impl(pce, sql, len, parts, -1, 0 TSRMLS_CC);
+
+    arrayParts = Z_ARRVAL_P(parts);
+
+    result_len = XHPROF_MAX_ARGUMENT_LEN;
+    result = emalloc(result_len);
+
+    for(zend_hash_internal_pointer_reset_ex(arrayParts, &pointer);
+        zend_hash_get_current_data_ex(arrayParts, (void**) &data, &pointer) == SUCCESS;
+        zend_hash_move_forward_ex(arrayParts, &pointer)) {
+
+        char *key;
+        int key_len;
+        long index;
+
+        zend_hash_get_current_key_ex(arrayParts, &key, &key_len, &index, 0, &pointer);
+
+        token = Z_STRVAL_PP(data);
+        php_strtolower(token, Z_STRLEN_PP(data));
+
+        if ((strcmp(token, "insert") == 0 || strcmp(token, "delete") == 0) &&
+            zend_hash_index_exists(arrayParts, index+2)) {
+            snprintf(result, result_len, "%s", token);
+
+            zend_hash_index_find(arrayParts, index+2, (void**) &data);
+            snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
+            found = 1;
+
+            break;
+        } else if (strcmp(token, "update") == 0 && zend_hash_index_exists(arrayParts, index+1)) {
+            snprintf(result, result_len, "%s", token);
+
+            zend_hash_index_find(arrayParts, index+1, (void**) &data);
+            snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
+            found = 1;
+
+            break;
+        } else if (strcmp(token, "select") == 0) {
+            snprintf(result, result_len, "%s", token);
+        } else if (strcmp(token, "from") == 0) {
+            zend_hash_index_find(arrayParts, index+1, (void**) &data);
+            snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
+            found = 1;
+
+            break;
+        }
+    }
+
+    zval_ptr_dtor(&parts);
+
+    if (found == 0) {
+        snprintf(result, result_len, "%s", "other");
+    }
+
+    return result;
+}
+
+static char *hp_get_file_summary(char *filename, int filename_len) {
+    php_url *url;
+    char *ret;
+    int len;
+
+    len = XHPROF_MAX_ARGUMENT_LEN;
+    ret = emalloc(len);
+    snprintf(ret, len, "");
+
+    url = php_url_parse_ex(filename, filename_len);
+
+    if (url->scheme) {
+        snprintf(ret, len, "%s%s://", ret, url->scheme);
+    }
+
+    if (url->host) {
+        snprintf(ret, len, "%s%s", ret, url->host);
+    }
+
+    if (url->port) {
+        snprintf(ret, len, "%s%d", ret, url->port);
+    }
+
+    if (url->path) {
+        snprintf(ret, len, "%s%s", ret, url->path);
+    }
+
+    /*
+     * We assume the stream will be opened,
+     * pointing to the next free element in resource list.
+     *
+     * This does not reliably work however, the first opened stream
+     * (http,file) will open two entries, creating an offset. We can
+     * handle this in the profiler parsing for now.
+     */
+    snprintf(ret, len, "%s#%d", ret, EG(regular_list).nNextFreeElement);
+
+    php_url_free(url);
+
+    return ret;
+}
+
+static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_data *data TSRMLS_DC) {
+    void **p;
+    int arg_count = 0;
+    int i;
+    zval *argument_element;
+    /* oldret holding function name or class::function. We will reuse the string and free it after */
+    char *oldret = ret;
+    char *summary;
+
+    p = data->function_state.arguments;
+
+#if PHP_VERSION_ID >= 50500
+    /*
+     * With PHP 5.5 zend_execute cannot be overwritten by extensions anymore.
+     * instead zend_execute_ex has to be used. That however does not have
+     * function_state.arguments populated for non-internal functions.
+     * As per UPGRADING.INTERNALS we are accessing prev_execute_data which
+     * has this information (for whatever reasons).
+     */
+    if (p == NULL) {
+        p = (*data).prev_execute_data->function_state.arguments;
+    }
+#endif
+
+    arg_count = (int)(zend_uintptr_t) *p;       /* this is the amount of arguments passed to function */
+
+    len = XHPROF_MAX_ARGUMENT_LEN;
+    ret = emalloc(len);
+    snprintf(ret, len, "%s#", oldret);
+    efree(oldret);
+
+    if (strcmp(ret, "fgets#") == 0 ||
+        strcmp(ret, "fgetcsv#") == 0 ||
+        strcmp(ret, "fread#") == 0 ||
+        strcmp(ret, "fwrite#") == 0 ||
+        strcmp(ret, "fputs#") == 0 ||
+        strcmp(ret, "fputcsv#") == 0 ||
+        strcmp(ret, "stream_get_contents#") == 0 ||
+        strcmp(ret, "fclose#") == 0
+    ) {
+
+        php_stream *stream;
+
+        argument_element = *(p-arg_count);
+
+        php_stream_from_zval_no_verify(stream, &argument_element);
+
+        if (stream != NULL && stream->orig_path) {
+            snprintf(ret, len, "%s%d", ret, stream->rsrc_id);
+        }
+    } else if (strcmp(ret, "fopen#") == 0 || strcmp(ret, "file_get_contents#") == 0 || strcmp(ret, "file_put_contents") == 0) {
+        argument_element = *(p-arg_count);
+
+        if (argument_element->type == IS_STRING) {
+            summary = hp_get_file_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element));
+
+            snprintf(ret, len, "%s%s", ret, summary);
+
+            efree(summary);
+        }
+    } else if (strcmp(ret, "curl_exec#") == 0) {
+        php_curl *ch;
+        int  le_curl;
+        char *s_code;
+
+        le_curl = zend_fetch_list_dtor_id("curl");
+
+        argument_element = *(p-arg_count);
+
+        ZEND_FETCH_RESOURCE_NO_RETURN(ch, php_curl *, &argument_element, -1, "cURL handle", le_curl);
+
+        if (ch && curl_easy_getinfo(ch->cp, CURLINFO_EFFECTIVE_URL, &s_code) == CURLE_OK) {
+            summary = hp_get_file_summary(s_code, strlen(s_code));
+            snprintf(ret, len, "%s%s", ret, summary);
+            efree(summary);
+        }
+    } else if (strcmp(ret, "PDO::exec#") == 0 ||
+               strcmp(ret, "PDO::query#") == 0 ||
+               strcmp(ret, "mysql_query#") == 0 ||
+               strcmp(ret, "mysqli_query#") == 0 ||
+               strcmp(ret, "mysqli::query#") == 0) {
+
+        if (strcmp(ret, "mysqli_query#") == 0) {
+            argument_element = *(p-arg_count+1);
+        } else {
+            argument_element = *(p-arg_count);
+        }
+
+        summary = hp_get_sql_summary(argument_element->value.str.val, argument_element->value.str.len TSRMLS_CC);
+
+        snprintf(ret, len, "%s%s", ret, summary);
+        efree(summary);
+
+    } else if (strcmp(ret, "PDOStatement::execute#") == 0) {
+        pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object_by_handle( (((*((*data).object)).value).obj).handle TSRMLS_CC);
+
+        summary = hp_get_sql_summary(stmt->query_string, stmt->query_stringlen TSRMLS_CC);
+
+        snprintf(ret, len, "%s%s", ret, summary);
+
+        efree(summary);
+    } else if (strcmp(ret, "Twig_Template::render#") == 0 || strcmp(ret, "Twig_Template::display#") == 0) {
+        zval fname, *retval_ptr;
+
+        ZVAL_STRING(&fname, "getTemplateName", 0);
+
+        if (SUCCESS == call_user_function_ex(EG(function_table), &((*((*data).prev_execute_data)).object), &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
+            snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(retval_ptr));
+        }
+
+        FREE_ZVAL(retval_ptr);
+    } else if (strcmp(ret, "Smarty::fetch#") == 0 || strcmp(ret, "Smarty_Internal_TemplateBase::fetch#") == 0) {
+        argument_element = *(p-arg_count);
+
+        if (argument_element->type == IS_STRING) {
+            snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(argument_element));
+        }
+    } else {
+        for (i=0; i < arg_count; i++) {
+          argument_element = *(p-(arg_count-i));
+          switch(argument_element->type) {
+            case IS_STRING:
+              snprintf(ret, len, "%s%s", ret, argument_element->value.str.val);
+              break;
+
+            case IS_LONG:
+            case IS_BOOL:
+              snprintf(ret, len, "%s%ld", ret, argument_element->value.lval);
+              break;
+
+            case IS_DOUBLE:
+              snprintf(ret, len, "%s%f", ret, argument_element->value.str.val);
+              break;
+
+            case IS_ARRAY:
+              snprintf(ret, len, "%s%s", ret, "[...]");
+              break;
+
+            case IS_NULL:
+              snprintf(ret, len, "%s%s", ret, "NULL");
+              break;
+
+            default:
+              snprintf(ret, len, "%s%s", ret, "object");
+          }
+
+          if (i < arg_count-1) {
+              snprintf(ret, len, "%s, ", ret);
+          }
+        }
+    }
+
+    return ret;
+}
+
 /**
  * Get the name of the current function. The name is qualified with
  * the class name if the function is in a class.
@@ -945,6 +1240,7 @@ static char *hp_get_function_name(zend_op_array *ops TSRMLS_DC) {
   char              *ret = NULL;
   int                len;
   zend_function      *curr_func;
+  uint8 hash_code;
 
   data = EG(current_execute_data);
 
@@ -976,9 +1272,16 @@ static char *hp_get_function_name(zend_op_array *ops TSRMLS_DC) {
       } else {
         ret = estrdup(func);
       }
+
+      hash_code  = hp_inline_hash(ret);
+
+      if (hp_argument_entry(hash_code, ret)) {
+        ret = hp_get_function_argument_summary(ret, len, data TSRMLS_CC);
+      }
+
     } else {
       long     curr_op;
-      int      add_filename = 0;
+      int      add_filename = 1;
 
       /* we are dealing with a special directive/function like
        * include, eval, etc.
@@ -989,44 +1292,19 @@ static char *hp_get_function_name(zend_op_array *ops TSRMLS_DC) {
       curr_op = data->opline->op2.u.constant.value.lval;
 #endif
 
-      switch (curr_op) {
-        case ZEND_EVAL:
-          func = "eval";
-          break;
-        case ZEND_INCLUDE:
-          func = "include";
-          add_filename = 1;
-          break;
-        case ZEND_REQUIRE:
-          func = "require";
-          add_filename = 1;
-          break;
-        case ZEND_INCLUDE_ONCE:
-          func = "include_once";
-          add_filename = 1;
-          break;
-        case ZEND_REQUIRE_ONCE:
-          func = "require_once";
-          add_filename = 1;
-          break;
-        default:
-          func = "???_op";
-          break;
-      }
-
       /* For some operations, we'll add the filename as part of the function
        * name to make the reports more useful. So rather than just "include"
        * you'll see something like "run_init::foo.php" in your reports.
        */
-      if (add_filename){
-        const char *filename;
-        int   len;
-        filename = hp_get_base_filename((curr_func->op_array).filename);
-        len      = strlen("run_init") + strlen(filename) + 3;
-        ret      = (char *)emalloc(len);
-        snprintf(ret, len, "run_init::%s", filename);
+      if (curr_op == ZEND_EVAL){
+          ret = estrdup(func);
       } else {
-        ret = estrdup(func);
+          const char *filename;
+          int   len;
+          filename = hp_get_base_filename((curr_func->op_array).filename);
+          len      = strlen("run_init") + strlen(filename) + 3;
+          ret      = (char *)emalloc(len);
+          snprintf(ret, len, "run_init::%s", filename);
       }
     }
   }
@@ -2050,3 +2328,86 @@ static inline void hp_array_del(char **name_array) {
   }
 }
 
+/* for simpler maintainance of the code just copied these from ignored_functions */
+
+
+/**
+ * Parse the list of ignored functions from the zval argument.
+ *
+ * @author mpal
+ */
+static void hp_get_argument_functions_from_arg(zval *args) {
+  if (args != NULL) {
+    zval  *zresult = NULL;
+
+    zresult = hp_zval_at_key("argument_functions", args);
+    hp_globals.argument_function_names = hp_strings_in_zval(zresult);
+  } else {
+    hp_globals.argument_function_names = NULL;
+  }
+}
+
+/**
+ * Clear filter for functions which may be ignored during profiling.
+ *
+ * @author mpal
+ */
+static void hp_argument_functions_filter_clear() {
+  memset(hp_globals.argument_function_filter, 0,
+         XHPROF_FILTERED_FUNCTION_SIZE);
+}
+
+/**
+ * Initialize filter for ignored functions using bit vector.
+ *
+ * @author mpal
+ */
+static void hp_argument_functions_filter_init() {
+  if (hp_globals.argument_function_names != NULL) {
+    int i = 0;
+    for(; hp_globals.argument_function_names[i] != NULL; i++) {
+      char *str  = hp_globals.argument_function_names[i];
+      uint8 hash = hp_inline_hash(str);
+      int   idx  = INDEX_2_BYTE(hash);
+      hp_globals.argument_function_filter[idx] |= INDEX_2_BIT(hash);
+    }
+  }
+}
+
+/**
+ * Check if function collides in filter of functions to be ignored.
+ *
+ * @author mpal
+ */
+static int hp_argument_functions_filter_collision(uint8 hash) {
+  uint8 mask = INDEX_2_BIT(hash);
+  return hp_globals.argument_function_filter[INDEX_2_BYTE(hash)] & mask;
+}
+
+/**
+ * Check if this entry should be ignored, first with a conservative Bloomish
+ * filter then with an exact check against the function names.
+ *
+ * @author mpal
+ */
+static int  hp_argument_entry_work(uint8 hash_code, char *curr_func) {
+  int ignore = 0;
+  if (hp_argument_functions_filter_collision(hash_code)) {
+    int i = 0;
+    for (; hp_globals.argument_function_names[i] != NULL; i++) {
+      char *name = hp_globals.argument_function_names[i];
+      if ( !strcmp(curr_func, name)) {
+        ignore++;
+        break;
+      }
+    }
+  }
+
+  return ignore;
+}
+
+static inline int  hp_argument_entry(uint8 hash_code, char *curr_func) {
+  /* First check if argument functions is enabled */
+  return hp_globals.argument_function_names != NULL &&
+         hp_argument_entry_work(hash_code, curr_func);
+}
