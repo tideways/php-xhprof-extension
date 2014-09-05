@@ -30,6 +30,7 @@
 #include "ext/pcre/php_pcre.h"
 #include "ext/standard/url.h"
 #include "ext/pdo/php_pdo_driver.h"
+#include "zend_exceptions.h"
 
 #include "php.h"
 #include "php_ini.h"
@@ -185,6 +186,15 @@ typedef struct hp_global_t {
   /* Holds all the xhprof statistics */
   zval            *stats_count;
 
+  /* Holds all the information about last error. */
+  zval            *last_error;
+
+  /* Holds the last exception message */
+  zval            *last_exception_message;
+
+  /* Holds the last exception class and code */
+  zval            *last_exception_type;
+
   /* Indicates the current xhprof mode or level */
   int              profiler_level;
 
@@ -270,6 +280,11 @@ static zend_op_array * (*_zend_compile_file) (zend_file_handle *file_handle,
 /* Pointer to the original compile string function (used by eval) */
 static zend_op_array * (*_zend_compile_string) (zval *source_string, char *filename TSRMLS_DC);
 
+/* error callback replacement functions */
+void (*xhprof_original_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
+void xhprof_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
+static void xhprof_throw_exception_hook(zval *exception TSRMLS_DC);
+
 /* Bloom filter for function names to be ignored */
 #define INDEX_2_BYTE(index)  (index >> 3)
 #define INDEX_2_BIT(index)   (1 << (index & 0x7));
@@ -321,6 +336,9 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO(arginfo_xhprof_disable, 0)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO(arginfo_xhprof_last_fatal_error, 0)
+ZEND_END_ARG_INFO()
+
 ZEND_BEGIN_ARG_INFO(arginfo_xhprof_sample_enable, 0)
 ZEND_END_ARG_INFO()
 
@@ -345,6 +363,7 @@ int bind_to_cpu(uint32 cpu_id);
 zend_function_entry xhprof_functions[] = {
   PHP_FE(xhprof_enable, arginfo_xhprof_enable)
   PHP_FE(xhprof_disable, arginfo_xhprof_disable)
+  PHP_FE(xhprof_last_fatal_error, arginfo_xhprof_last_fatal_error)
   PHP_FE(xhprof_sample_enable, arginfo_xhprof_sample_enable)
   PHP_FE(xhprof_sample_disable, arginfo_xhprof_sample_disable)
   {NULL, NULL, NULL}
@@ -428,6 +447,12 @@ PHP_FUNCTION(xhprof_disable) {
   /* else null is returned */
 }
 
+PHP_FUNCTION(xhprof_last_fatal_error) {
+    if (hp_globals.enabled) {
+      RETURN_ZVAL(hp_globals.last_error, 1, 0);
+    }
+}
+
 /**
  * Start XHProf profiling in sampling mode.
  *
@@ -487,6 +512,9 @@ PHP_MINIT_FUNCTION(xhprof) {
   hp_globals.cur_cpu_id = 0;
 
   hp_globals.stats_count = NULL;
+  hp_globals.last_error = NULL;
+  hp_globals.last_exception_message = NULL;
+  hp_globals.last_exception_type = NULL;
 
   /* no free hp_entry_t structures to start with */
   hp_globals.entry_free_list = NULL;
@@ -697,6 +725,23 @@ void hp_init_profiler_state(int level TSRMLS_DC) {
   MAKE_STD_ZVAL(hp_globals.stats_count);
   array_init(hp_globals.stats_count);
 
+  if (hp_globals.last_error) {
+    zval_dtor(hp_globals.last_error);
+    FREE_ZVAL(hp_globals.last_error);
+  }
+  MAKE_STD_ZVAL(hp_globals.last_error);
+  array_init(hp_globals.last_error);
+
+  if (hp_globals.last_exception_message) {
+    zval_dtor(hp_globals.last_exception_message);
+    FREE_ZVAL(hp_globals.last_exception_message);
+  }
+
+  if (hp_globals.last_exception_type) {
+    zval_dtor(hp_globals.last_exception_type);
+    FREE_ZVAL(hp_globals.last_exception_type);
+  }
+
   /* NOTE(cjiang): some fields such as cpu_frequencies take relatively longer
    * to initialize, (5 milisecond per logical cpu right now), therefore we
    * calculate them lazily. */
@@ -731,6 +776,23 @@ void hp_clean_profiler_state(TSRMLS_D) {
     FREE_ZVAL(hp_globals.stats_count);
     hp_globals.stats_count = NULL;
   }
+
+  if (hp_globals.last_error) {
+    zval_dtor(hp_globals.last_error);
+    FREE_ZVAL(hp_globals.last_error);
+    hp_globals.last_error = NULL;
+  }
+
+  if (hp_globals.last_exception_message) {
+    zval_ptr_dtor(&hp_globals.last_exception_message);
+    hp_globals.last_exception_message = NULL;
+  }
+
+  if (hp_globals.last_exception_type) {
+    FREE_ZVAL(hp_globals.last_exception_type);
+    hp_globals.last_exception_type = NULL;
+  }
+
   hp_globals.entries = NULL;
   hp_globals.profiler_level = 1;
   hp_globals.ever_enabled = 0;
@@ -2137,6 +2199,11 @@ static void hp_begin(long level, long xhprof_flags TSRMLS_DC) {
     zend_execute_ex  = hp_execute_ex;
 #endif
 
+    xhprof_original_error_cb = zend_error_cb;
+    zend_error_cb = xhprof_error_cb;
+
+    zend_throw_exception_hook = xhprof_throw_exception_hook;
+
     /* Replace zend_execute_internal with our proxy */
     _zend_execute_internal = zend_execute_internal;
     if (!(hp_globals.xhprof_flags & XHPROF_FLAGS_NO_BUILTINS)) {
@@ -2214,6 +2281,9 @@ static void hp_stop(TSRMLS_D) {
   zend_execute_internal = _zend_execute_internal;
   zend_compile_file     = _zend_compile_file;
   zend_compile_string   = _zend_compile_string;
+
+  zend_error_cb = xhprof_original_error_cb;
+  zend_throw_exception_hook = NULL;
 
   /* Resore cpu affinity. */
   restore_cpu_affinity(&hp_globals.prev_mask);
@@ -2410,4 +2480,184 @@ static inline int  hp_argument_entry(uint8 hash_code, char *curr_func) {
   /* First check if argument functions is enabled */
   return hp_globals.argument_function_names != NULL &&
          hp_argument_entry_work(hash_code, curr_func);
+}
+
+/* {{{ gettraceasstring() macros */
+#define XHPROF_TRACE_APPEND_CHR(chr)                                            \
+    *str = (char*)erealloc(*str, *len + 1 + 1);                          \
+    (*str)[(*len)++] = chr
+
+#define XHPROF_TRACE_APPEND_STRL(val, vallen)                                   \
+    {                                                                    \
+        int l = vallen;                                                  \
+        *str = (char*)erealloc(*str, *len + l + 1);                      \
+        memcpy((*str) + *len, val, l);                                   \
+        *len += l;                                                       \
+    }
+
+#define XHPROF_TRACE_APPEND_STR(val)                                            \
+    XHPROF_TRACE_APPEND_STRL(val, sizeof(val)-1)
+
+#define XHPROF_TRACE_APPEND_KEY(key)                                                   \
+    if (zend_hash_find(ht, key, sizeof(key), (void**)&tmp) == SUCCESS) {    \
+        if (Z_TYPE_PP(tmp) != IS_STRING) {                              \
+            zend_error(E_WARNING, "Value for %s is no string", key); \
+            XHPROF_TRACE_APPEND_STR("[unknown]");                          \
+        } else {                                                        \
+            XHPROF_TRACE_APPEND_STRL(Z_STRVAL_PP(tmp), Z_STRLEN_PP(tmp));  \
+        }                                                               \
+    }
+
+
+#define TRACE_ARG_APPEND(vallen)								\
+    *str = (char*)erealloc(*str, *len + 1 + vallen);					\
+    memmove((*str) + *len - l_added + 1 + vallen, (*str) + *len - l_added + 1, l_added);
+
+/* }}} */
+
+static int xhprof_build_trace_string(zval **frame TSRMLS_DC, int num_args, va_list args, zend_hash_key *hash_key) /* {{{ */
+{
+    char *s_tmp, **str;
+    int *len, *num;
+    long line;
+    HashTable *ht = Z_ARRVAL_PP(frame);
+    zval **file, **tmp;
+
+    if (Z_TYPE_PP(frame) != IS_ARRAY) {
+        zend_error(E_WARNING, "Expected array for frame %lu", hash_key->h);
+        return ZEND_HASH_APPLY_KEEP;
+    }
+
+    str = va_arg(args, char**);
+    len = va_arg(args, int*);
+    num = va_arg(args, int*);
+
+    s_tmp = emalloc(1 + MAX_LENGTH_OF_LONG + 1 + 1);
+    sprintf(s_tmp, "#%d ", (*num)++);
+    XHPROF_TRACE_APPEND_STRL(s_tmp, strlen(s_tmp));
+    efree(s_tmp);
+    if (zend_hash_find(ht, "file", sizeof("file"), (void**)&file) == SUCCESS) {
+        if (Z_TYPE_PP(file) != IS_STRING) {
+            zend_error(E_WARNING, "Function name is no string");
+            XHPROF_TRACE_APPEND_STR("[unknown function]");
+        } else{
+            if (zend_hash_find(ht, "line", sizeof("line"), (void**)&tmp) == SUCCESS) {
+                if (Z_TYPE_PP(tmp) == IS_LONG) {
+                    line = Z_LVAL_PP(tmp);
+                } else {
+                    zend_error(E_WARNING, "Line is no long");
+                    line = 0;
+                }
+            } else {
+                line = 0;
+            }
+            s_tmp = emalloc(Z_STRLEN_PP(file) + MAX_LENGTH_OF_LONG + 4 + 1);
+            sprintf(s_tmp, "%s(%ld): ", Z_STRVAL_PP(file), line);
+            XHPROF_TRACE_APPEND_STRL(s_tmp, strlen(s_tmp));
+            efree(s_tmp);
+        }
+    } else {
+        XHPROF_TRACE_APPEND_STR("[internal function]: ");
+    }
+    XHPROF_TRACE_APPEND_KEY("class");
+    XHPROF_TRACE_APPEND_KEY("type");
+    XHPROF_TRACE_APPEND_KEY("function");
+    XHPROF_TRACE_APPEND_STR("()\n");
+    return ZEND_HASH_APPLY_KEEP;
+}
+/* }}} */
+
+void xhprof_store_error(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
+{
+    va_list new_args;
+    char *buffer;
+    int buffer_len;
+    zval *trace, *traceString;
+    char *res, **str, *s_tmp;
+    int res_len = 0, *len = &res_len, num = 0;
+
+    TSRMLS_FETCH();
+
+    res = estrdup("");
+    str = &res;
+
+    ALLOC_ZVAL(trace);
+    Z_UNSET_ISREF_P(trace);
+    Z_SET_REFCOUNT_P(trace, 0);
+
+    zend_fetch_debug_backtrace(trace, 1, 0, 0 TSRMLS_CC);
+    zend_hash_apply_with_arguments(Z_ARRVAL_P(trace) TSRMLS_CC, (apply_func_args_t)xhprof_build_trace_string, 3, str, len, &num);
+
+    s_tmp = emalloc(1 + MAX_LENGTH_OF_LONG + 7 + 1);
+    sprintf(s_tmp, "#%d {main}", num);
+    XHPROF_TRACE_APPEND_STRL(s_tmp, strlen(s_tmp));
+    efree(s_tmp);
+
+    res[res_len] = '\0';
+
+    ALLOC_ZVAL(traceString);
+    Z_UNSET_ISREF_P(traceString);
+    ZVAL_STRINGL(traceString, res, res_len, 0);
+
+    /* We have to copy the arglist otherwise it will segfault in original error cb */
+    va_copy(new_args, args);
+
+    buffer_len = vspprintf(&buffer, PG(log_errors_max_len), format, new_args);
+
+    add_assoc_long(hp_globals.last_error, "line", (int)error_lineno);
+    add_assoc_string(hp_globals.last_error, "file", error_filename, 1);
+
+    /* We need to see if we have an uncaught exception fatal error now */
+    if (type == E_ERROR && strncmp(buffer, "Uncaught exception", 18) == 0 && hp_globals.last_exception_type && hp_globals.last_exception_message) {
+        add_assoc_zval(hp_globals.last_error, "type", hp_globals.last_exception_type);
+        add_assoc_zval(hp_globals.last_error, "message", hp_globals.last_exception_message);
+        add_assoc_string(hp_globals.last_error, "trace", buffer, 1);
+    } else {
+        add_assoc_long(hp_globals.last_error, "type", type);
+        add_assoc_string(hp_globals.last_error, "message", buffer, 1);
+        add_assoc_zval(hp_globals.last_error, "trace", traceString);
+    }
+
+    efree(buffer);
+}
+
+void xhprof_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
+{
+    error_handling_t  error_handling;
+
+#if (PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION >= 3) || PHP_MAJOR_VERSION >= 6
+    error_handling  = EG(error_handling);
+#else
+    error_handling  = PG(error_handling);
+#endif
+
+    if (error_handling == EH_NORMAL) {
+        switch (type) {
+            case E_ERROR:
+            case E_CORE_ERROR:
+            case E_USER_ERROR:
+                xhprof_store_error(type, error_filename, error_lineno, format, args);
+        }
+    }
+
+    xhprof_original_error_cb(type, error_filename, error_lineno, format, args);
+}
+
+static void xhprof_throw_exception_hook(zval *exception TSRMLS_DC)
+{
+    zval *message, *file, *line, *xdebug_message_trace, *previous_exception;
+    zend_class_entry *default_ce, *exception_ce;
+
+    if (!exception) {
+        return;
+    }
+
+    default_ce = zend_exception_get_default(TSRMLS_C);
+    exception_ce = zend_get_class_entry(exception TSRMLS_CC);
+
+    hp_globals.last_exception_message = zend_read_property(default_ce, exception, "message", sizeof("message")-1, 0 TSRMLS_CC);
+
+    ALLOC_ZVAL(hp_globals.last_exception_type);
+    Z_UNSET_ISREF_P(hp_globals.last_exception_type);
+    ZVAL_STRING(hp_globals.last_exception_type, exception_ce->name, 0);
 }
