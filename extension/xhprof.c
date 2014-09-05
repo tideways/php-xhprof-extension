@@ -182,6 +182,12 @@ typedef struct hp_global_t {
   /* Indicates if xhprof was ever enabled during this request */
   int              ever_enabled;
 
+  /* Holds all information about layer profiling */
+  zval            *layers_count;
+
+  /* A key=>value list of function calls to their respective layers. */
+  HashTable       *layers_definition;
+
   /* Holds all the xhprof statistics */
   zval            *stats_count;
 
@@ -298,11 +304,10 @@ static void get_all_cpu_frequencies();
 static long get_us_interval(struct timeval *start, struct timeval *end);
 static void incr_us_interval(struct timeval *start, uint64 incr);
 
-static void hp_get_filtered_functions_from_arg(zval *args);
+static void hp_parse_options_from_arg(zval *args);
 static void hp_filtered_functions_filter_clear();
 static void hp_filtered_functions_filter_init();
 
-static void hp_get_argument_functions_from_arg(zval *args);
 static void hp_argument_functions_filter_clear();
 static void hp_argument_functions_filter_init();
 
@@ -406,8 +411,7 @@ PHP_FUNCTION(xhprof_enable) {
     return;
   }
 
-  hp_get_filtered_functions_from_arg(optional_array);
-  hp_get_argument_functions_from_arg(optional_array);
+  hp_parse_options_from_arg(optional_array);
 
   hp_begin(XHPROF_MODE_HIERARCHICAL, xhprof_flags TSRMLS_CC);
 }
@@ -436,8 +440,7 @@ PHP_FUNCTION(xhprof_disable) {
  */
 PHP_FUNCTION(xhprof_sample_enable) {
   long  xhprof_flags = 0;                                    /* XHProf flags */
-  hp_get_filtered_functions_from_arg(NULL);
-  hp_get_argument_functions_from_arg(NULL);
+  hp_parse_options_from_arg(NULL);
   hp_begin(XHPROF_MODE_SAMPLED, xhprof_flags TSRMLS_CC);
 }
 
@@ -617,25 +620,31 @@ static inline uint8 hp_inline_hash(char * str) {
  *
  * @author mpal
  */
-static void hp_get_filtered_functions_from_arg(zval *args) {
-  if (args != NULL) {
-    zval  *zresult = NULL;
+static void hp_parse_options_from_arg(zval *args) {
+  if (args == NULL) {
+      hp_globals.filtered_function_names = NULL;
+      hp_globals.argument_function_names = NULL;
 
-    zresult = hp_zval_at_key("ignored_functions", args);
-
-    if (zresult == NULL) {
-        zresult = hp_zval_at_key("functions", args);
-        if (zresult != NULL) {
-            hp_globals.filtered_type = 2;
-        }
-    } else {
-        hp_globals.filtered_type = 1;
-    }
-
-    hp_globals.filtered_function_names = hp_strings_in_zval(zresult);
-  } else {
-    hp_globals.filtered_function_names = NULL;
+      return;
   }
+
+  zval  *zresult = NULL;
+
+  zresult = hp_zval_at_key("ignored_functions", args);
+
+  if (zresult == NULL) {
+      zresult = hp_zval_at_key("functions", args);
+      if (zresult != NULL) {
+          hp_globals.filtered_type = 2;
+      }
+  } else {
+      hp_globals.filtered_type = 1;
+  }
+
+  hp_globals.filtered_function_names = hp_strings_in_zval(zresult);
+
+  zresult = hp_zval_at_key("argument_functions", args);
+  hp_globals.argument_function_names = hp_strings_in_zval(zresult);
 }
 
 /**
