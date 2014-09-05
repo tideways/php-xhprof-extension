@@ -2645,7 +2645,6 @@ void xhprof_error_cb(int type, const char *error_filename, const uint error_line
 
 static void xhprof_throw_exception_hook(zval *exception TSRMLS_DC)
 {
-    zval *message, *file, *line, *xdebug_message_trace, *previous_exception;
     zend_class_entry *default_ce, *exception_ce;
 
     if (!exception) {
