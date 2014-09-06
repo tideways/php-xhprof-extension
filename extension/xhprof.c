@@ -739,8 +739,11 @@ void hp_init_profiler_state(int level TSRMLS_DC) {
       zval_dtor(hp_globals.layers_count);
       FREE_ZVAL(hp_globals.layers_count);
   }
-  MAKE_STD_ZVAL(hp_globals.layers_count);
-  array_init(hp_globals.layers_count);
+
+  if (hp_globals.layers_definition) {
+      MAKE_STD_ZVAL(hp_globals.layers_count);
+      array_init(hp_globals.layers_count);
+  }
 
   /* NOTE(cjiang): some fields such as cpu_frequencies take relatively longer
    * to initialize, (5 milisecond per logical cpu right now), therefore we
