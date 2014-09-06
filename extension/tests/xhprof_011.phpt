@@ -31,6 +31,6 @@ main()==>fgets#%d                        : ct=       1; wt=*;
 main()==>fgets#%d                        : ct=       1; wt=*;
 main()==>fgets#%d                        : ct=       1; wt=*;
 main()==>fopen#%s#%d: ct=       1; wt=*;
-main()==>fopen#http://localhost/#%d         : ct=       1; wt=*;
-main()==>fopen#http://127.0.0.1#%d      : ct=       1; wt=*;
+main()==>fopen#http://127.0.0.1#%d       : ct=       1; wt=*;
+main()==>fopen#http://localhost/#%d      : ct=       1; wt=*;
 main()==>xhprof_disable                 : ct=       1; wt=*;

@@ -427,11 +427,21 @@ PHP_FUNCTION(xhprof_enable) {
 PHP_FUNCTION(xhprof_disable) {
   if (hp_globals.enabled) {
     hp_stop(TSRMLS_C);
+
     if (hp_globals.layers_count) {
-        RETURN_ZVAL(hp_globals.layers_count, 1, 0);
-    } else {
-        RETURN_ZVAL(hp_globals.stats_count, 1, 0);
+        zval *tmp, *value;
+        void *data;
+
+        if (zend_hash_find(Z_ARRVAL_P(hp_globals.stats_count), ROOT_SYMBOL, strlen(ROOT_SYMBOL) + 1, &data) == SUCCESS) {
+            tmp = *(zval **) data;
+
+            MAKE_STD_ZVAL(value);
+            ZVAL_ZVAL(value, hp_globals.layers_count, 1, 0);
+            add_assoc_zval(tmp, "layers", value);
+        }
     }
+
+    RETURN_ZVAL(hp_globals.stats_count, 1, 0);
   }
   /* else null is returned */
 }

@@ -14,8 +14,13 @@ function bar() {
 
 xhprof_enable(0, array('layers' => array('foo' => 'db', 'bar' => 'io')));
 
-foo();
+for ($i = 0; $i < 10; $i++) {
+    foo();
+}
 bar();
 
-print_canonical(xhprof_disable());
+$result = xhprof_disable();
+print_canonical($result['main()']['layers']);
 --EXPECT--
+db                                      : ct=      10; wt=*;
+io                                      : ct=       1; wt=*;
