@@ -1191,7 +1191,7 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
         if (stream != NULL && stream->orig_path) {
             snprintf(ret, len, "%s%d", ret, stream->rsrc_id);
         }
-    } else if (strcmp(ret, "fopen#") == 0 || strcmp(ret, "file_get_contents#") == 0 || strcmp(ret, "file_put_contents") == 0) {
+    } else if (strcmp(ret, "fopen#") == 0 || strcmp(ret, "file_get_contents#") == 0 || strcmp(ret, "file_put_contents#") == 0) {
         argument_element = *(p-arg_count);
 
         if (argument_element->type == IS_STRING) {
