@@ -427,7 +427,11 @@ PHP_FUNCTION(xhprof_enable) {
 PHP_FUNCTION(xhprof_disable) {
   if (hp_globals.enabled) {
     hp_stop(TSRMLS_C);
-    RETURN_ZVAL(hp_globals.stats_count, 1, 0);
+    if (hp_globals.layers_count) {
+        RETURN_ZVAL(hp_globals.layers_count, 1, 0);
+    } else {
+        RETURN_ZVAL(hp_globals.stats_count, 1, 0);
+    }
   }
   /* else null is returned */
 }
@@ -615,6 +619,25 @@ static inline uint8 hp_inline_hash(char * str) {
   return res;
 }
 
+static void hp_parse_layers_options_from_arg(zval *layers) {
+    if (Z_TYPE_P(layers) != IS_ARRAY) {
+        return;
+    }
+
+    HashTable *ht;
+    zval *tmp;
+
+    ALLOC_HASHTABLE(hp_globals.layers_definition);
+    zend_hash_init(hp_globals.layers_definition, 0, NULL, ZVAL_PTR_DTOR, 0);
+    zend_hash_copy(
+        hp_globals.layers_definition,
+        Z_ARRVAL_P(layers),
+        (copy_ctor_func_t)zval_add_ref,
+        (void*)&tmp,
+        sizeof(zval *)
+    );
+}
+
 /**
  * Parse the list of ignored functions from the zval argument.
  *
@@ -645,6 +668,12 @@ static void hp_parse_options_from_arg(zval *args) {
 
   zresult = hp_zval_at_key("argument_functions", args);
   hp_globals.argument_function_names = hp_strings_in_zval(zresult);
+
+  zresult = hp_zval_at_key("layers", args);
+
+  if (zresult && Z_TYPE_P(zresult) == IS_ARRAY) {
+      hp_parse_layers_options_from_arg(zresult);
+  }
 }
 
 /**
@@ -706,6 +735,13 @@ void hp_init_profiler_state(int level TSRMLS_DC) {
   MAKE_STD_ZVAL(hp_globals.stats_count);
   array_init(hp_globals.stats_count);
 
+  if (hp_globals.layers_count) {
+      zval_dtor(hp_globals.layers_count);
+      FREE_ZVAL(hp_globals.layers_count);
+  }
+  MAKE_STD_ZVAL(hp_globals.layers_count);
+  array_init(hp_globals.layers_count);
+
   /* NOTE(cjiang): some fields such as cpu_frequencies take relatively longer
    * to initialize, (5 milisecond per logical cpu right now), therefore we
    * calculate them lazily. */
@@ -740,6 +776,12 @@ void hp_clean_profiler_state(TSRMLS_D) {
     FREE_ZVAL(hp_globals.stats_count);
     hp_globals.stats_count = NULL;
   }
+
+  if (hp_globals.layers_count) {
+      zval_dtor(hp_globals.layers_count);
+      FREE_ZVAL(hp_globals.layers_count);
+  }
+
   hp_globals.entries = NULL;
   hp_globals.profiler_level = 1;
   hp_globals.ever_enabled = 0;
@@ -750,6 +792,11 @@ void hp_clean_profiler_state(TSRMLS_D) {
 
   hp_array_del(hp_globals.argument_function_names);
   hp_globals.argument_function_names = NULL;
+
+  if (hp_globals.layers_definition) {
+      zend_hash_destroy(hp_globals.layers_definition);
+      FREE_HASHTABLE(hp_globals.layers_definition);
+  }
 }
 
 /*
@@ -1401,13 +1448,13 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC) {
  *
  * @author kannan, veeve
  */
-zval * hp_hash_lookup(char *symbol  TSRMLS_DC) {
+zval * hp_hash_lookup(zval *hash, char *symbol  TSRMLS_DC) {
   HashTable   *ht;
   void        *data;
   zval        *counts = (zval *) 0;
 
   /* Bail if something is goofy */
-  if (!hp_globals.stats_count || !(ht = HASH_OF(hp_globals.stats_count))) {
+  if (!hash || !(ht = HASH_OF(hash))) {
     return (zval *) 0;
   }
 
@@ -1420,7 +1467,7 @@ zval * hp_hash_lookup(char *symbol  TSRMLS_DC) {
     /* Add symbol to hash table */
     MAKE_STD_ZVAL(counts);
     array_init(counts);
-    add_assoc_zval(hp_globals.stats_count, symbol, counts);
+    add_assoc_zval(hash, symbol, counts);
   }
 
   return counts;
@@ -1863,20 +1910,39 @@ zval * hp_mode_shared_endfn_cb(hp_entry_t *top,
                                char          *symbol  TSRMLS_DC) {
   zval    *counts;
   uint64   tsc_end;
+  double   wt;
 
   /* Get end tsc counter */
   tsc_end = cycle_timer();
 
   /* Get the stat array */
-  if (!(counts = hp_hash_lookup(symbol TSRMLS_CC))) {
+  if (!(counts = hp_hash_lookup(hp_globals.stats_count, symbol TSRMLS_CC))) {
     return (zval *) 0;
   }
 
+  wt = get_us_from_tsc(tsc_end - top->tsc_start, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
+
   /* Bump stats in the counts hashtable */
   hp_inc_count(counts, "ct", 1  TSRMLS_CC);
+  hp_inc_count(counts, "wt", wt TSRMLS_CC);
 
-  hp_inc_count(counts, "wt", get_us_from_tsc(tsc_end - top->tsc_start,
-        hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]) TSRMLS_CC);
+  if (hp_globals.layers_definition) {
+      void **data;
+      zval *layer, *layer_counts;
+      char function_name[SCRATCH_BUF_LEN];
+
+      hp_get_function_stack(top, 1, function_name, sizeof(function_name));
+
+      if (zend_hash_find(hp_globals.layers_definition, function_name, strlen(function_name)+1, (void**)&data) == SUCCESS) {
+          layer = *data;
+
+          if (layer_counts = hp_hash_lookup(hp_globals.layers_count, Z_STRVAL_P(layer) TSRMLS_CC)) {
+              hp_inc_count(layer_counts, "ct", 1  TSRMLS_CC);
+              hp_inc_count(layer_counts, "wt", wt TSRMLS_CC);
+          }
+      }
+  }
+
   return counts;
 }
 

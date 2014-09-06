@@ -13,11 +13,11 @@ $fh = fopen(__DIR__, "r");
 fgets($fh);
 fclose($fh);
 
-$fh = fopen("http://qafoo.com/?foo=bar", "r");
+$fh = fopen("http://localhost/?foo=bar", "r");
 fgets($fh);
 fclose($fh);
 
-$fh = fopen("http://php.net", "r");
+$fh = fopen("http://127.0.0.1", "r");
 fgets($fh);
 fclose($fh);
 
@@ -31,6 +31,6 @@ main()==>fgets#%d                        : ct=       1; wt=*;
 main()==>fgets#%d                        : ct=       1; wt=*;
 main()==>fgets#%d                        : ct=       1; wt=*;
 main()==>fopen#%s#%d: ct=       1; wt=*;
-main()==>fopen#http://php.net#%d         : ct=       1; wt=*;
-main()==>fopen#http://qafoo.com/#%d      : ct=       1; wt=*;
+main()==>fopen#http://localhost/#%d         : ct=       1; wt=*;
+main()==>fopen#http://127.0.0.1#%d      : ct=       1; wt=*;
 main()==>xhprof_disable                 : ct=       1; wt=*;
