@@ -2194,6 +2194,9 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 	}
 }
 
+/**
+ * Simplified layer end callback, to avoid unnecessary computations comapred to hierachical end callback.
+ */
 void hp_mode_layer_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 {
 	hp_entry_t   *top = (*entries);
