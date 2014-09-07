@@ -4,7 +4,11 @@
   sampling mode.
 
 - Add `xhprof_layers_enable() ` that accepts an array of key value pairs in the
-  constructor containing function names to layers.
+  constructor containing function names to layers. Will automatically set the
+  `XHPROF_FLAGS_NOUSERLAND` mode and use the passed functions as a `functions`
+  whitelist. The result is a profiling report only based on grouping certain
+  function calls into layers.  If you want to profile the request as well, add
+  `"main()" => "main()"` as an entry.
 
 - Add new constant `XHPROF_FLAGS_NOUSERLAND` when set will not override
   the zend_execute hook for userland functions.
