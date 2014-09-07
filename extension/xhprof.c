@@ -481,7 +481,7 @@ PHP_FUNCTION(xhprof_layers_enable)
 		return;
 	}
 
-	if (Z_TYPE_P(layers) != IS_ARRAY) {
+	if (layers == NULL || Z_TYPE_P(layers) != IS_ARRAY) {
 		zend_error(E_NOTICE, "xhprof_layers_enable() requires first argument to be array");
 		return;
 	}
