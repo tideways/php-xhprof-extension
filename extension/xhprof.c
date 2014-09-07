@@ -320,6 +320,7 @@ static long get_us_interval(struct timeval *start, struct timeval *end);
 static void incr_us_interval(struct timeval *start, uint64 incr);
 
 static void hp_parse_options_from_arg(zval *args);
+static void hp_parse_layers_options_from_arg(zval *layers);
 static void hp_filtered_functions_filter_clear();
 static void hp_filtered_functions_filter_init();
 
@@ -348,6 +349,13 @@ ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO(arginfo_xhprof_sample_disable, 0)
 ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO(arginfo_xhprof_layers_enable, 0)
+	ZEND_ARG_INFO(0, layers)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO(arginfo_xhprof_layers_disable, 0)
+ZEND_END_ARG_INFO()
 /* }}} */
 
 /**
@@ -370,6 +378,8 @@ zend_function_entry xhprof_functions[] = {
 	PHP_FE(xhprof_last_fatal_error, arginfo_xhprof_last_fatal_error)
 	PHP_FE(xhprof_sample_enable, arginfo_xhprof_sample_enable)
 	PHP_FE(xhprof_sample_disable, arginfo_xhprof_sample_disable)
+	PHP_FE(xhprof_layers_enable, arginfo_xhprof_layers_enable)
+	PHP_FE(xhprof_layers_disable, arginfo_xhprof_layers_disable)
 	{NULL, NULL, NULL}
 };
 
@@ -502,6 +512,57 @@ PHP_FUNCTION(xhprof_sample_disable)
 	if (hp_globals.enabled) {
 		hp_stop(TSRMLS_C);
 		RETURN_ZVAL(hp_globals.stats_count, 1, 0);
+	}
+}
+
+PHP_FUNCTION(xhprof_layers_enable)
+{
+	long xhprof_flags = XHPROF_FLAGS_NO_USERLAND;
+
+	zval *layers = NULL;         /* optional array arg: for future use */
+
+	if (hp_globals.enabled) {
+		return;
+	}
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|z", &layers) == FAILURE) {
+		return;
+	}
+
+	if (Z_TYPE_P(layers) != IS_ARRAY) {
+		zend_error(E_NOTICE, "xhprof_layers_enable() requires first argument to be array");
+		return;
+	}
+
+	hp_array_del(hp_globals.filtered_function_names);
+	hp_globals.filtered_function_names = NULL;
+
+	hp_array_del(hp_globals.argument_function_names);
+	hp_globals.argument_function_names = NULL;
+
+	hp_parse_layers_options_from_arg(layers);
+
+	hp_globals.filtered_type = 2;
+	hp_globals.filtered_function_names = hp_strings_in_zval(layers);
+
+	hp_begin(XHPROF_MODE_HIERARCHICAL, xhprof_flags TSRMLS_CC);
+}
+
+PHP_FUNCTION(xhprof_layers_disable)
+{
+	if (hp_globals.enabled) {
+		zval *tmp, *value;
+		void *data;
+
+		hp_stop(TSRMLS_C);
+
+		if (zend_hash_find(Z_ARRVAL_P(hp_globals.stats_count), ROOT_SYMBOL, strlen(ROOT_SYMBOL) + 1, &data) == SUCCESS) {
+			tmp = *(zval **) data;
+
+			add_assoc_zval(hp_globals.layers_count, "main()", tmp);
+		}
+
+		RETURN_ZVAL(hp_globals.layers_count, 1, 0);
 	}
 }
 
@@ -2523,14 +2584,17 @@ static char **hp_strings_in_zval(zval  *values)
 			zval **data;
 
 			type = zend_hash_get_current_key_ex(ht, &str, &len, &idx, 0, NULL);
-			/* Get the names stored in a standard array */
-			if(type == HASH_KEY_IS_LONG) {
+
+			if (type == HASH_KEY_IS_LONG) {
 				if ((zend_hash_get_current_data(ht, (void**)&data) == SUCCESS) &&
 						Z_TYPE_PP(data) == IS_STRING &&
 						strcmp(Z_STRVAL_PP(data), ROOT_SYMBOL)) { /* do not ignore "main" */
 					result[ix] = estrdup(Z_STRVAL_PP(data));
 					ix++;
 				}
+			} else if (type == HASH_KEY_IS_STRING) {
+				result[ix] = estrdup(str);
+				ix++;
 			}
 		}
 	} else if(values->type == IS_STRING) {

@@ -39,8 +39,10 @@ PHP_MINFO_FUNCTION(xhprof);
 
 PHP_FUNCTION(xhprof_enable);
 PHP_FUNCTION(xhprof_disable);
-PHP_FUNCTION(xhprof_last_fatal_error);
 PHP_FUNCTION(xhprof_sample_enable);
 PHP_FUNCTION(xhprof_sample_disable);
+PHP_FUNCTION(xhprof_layers_enable);
+PHP_FUNCTION(xhprof_layers_disable);
+PHP_FUNCTION(xhprof_last_fatal_error);
 
 #endif	/* PHP_XHPROF_H */
