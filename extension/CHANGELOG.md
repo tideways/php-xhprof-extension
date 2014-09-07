@@ -9,6 +9,12 @@
 - Add new constant `XHPROF_FLAGS_NOUSERLAND` when set will not override
   the zend_execute hook for userland functions.
 
+- Add new function `xhprof_last_fatal_error()` that returns information
+  on PHP fatal error with trace and more information than PHP core has usually.
+
+  Overrides zend_error_cb such that it will not work when xdebug is also enabled
+  (depends on the order).
+
 # Version 0.9.6
 
 - Add `argument_functions` feature that allows logging the arguments of a function.
