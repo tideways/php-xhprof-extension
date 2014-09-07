@@ -96,8 +96,9 @@
 
 /* Various XHPROF modes. If you are adding a new mode, register the appropriate
  * callbacks in hp_begin() */
-#define XHPROF_MODE_HIERARCHICAL            1
-#define XHPROF_MODE_SAMPLED            620002      /* Rockfort's zip code */
+#define XHPROF_MODE_HIERARCHICAL	1
+#define XHPROF_MODE_SAMPLED			620002      /* Rockfort's zip code */
+#define XHPROF_MODE_LAYER			2
 
 /* Hierarchical profiling flags.
  *
@@ -542,7 +543,7 @@ PHP_FUNCTION(xhprof_layers_enable)
 	hp_globals.filtered_type = 2;
 	hp_globals.filtered_function_names = hp_strings_in_zval(layers);
 
-	hp_begin(XHPROF_MODE_HIERARCHICAL, xhprof_flags TSRMLS_CC);
+	hp_begin(XHPROF_MODE_LAYER, xhprof_flags TSRMLS_CC);
 }
 
 PHP_FUNCTION(xhprof_layers_disable)
@@ -2193,6 +2194,36 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 	}
 }
 
+void hp_mode_layer_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
+{
+	hp_entry_t   *top = (*entries);
+	void **data;
+	zval *layer, *layer_counts;
+	char function_name[SCRATCH_BUF_LEN];
+	uint64   tsc_end;
+	double   wt;
+
+	/* Get end tsc counter */
+	tsc_end = cycle_timer();
+
+	wt = get_us_from_tsc(tsc_end - top->tsc_start, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
+
+	if (!hp_globals.layers_definition) {
+		return (zval *) 0;
+	}
+
+	hp_get_function_stack(top, 1, function_name, sizeof(function_name));
+
+	if (zend_hash_find(hp_globals.layers_definition, function_name, strlen(function_name)+1, (void**)&data) == SUCCESS) {
+		layer = *data;
+
+		if (layer_counts = hp_hash_lookup(hp_globals.layers_count, Z_STRVAL_P(layer) TSRMLS_CC)) {
+			hp_inc_count(layer_counts, "ct", 1  TSRMLS_CC);
+			hp_inc_count(layer_counts, "wt", wt TSRMLS_CC);
+		}
+	}
+}
+
 /**
  * XHPROF_MODE_SAMPLED's end function callback
  *
@@ -2446,6 +2477,12 @@ static void hp_begin(long level, long xhprof_flags TSRMLS_DC)
 				hp_globals.mode_cb.begin_fn_cb = hp_mode_hier_beginfn_cb;
 				hp_globals.mode_cb.end_fn_cb   = hp_mode_hier_endfn_cb;
 				break;
+
+			case XHPROF_MODE_LAYER:
+				hp_globals.mode_cb.begin_fn_cb = hp_mode_hier_beginfn_cb;
+				hp_globals.mode_cb.end_fn_cb   = hp_mode_layer_endfn_cb;
+				break;
+
 			case XHPROF_MODE_SAMPLED:
 				hp_globals.mode_cb.init_cb     = hp_mode_sampled_init_cb;
 				hp_globals.mode_cb.begin_fn_cb = hp_mode_sampled_beginfn_cb;

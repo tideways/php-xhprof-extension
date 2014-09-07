@@ -14,7 +14,7 @@ function bar($x) {
 }
 
 echo "With layers:\n";
-xhprof_layers_enable(array('file_get_contents' => 'io', 'strlen' => 'db'));
+xhprof_layers_enable(array('file_get_contents' => 'io', 'strlen' => 'db', 'main()' => 'main()'));
 foo("bar");
 bar("baz");
 $data = xhprof_layers_disable();
