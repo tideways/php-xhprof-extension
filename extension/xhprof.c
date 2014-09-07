@@ -323,6 +323,7 @@ static void hp_parse_options_from_arg(zval *args);
 static void hp_parse_layers_options_from_arg(zval *layers);
 static void hp_filtered_functions_filter_clear();
 static void hp_filtered_functions_filter_init();
+static void hp_clean_profiler_options_state();
 
 static void hp_argument_functions_filter_clear();
 static void hp_argument_functions_filter_init();
@@ -534,11 +535,7 @@ PHP_FUNCTION(xhprof_layers_enable)
 		return;
 	}
 
-	hp_array_del(hp_globals.filtered_function_names);
-	hp_globals.filtered_function_names = NULL;
-
-	hp_array_del(hp_globals.argument_function_names);
-	hp_globals.argument_function_names = NULL;
+	hp_clean_profiler_options_state();
 
 	hp_parse_layers_options_from_arg(layers);
 
@@ -761,11 +758,7 @@ static void hp_parse_layers_options_from_arg(zval *layers)
  */
 static void hp_parse_options_from_arg(zval *args)
 {
-	hp_array_del(hp_globals.filtered_function_names);
-	hp_globals.filtered_function_names = NULL;
-
-	hp_array_del(hp_globals.argument_function_names);
-	hp_globals.argument_function_names = NULL;
+	hp_clean_profiler_options_state();
 
 	if (args == NULL) {
 		return;
@@ -859,6 +852,7 @@ void hp_init_profiler_state(int level TSRMLS_DC)
 	if (hp_globals.layers_count) {
 		zval_dtor(hp_globals.layers_count);
 		FREE_ZVAL(hp_globals.layers_count);
+		hp_globals.layers_count = NULL;
 	}
 
 	if (hp_globals.layers_definition) {
@@ -870,8 +864,6 @@ void hp_init_profiler_state(int level TSRMLS_DC)
 		zval_dtor(hp_globals.last_error);
 		FREE_ZVAL(hp_globals.last_error);
 	}
-	MAKE_STD_ZVAL(hp_globals.last_error);
-	array_init(hp_globals.last_error);
 
 	if (hp_globals.last_exception_message) {
 		zval_dtor(hp_globals.last_exception_message);
@@ -922,6 +914,7 @@ void hp_clean_profiler_state(TSRMLS_D)
 	if (hp_globals.layers_count) {
 		zval_dtor(hp_globals.layers_count);
 		FREE_ZVAL(hp_globals.layers_count);
+		hp_globals.layers_count = NULL;
 	}
 
 	if (hp_globals.last_error) {
@@ -944,6 +937,11 @@ void hp_clean_profiler_state(TSRMLS_D)
 	hp_globals.profiler_level = 1;
 	hp_globals.ever_enabled = 0;
 
+	hp_clean_profiler_options_state();
+}
+
+static void hp_clean_profiler_options_state()
+{
 	/* Delete the array storing ignored function names */
 	hp_array_del(hp_globals.filtered_function_names);
 	hp_globals.filtered_function_names = NULL;
@@ -954,6 +952,7 @@ void hp_clean_profiler_state(TSRMLS_D)
 	if (hp_globals.layers_definition) {
 		zend_hash_destroy(hp_globals.layers_definition);
 		FREE_HASHTABLE(hp_globals.layers_definition);
+		hp_globals.layers_definition = NULL;
 	}
 }
 
@@ -2819,6 +2818,11 @@ void xhprof_store_error(int type, const char *error_filename, const uint error_l
 	va_copy(new_args, args);
 
 	buffer_len = vspprintf(&buffer, PG(log_errors_max_len), format, new_args);
+
+	if (!hp_globals.last_error) {
+		MAKE_STD_ZVAL(hp_globals.last_error);
+		array_init(hp_globals.last_error);
+	}
 
 	add_assoc_long(hp_globals.last_error, "line", (int)error_lineno);
 	add_assoc_string(hp_globals.last_error, "file", error_filename, 1);
