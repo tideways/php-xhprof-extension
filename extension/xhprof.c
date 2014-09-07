@@ -425,6 +425,10 @@ PHP_FUNCTION(xhprof_enable) {
   long  xhprof_flags = 0;                                    /* XHProf flags */
   zval *optional_array = NULL;         /* optional array arg: for future use */
 
+  if (hp_globals.enabled) {
+    return;
+  }
+
   if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
                             "|lz", &xhprof_flags, &optional_array) == FAILURE) {
     return;
@@ -658,7 +662,7 @@ static inline uint8 hp_inline_hash(char * str) {
 }
 
 static void hp_parse_layers_options_from_arg(zval *layers) {
-    if (Z_TYPE_P(layers) != IS_ARRAY) {
+    if (layers == NULL || Z_TYPE_P(layers) != IS_ARRAY) {
         return;
     }
 
@@ -682,10 +686,13 @@ static void hp_parse_layers_options_from_arg(zval *layers) {
  * @author mpal
  */
 static void hp_parse_options_from_arg(zval *args) {
-  if (args == NULL) {
-      hp_globals.filtered_function_names = NULL;
-      hp_globals.argument_function_names = NULL;
+  hp_array_del(hp_globals.filtered_function_names);
+  hp_globals.filtered_function_names = NULL;
 
+  hp_array_del(hp_globals.argument_function_names);
+  hp_globals.argument_function_names = NULL;
+
+  if (args == NULL) {
       return;
   }
 
@@ -708,10 +715,7 @@ static void hp_parse_options_from_arg(zval *args) {
   hp_globals.argument_function_names = hp_strings_in_zval(zresult);
 
   zresult = hp_zval_at_key("layers", args);
-
-  if (zresult && Z_TYPE_P(zresult) == IS_ARRAY) {
-      hp_parse_layers_options_from_arg(zresult);
-  }
+  hp_parse_layers_options_from_arg(zresult);
 }
 
 /**
@@ -2486,23 +2490,6 @@ static inline void hp_array_del(char **name_array) {
 }
 
 /* for simpler maintainance of the code just copied these from ignored_functions */
-
-
-/**
- * Parse the list of ignored functions from the zval argument.
- *
- * @author mpal
- */
-static void hp_get_argument_functions_from_arg(zval *args) {
-  if (args != NULL) {
-    zval  *zresult = NULL;
-
-    zresult = hp_zval_at_key("argument_functions", args);
-    hp_globals.argument_function_names = hp_strings_in_zval(zresult);
-  } else {
-    hp_globals.argument_function_names = NULL;
-  }
-}
 
 /**
  * Clear filter for functions which may be ignored during profiling.

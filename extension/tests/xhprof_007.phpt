@@ -16,6 +16,10 @@ function bar() {
 }
 
 function foo($x) {
+  if (is_array($x)) {
+    $x = 'Array';
+  }
+
   $sum = 0;
   for ($idx = 0; $idx < 2; $idx++) {
      $sum += bar();
@@ -25,6 +29,10 @@ function foo($x) {
 }
 
 function foo_array($x1, $x2 = 'test') {
+  if (is_array($x1)) {
+    $x1 = 'Array';
+  }
+
   $sum = 0;
   $x = array($x1, $x2);
   foreach ($x as $idx) {
