@@ -446,7 +446,7 @@ PHP_FUNCTION(xhprof_enable)
 
 PHP_FUNCTION(xhprof_last_fatal_error)
 {
-	if (hp_globals.enabled) {
+	if (hp_globals.enabled && hp_globals.last_error) {
 		RETURN_ZVAL(hp_globals.last_error, 1, 0);
 	}
 }

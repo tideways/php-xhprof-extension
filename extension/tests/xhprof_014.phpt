@@ -16,6 +16,8 @@ register_shutdown_function(function () {
     var_dump(xhprof_last_fatal_error());
 });
 
+xhprof_last_fatal_error();
+
 xhprof_enable();
 
 foo();
@@ -32,6 +34,6 @@ array(5) {
   string(36) "Call to undefined function unknown()"
   ["trace"]=>
   string(%d) "#0 %s/xhprof_014.php(4): bar()
-#1 %s/xhprof_014.php(17): foo()
+#1 %s/xhprof_014.php(19): foo()
 #2 {main}"
 }
