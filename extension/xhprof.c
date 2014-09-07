@@ -2552,14 +2552,15 @@ static char **hp_strings_in_zval(zval  *values)
 }
 
 /* Free this memory at the end of profiling */
-static inline void hp_array_del(char **name_array) {
-  if (name_array != NULL) {
-    int i = 0;
-    for(; name_array[i] != NULL && i < XHPROF_MAX_FILTERED_FUNCTIONS; i++) {
-      efree(name_array[i]);
-    }
-    efree(name_array);
-  }
+static inline void hp_array_del(char **name_array)
+{
+	if (name_array != NULL) {
+		int i = 0;
+		for(; name_array[i] != NULL && i < XHPROF_MAX_FILTERED_FUNCTIONS; i++) {
+			efree(name_array[i]);
+		}
+		efree(name_array);
+	}
 }
 
 /* for simpler maintainance of the code just copied these from ignored_functions */
