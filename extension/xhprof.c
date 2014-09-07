@@ -105,9 +105,10 @@
  * The following optional flags can be used to control other aspects of
  * profiling.
  */
-#define XHPROF_FLAGS_NO_BUILTINS   0x0001         /* do not profile builtins */
-#define XHPROF_FLAGS_CPU           0x0002      /* gather CPU times for funcs */
-#define XHPROF_FLAGS_MEMORY        0x0004   /* gather memory usage for funcs */
+#define XHPROF_FLAGS_NO_BUILTINS   0x0001 /* do not profile builtins */
+#define XHPROF_FLAGS_CPU           0x0002 /* gather CPU times for funcs */
+#define XHPROF_FLAGS_MEMORY        0x0004 /* gather memory usage for funcs */
+#define XHPROF_FLAGS_NO_USERLAND   0x0008 /* do not profile userland functions */
 
 /* Constants for XHPROF_MODE_SAMPLED        */
 #define XHPROF_SAMPLING_INTERVAL       100000      /* In microsecs        */
@@ -639,6 +640,10 @@ static void hp_register_constants(INIT_FUNC_ARGS)
 
 	REGISTER_LONG_CONSTANT("XHPROF_FLAGS_MEMORY",
 			XHPROF_FLAGS_MEMORY,
+			CONST_CS | CONST_PERSISTENT);
+
+	REGISTER_LONG_CONSTANT("XHPROF_FLAGS_NO_USERLAND",
+			XHPROF_FLAGS_NO_USERLAND,
 			CONST_CS | CONST_PERSISTENT);
 }
 
@@ -2343,13 +2348,15 @@ static void hp_begin(long level, long xhprof_flags TSRMLS_DC)
 		zend_compile_string = hp_compile_string;
 
 		/* Replace zend_execute with our proxy */
+		if (!(hp_globals.xhprof_flags & XHPROF_FLAGS_NO_USERLAND)) {
 #if PHP_VERSION_ID < 50500
-		_zend_execute = zend_execute;
-		zend_execute  = hp_execute;
+			_zend_execute = zend_execute;
+			zend_execute  = hp_execute;
 #else
-		_zend_execute_ex = zend_execute_ex;
-		zend_execute_ex  = hp_execute_ex;
+			_zend_execute_ex = zend_execute_ex;
+			zend_execute_ex  = hp_execute_ex;
 #endif
+		}
 
 		xhprof_original_error_cb = zend_error_cb;
 		zend_error_cb = xhprof_error_cb;
@@ -2427,11 +2434,14 @@ static void hp_stop(TSRMLS_D)
 	}
 
 	/* Remove proxies, restore the originals */
+	if (!(hp_globals.xhprof_flags & XHPROF_FLAGS_NO_USERLAND)) {
 #if PHP_VERSION_ID < 50500
-	zend_execute          = _zend_execute;
+		zend_execute          = _zend_execute;
 #else
-	zend_execute_ex       = _zend_execute_ex;
+		zend_execute_ex       = _zend_execute_ex;
 #endif
+	}
+
 	zend_execute_internal = _zend_execute_internal;
 	zend_compile_file     = _zend_compile_file;
 	zend_compile_string   = _zend_compile_string;
