@@ -58,7 +58,7 @@ function foo($x) {
 echo "Part 1: Sampling Profile\n";
 xhprof_sample_enable();
 foo(5000);
-$output = xhprof_sample_disable();
+$output = xhprof_disable();
 
 echo "Part 1: output\n";
 echo "In general, sampling output depends upon execution speed.\n";

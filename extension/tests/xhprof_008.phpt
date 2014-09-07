@@ -22,14 +22,14 @@ function goo() {
 // call goo() once
 xhprof_sample_enable();
 goo();
-$output1 = xhprof_sample_disable();
+$output1 = xhprof_disable();
 
 
 // call goo() twice
 xhprof_sample_enable();
 goo();
 goo();
-$output2 = xhprof_sample_disable();
+$output2 = xhprof_disable();
 
 // how many usleep samples did we get in single call to goo()?
 $count1 = 0;

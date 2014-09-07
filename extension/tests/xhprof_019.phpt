@@ -17,7 +17,7 @@ echo "With layers:\n";
 xhprof_layers_enable(array('file_get_contents' => 'io', 'strlen' => 'db', 'main()' => 'main()'));
 foo("bar");
 bar("baz");
-$data = xhprof_layers_disable();
+$data = xhprof_disable();
 
 print_canonical($data);
 

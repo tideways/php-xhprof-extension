@@ -349,15 +349,10 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO(arginfo_xhprof_sample_enable, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO(arginfo_xhprof_sample_disable, 0)
-ZEND_END_ARG_INFO()
-
 ZEND_BEGIN_ARG_INFO(arginfo_xhprof_layers_enable, 0)
 	ZEND_ARG_INFO(0, layers)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO(arginfo_xhprof_layers_disable, 0)
-ZEND_END_ARG_INFO()
 /* }}} */
 
 /**
@@ -379,9 +374,7 @@ zend_function_entry xhprof_functions[] = {
 	PHP_FE(xhprof_disable, arginfo_xhprof_disable)
 	PHP_FE(xhprof_last_fatal_error, arginfo_xhprof_last_fatal_error)
 	PHP_FE(xhprof_sample_enable, arginfo_xhprof_sample_enable)
-	PHP_FE(xhprof_sample_disable, arginfo_xhprof_sample_disable)
 	PHP_FE(xhprof_layers_enable, arginfo_xhprof_layers_enable)
-	PHP_FE(xhprof_layers_disable, arginfo_xhprof_layers_disable)
 	{NULL, NULL, NULL}
 };
 
@@ -451,36 +444,6 @@ PHP_FUNCTION(xhprof_enable)
 	hp_begin(XHPROF_MODE_HIERARCHICAL, xhprof_flags TSRMLS_CC);
 }
 
-/**
- * Stops XHProf from profiling in hierarchical mode anymore and returns the
- * profile info.
- *
- * @param  void
- * @return array  hash-array of XHProf's profile info
- * @author kannan, hzhao
- */
-PHP_FUNCTION(xhprof_disable)
-{
-	if (hp_globals.enabled) {
-		hp_stop(TSRMLS_C);
-
-		if (hp_globals.layers_count) {
-			zval *tmp, *value;
-			void *data;
-
-			if (zend_hash_find(Z_ARRVAL_P(hp_globals.stats_count), ROOT_SYMBOL, strlen(ROOT_SYMBOL) + 1, &data) == SUCCESS) {
-				tmp = *(zval **) data;
-
-				MAKE_STD_ZVAL(value);
-				ZVAL_ZVAL(value, hp_globals.layers_count, 1, 0);
-				add_assoc_zval(tmp, "layers", value);
-			}
-		}
-
-		RETURN_ZVAL(hp_globals.stats_count, 1, 0);
-	}
-}
-
 PHP_FUNCTION(xhprof_last_fatal_error)
 {
 	if (hp_globals.enabled) {
@@ -502,21 +465,8 @@ PHP_FUNCTION(xhprof_sample_enable)
 }
 
 /**
- * Stops XHProf from profiling in sampling mode anymore and returns the profile
- * info.
- *
- * @param  void
- * @return array  hash-array of XHProf's profile info
- * @author cjiang
+ * Start XHProf profiling in layers mode.
  */
-PHP_FUNCTION(xhprof_sample_disable)
-{
-	if (hp_globals.enabled) {
-		hp_stop(TSRMLS_C);
-		RETURN_ZVAL(hp_globals.stats_count, 1, 0);
-	}
-}
-
 PHP_FUNCTION(xhprof_layers_enable)
 {
 	long xhprof_flags = XHPROF_FLAGS_NO_USERLAND;
@@ -546,14 +496,25 @@ PHP_FUNCTION(xhprof_layers_enable)
 	hp_begin(XHPROF_MODE_LAYER, xhprof_flags TSRMLS_CC);
 }
 
-PHP_FUNCTION(xhprof_layers_disable)
+/**
+ * Stops XHProf from profiling  and returns the profile info.
+ *
+ * @param  void
+ * @return array  hash-array of XHProf's profile info
+ * @author cjiang
+ */
+PHP_FUNCTION(xhprof_disable)
 {
-	if (hp_globals.enabled) {
-		zval *tmp, *value;
-		void *data;
+	zval *tmp, *value;
+	void *data;
 
-		hp_stop(TSRMLS_C);
+	if (!hp_globals.enabled) {
+		return;
+	}
 
+	hp_stop(TSRMLS_C);
+
+	if (hp_globals.profiler_level == XHPROF_MODE_LAYER) {
 		if (zend_hash_find(Z_ARRVAL_P(hp_globals.stats_count), ROOT_SYMBOL, strlen(ROOT_SYMBOL) + 1, &data) == SUCCESS) {
 			tmp = *(zval **) data;
 
@@ -561,6 +522,24 @@ PHP_FUNCTION(xhprof_layers_disable)
 		}
 
 		RETURN_ZVAL(hp_globals.layers_count, 1, 0);
+	}
+
+	if (hp_globals.profiler_level == XHPROF_MODE_HIERARCHICAL) {
+		if (hp_globals.layers_count) {
+			if (zend_hash_find(Z_ARRVAL_P(hp_globals.stats_count), ROOT_SYMBOL, strlen(ROOT_SYMBOL) + 1, &data) == SUCCESS) {
+				tmp = *(zval **) data;
+
+				MAKE_STD_ZVAL(value);
+				ZVAL_ZVAL(value, hp_globals.layers_count, 1, 0);
+				add_assoc_zval(tmp, "layers", value);
+			}
+		}
+
+		RETURN_ZVAL(hp_globals.stats_count, 1, 0);
+	}
+
+	if (hp_globals.profiler_level == XHPROF_MODE_SAMPLED) {
+		RETURN_ZVAL(hp_globals.stats_count, 1, 0);
 	}
 }
 
