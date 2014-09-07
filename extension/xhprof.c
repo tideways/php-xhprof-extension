@@ -143,14 +143,14 @@ typedef unsigned char uint8;
  * profile operation, recursion depth, and the name of the function being
  * profiled. */
 typedef struct hp_entry_t {
-  char                   *name_hprof;                       /* function name */
-  int                     rlvl_hprof;        /* recursion level for function */
-  uint64                  tsc_start;         /* start value for TSC counter  */
-  long int                mu_start_hprof;                    /* memory usage */
-  long int                pmu_start_hprof;              /* peak memory usage */
-  struct rusage           ru_start_hprof;             /* user/sys time start */
-  struct hp_entry_t      *prev_hprof;    /* ptr to prev entry being profiled */
-  uint8                   hash_code;     /* hash_code for the function name  */
+	char                   *name_hprof;                       /* function name */
+	int                     rlvl_hprof;        /* recursion level for function */
+	uint64                  tsc_start;         /* start value for TSC counter  */
+	long int                mu_start_hprof;                    /* memory usage */
+	long int                pmu_start_hprof;              /* peak memory usage */
+	struct rusage           ru_start_hprof;             /* user/sys time start */
+	struct hp_entry_t      *prev_hprof;    /* ptr to prev entry being profiled */
+	uint8                   hash_code;     /* hash_code for the function name  */
 } hp_entry_t;
 
 /* Various types for XHPROF callbacks       */
@@ -325,8 +325,7 @@ static void hp_filtered_functions_filter_init();
 static void hp_argument_functions_filter_clear();
 static void hp_argument_functions_filter_init();
 
-static inline zval  *hp_zval_at_key(char  *key,
-                                    zval  *values);
+static inline zval  *hp_zval_at_key(char  *key, zval  *values);
 static inline char **hp_strings_in_zval(zval  *values);
 static inline void   hp_array_del(char **name_array);
 static inline int  hp_argument_entry(uint8 hash_code, char *curr_func);
