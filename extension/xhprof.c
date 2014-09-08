@@ -1326,15 +1326,17 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 
 		argument_element = *(p-arg_count);
 
-		php_stream_from_zval_no_verify(stream, &argument_element);
+		if (Z_TYPE_P(argument_element) == IS_RESOURCE) {
+			php_stream_from_zval_no_verify(stream, &argument_element);
 
-		if (stream != NULL && stream->orig_path) {
-			snprintf(ret, len, "%s%d", ret, stream->rsrc_id);
+			if (stream != NULL && stream->orig_path) {
+				snprintf(ret, len, "%s%d", ret, stream->rsrc_id);
+			}
 		}
 	} else if (strcmp(ret, "fopen#") == 0 || strcmp(ret, "file_get_contents#") == 0 || strcmp(ret, "file_put_contents#") == 0) {
 		argument_element = *(p-arg_count);
 
-		if (argument_element->type == IS_STRING) {
+		if (Z_TYPE_P(argument_element) == IS_STRING) {
 			summary = hp_get_file_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element));
 
 			snprintf(ret, len, "%s%s", ret, summary);
@@ -1350,12 +1352,14 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 
 		argument_element = *(p-arg_count);
 
-		ZEND_FETCH_RESOURCE_NO_RETURN(ch, php_curl *, &argument_element, -1, "cURL handle", le_curl);
+		if (Z_TYPE_P(argument_element) == IS_RESOURCE) {
+			ZEND_FETCH_RESOURCE_NO_RETURN(ch, php_curl *, &argument_element, -1, "cURL handle", le_curl);
 
-		if (ch && curl_easy_getinfo(ch->cp, CURLINFO_EFFECTIVE_URL, &s_code) == CURLE_OK) {
-			summary = hp_get_file_summary(s_code, strlen(s_code));
-			snprintf(ret, len, "%s%s", ret, summary);
-			efree(summary);
+			if (ch && curl_easy_getinfo(ch->cp, CURLINFO_EFFECTIVE_URL, &s_code) == CURLE_OK) {
+				summary = hp_get_file_summary(s_code, strlen(s_code));
+				snprintf(ret, len, "%s%s", ret, summary);
+				efree(summary);
+			}
 		}
 	} else if (strcmp(ret, "PDO::exec#") == 0 ||
 			strcmp(ret, "PDO::query#") == 0 ||
@@ -1369,10 +1373,12 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 			argument_element = *(p-arg_count);
 		}
 
-		summary = hp_get_sql_summary(argument_element->value.str.val, argument_element->value.str.len TSRMLS_CC);
+		if (Z_TYPE_P(argument_element) == IS_STRING) {
+			summary = hp_get_sql_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element) TSRMLS_CC);
 
-		snprintf(ret, len, "%s%s", ret, summary);
-		efree(summary);
+			snprintf(ret, len, "%s%s", ret, summary);
+			efree(summary);
+		}
 
 	} else if (strcmp(ret, "PDOStatement::execute#") == 0) {
 		pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object_by_handle( (((*((*data).object)).value).obj).handle TSRMLS_CC);
@@ -1395,12 +1401,13 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 	} else if (strcmp(ret, "Smarty::fetch#") == 0 || strcmp(ret, "Smarty_Internal_TemplateBase::fetch#") == 0) {
 		argument_element = *(p-arg_count);
 
-		if (argument_element->type == IS_STRING) {
+		if (Z_TYPE_P(argument_element) == IS_STRING) {
 			snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(argument_element));
 		}
 	} else {
 		for (i=0; i < arg_count; i++) {
 			argument_element = *(p-(arg_count-i));
+
 			switch(argument_element->type) {
 				case IS_STRING:
 					snprintf(ret, len, "%s%s", ret, argument_element->value.str.val);
@@ -2191,7 +2198,7 @@ void hp_mode_layer_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 	wt = get_us_from_tsc(tsc_end - top->tsc_start, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 
 	if (!hp_globals.layers_definition) {
-		return (zval *) 0;
+		return;
 	}
 
 	hp_get_function_stack(top, 1, function_name, sizeof(function_name));
