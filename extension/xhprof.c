@@ -71,12 +71,11 @@
                           THREAD_AFFINITY_POLICY_COUNT)
 #else
 /* For sched_getaffinity, sched_setaffinity */
+/*# include <cpuid.h>*/
 # include <sched.h>
 # define SET_AFFINITY(pid, size, mask) sched_setaffinity(0, size, mask)
 # define GET_AFFINITY(pid, size, mask) sched_getaffinity(0, size, mask)
 #endif /* __FreeBSD__ */
-
-
 
 /**
  * **********************
@@ -311,6 +310,7 @@ static void hp_end(TSRMLS_D);
 static inline uint64 cycle_timer();
 static double get_cpu_frequency();
 static void clear_frequencies();
+static int is_invariant_tsc();
 
 static void hp_free_the_free_list();
 static hp_entry_t *hp_fast_alloc_hprof_entry();
@@ -1771,6 +1771,10 @@ int bind_to_cpu(uint32 cpu_id)
 {
 	cpu_set_t new_mask;
 
+	if (is_invariant_tsc()) {
+		return 0;
+	}
+
 	CPU_ZERO(&new_mask);
 	CPU_SET(cpu_id, &new_mask);
 
@@ -1783,6 +1787,24 @@ int bind_to_cpu(uint32 cpu_id)
 	hp_globals.cur_cpu_id = cpu_id;
 
 	return 0;
+}
+
+static int is_invariant_tsc() {
+	unsigned int regs[4];
+
+	asm volatile("cpuid" : "=a" (regs[0]), "=b" (regs[1]), "=c" (regs[2]), "=d" (regs[3]) : "a" (0), "c" (0));
+
+	if ((regs[0] & 0x80000007) == 0) {
+		return 0;
+	}
+
+	asm volatile("cpuid" : "=a" (regs[0]), "=b" (regs[1]), "=c" (regs[2]), "=d" (regs[3]) : "a" (0x80000007), "c" (0));
+
+	if ((regs[3] & 0x00000100) == 0) {
+		return 0;
+	}
+
+	return 1;
 }
 
 /**
@@ -1909,6 +1931,10 @@ static void get_all_cpu_frequencies()
  */
 int restore_cpu_affinity(cpu_set_t * prev_mask)
 {
+	if (is_invariant_tsc()) {
+		return 0;
+	}
+
 	if (SET_AFFINITY(0, sizeof(cpu_set_t), prev_mask) < 0) {
 		perror("restore setaffinity");
 		return -1;
