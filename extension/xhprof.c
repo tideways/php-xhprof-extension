@@ -76,8 +76,6 @@
 # define GET_AFFINITY(pid, size, mask) sched_getaffinity(0, size, mask)
 #endif /* __FreeBSD__ */
 
-
-
 /**
  * **********************
  * GLOBAL MACRO CONSTANTS
@@ -85,7 +83,7 @@
  */
 
 /* XHProf version                           */
-#define XHPROF_VERSION       "0.9.7"
+#define XHPROF_VERSION       "0.9.8"
 
 /* Fictitious function name to represent top of the call tree. The paranthesis
  * in the name is to ensure we don't conflict with user function names.  */
@@ -233,6 +231,8 @@ typedef struct hp_global_t {
 	/* The number of logical CPUs this machine has. */
 	uint32 cpu_num;
 
+	int invariant_tsc;
+
 	/* The saved cpu affinity. */
 	cpu_set_t prev_mask;
 
@@ -311,6 +311,7 @@ static void hp_end(TSRMLS_D);
 static inline uint64 cycle_timer();
 static double get_cpu_frequency();
 static void clear_frequencies();
+static int is_invariant_tsc();
 
 static void hp_free_the_free_list();
 static hp_entry_t *hp_fast_alloc_hprof_entry();
@@ -558,6 +559,7 @@ PHP_MINIT_FUNCTION(xhprof)
 
 	/* Get the number of available logical CPUs. */
 	hp_globals.cpu_num = sysconf(_SC_NPROCESSORS_CONF);
+	hp_globals.invariant_tsc = is_invariant_tsc();
 
 	/* Get the cpu affinity mask. */
 #ifndef __APPLE__
@@ -640,6 +642,7 @@ PHP_MINFO_FUNCTION(xhprof)
 
 	php_info_print_table_start();
 	php_info_print_table_header(2, "xhprof", XHPROF_VERSION);
+	php_info_print_table_row(2, "TSC Invariant", is_invariant_tsc() ? "Yes" : "No");
 	len = snprintf(buf, SCRATCH_BUF_LEN, "%d", hp_globals.cpu_num);
 	buf[len] = 0;
 	php_info_print_table_header(2, "CPU num", buf);
@@ -655,6 +658,7 @@ PHP_MINFO_FUNCTION(xhprof)
 			php_info_print_table_row(2, buf, tmp);
 		}
 	}
+
 
 	php_info_print_table_end();
 }
@@ -1771,6 +1775,10 @@ int bind_to_cpu(uint32 cpu_id)
 {
 	cpu_set_t new_mask;
 
+	if (hp_globals.invariant_tsc) {
+		return 0;
+	}
+
 	CPU_ZERO(&new_mask);
 	CPU_SET(cpu_id, &new_mask);
 
@@ -1783,6 +1791,34 @@ int bind_to_cpu(uint32 cpu_id)
 	hp_globals.cur_cpu_id = cpu_id;
 
 	return 0;
+}
+
+/**
+ * Check for invariant tsc cpuinfo flags.
+ *
+ * If the cpu is invariant to tsc drift, then we can skip binding
+ * the request to a single processor, which is harmful to performance.
+ */
+static int is_invariant_tsc() {
+#if defined(__x86_64__) || defined(__amd64__)
+	unsigned int regs[4];
+
+	asm volatile("cpuid" : "=a" (regs[0]), "=b" (regs[1]), "=c" (regs[2]), "=d" (regs[3]) : "a" (0), "c" (0));
+
+	if ((regs[0] & 0x80000007) == 0) {
+		return 0;
+	}
+
+	asm volatile("cpuid" : "=a" (regs[0]), "=b" (regs[1]), "=c" (regs[2]), "=d" (regs[3]) : "a" (0x80000007), "c" (0));
+
+	if ((regs[3] & 0x00000100) == 0) {
+		return 0;
+	}
+
+	return 1;
+#else
+	return 0;
+#endif
 }
 
 /**
@@ -1909,6 +1945,10 @@ static void get_all_cpu_frequencies()
  */
 int restore_cpu_affinity(cpu_set_t * prev_mask)
 {
+	if (hp_globals.invariant_tsc) {
+		return 0;
+	}
+
 	if (SET_AFFINITY(0, sizeof(cpu_set_t), prev_mask) < 0) {
 		perror("restore setaffinity");
 		return -1;

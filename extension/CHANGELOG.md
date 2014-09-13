@@ -1,3 +1,14 @@
+# Version 0.9.8
+
+- Improve performance on modern CPUs by checking for invariant tsc,
+  a feature that guarantees the same timer values and speed in the
+  `cpuinfo` register.
+
+  This allows xhprof to avoid the costly bind to a single CPU, which
+  causes performance problems on servers with very high load. Binding
+  to cpus disallows migrating the threads to another cpu and prevents
+  the Kernel to adjust different loads of cpus.
+
 # Version 0.9.7
 
 - Remove `xhprof_sample_disable()`, use `xhprof_disable()` instead when in
