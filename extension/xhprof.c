@@ -1800,6 +1800,7 @@ int bind_to_cpu(uint32 cpu_id)
  * the request to a single processor, which is harmful to performance.
  */
 static int is_invariant_tsc() {
+#if defined(__x86_64__) || defined(__amd64__)
 	unsigned int regs[4];
 
 	asm volatile("cpuid" : "=a" (regs[0]), "=b" (regs[1]), "=c" (regs[2]), "=d" (regs[3]) : "a" (0), "c" (0));
@@ -1815,6 +1816,9 @@ static int is_invariant_tsc() {
 	}
 
 	return 1;
+#else
+	return 0;
+#endif
 }
 
 /**
