@@ -71,7 +71,6 @@
                           THREAD_AFFINITY_POLICY_COUNT)
 #else
 /* For sched_getaffinity, sched_setaffinity */
-/*# include <cpuid.h>*/
 # include <sched.h>
 # define SET_AFFINITY(pid, size, mask) sched_setaffinity(0, size, mask)
 # define GET_AFFINITY(pid, size, mask) sched_getaffinity(0, size, mask)
@@ -231,6 +230,8 @@ typedef struct hp_global_t {
 
 	/* The number of logical CPUs this machine has. */
 	uint32 cpu_num;
+
+	int invariant_tsc;
 
 	/* The saved cpu affinity. */
 	cpu_set_t prev_mask;
@@ -558,6 +559,7 @@ PHP_MINIT_FUNCTION(xhprof)
 
 	/* Get the number of available logical CPUs. */
 	hp_globals.cpu_num = sysconf(_SC_NPROCESSORS_CONF);
+	hp_globals.invariant_tsc = is_invariant_tsc();
 
 	/* Get the cpu affinity mask. */
 #ifndef __APPLE__
@@ -640,6 +642,7 @@ PHP_MINFO_FUNCTION(xhprof)
 
 	php_info_print_table_start();
 	php_info_print_table_header(2, "xhprof", XHPROF_VERSION);
+	php_info_print_table_row(2, "TSC Invariant", is_invariant_tsc() ? "Yes" : "No");
 	len = snprintf(buf, SCRATCH_BUF_LEN, "%d", hp_globals.cpu_num);
 	buf[len] = 0;
 	php_info_print_table_header(2, "CPU num", buf);
@@ -655,6 +658,7 @@ PHP_MINFO_FUNCTION(xhprof)
 			php_info_print_table_row(2, buf, tmp);
 		}
 	}
+
 
 	php_info_print_table_end();
 }
@@ -1771,7 +1775,7 @@ int bind_to_cpu(uint32 cpu_id)
 {
 	cpu_set_t new_mask;
 
-	if (is_invariant_tsc()) {
+	if (hp_globals.invariant_tsc) {
 		return 0;
 	}
 
@@ -1931,7 +1935,7 @@ static void get_all_cpu_frequencies()
  */
 int restore_cpu_affinity(cpu_set_t * prev_mask)
 {
-	if (is_invariant_tsc()) {
+	if (hp_globals.invariant_tsc) {
 		return 0;
 	}
 
