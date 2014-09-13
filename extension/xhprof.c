@@ -1793,6 +1793,12 @@ int bind_to_cpu(uint32 cpu_id)
 	return 0;
 }
 
+/**
+ * Check for invariant tsc cpuinfo flags.
+ *
+ * If the cpu is invariant to tsc drift, then we can skip binding
+ * the request to a single processor, which is harmful to performance.
+ */
 static int is_invariant_tsc() {
 	unsigned int regs[4];
 
