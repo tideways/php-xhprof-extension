@@ -61,6 +61,8 @@
  */
 #    include <mach/mach_init.h>
 #    include <mach/thread_policy.h>
+#    include <mach/mach_time.h>
+
 #    define cpu_set_t thread_affinity_policy_data_t
 #    define CPU_SET(cpu_id, new_mask) \
         (*(new_mask)).affinity_tag = (cpu_id + 1)
@@ -1754,11 +1756,15 @@ void hp_sample_check(hp_entry_t **entries  TSRMLS_DC)
  * @author cjiang
  */
 static inline uint64 cycle_timer() {
+#ifdef __APPLE__
+	return mach_absolute_time();
+#else
 	uint32 __a,__d;
 	uint64 val;
 	asm volatile("rdtsc" : "=a" (__a), "=d" (__d));
 	(val) = ((uint64)__a) | (((uint64)__d)<<32);
 	return val;
+#endif
 }
 
 /**
@@ -1879,6 +1885,12 @@ static inline uint64 get_tsc_from_us(uint64 usecs, double cpu_frequency)
  */
 static double get_cpu_frequency()
 {
+#ifdef __APPLE__
+	mach_timebase_info_data_t sTimebaseInfo;
+	(void) mach_timebase_info(&sTimebaseInfo);
+
+	return (sTimebaseInfo.numer / sTimebaseInfo.denom) * 1000;
+#else
 	struct timeval start;
 	struct timeval end;
 
@@ -1896,6 +1908,7 @@ static double get_cpu_frequency()
 	}
 	uint64 tsc_end = cycle_timer();
 	return (tsc_end - tsc_start) * 1.0 / (get_us_interval(&start, &end));
+#endif
 }
 
 /**
