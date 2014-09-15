@@ -1,3 +1,11 @@
+# Version 0.9.9
+
+- Apply patch by tstarling@php.net to fix frequency collection on linux:
+    https://bugs.php.net/bug.php?id=64165
+
+- Apply patch by github@fabian-franz.de to fix Mac timing:
+    https://bugs.php.net/bug.php?id=61132
+
 # Version 0.9.8
 
 - Improve performance on modern CPUs by checking for invariant tsc,
