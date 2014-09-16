@@ -1,3 +1,17 @@
+# Version 0.9.11
+
+- Fix segfault in Twig_Template#getTemplateName instrumentation
+  on PHP versions < 5.5
+
+- Fix segfault in memory handling of fatal error callback when catching
+  an exception.
+
+- Fix missing TSRMLS_CC/DC flags and a missing TSRMLS_FETCH() to
+  allow compilation on threaded systems such as Travis running
+  with --enable-zts-maintainer flag.
+
+- Enabled Travis CI
+
 # Version 0.9.10
 
 - Fix segfault in Twig_Template#getTemplateName instrumentation.
