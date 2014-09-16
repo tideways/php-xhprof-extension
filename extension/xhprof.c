@@ -24,13 +24,14 @@
 # define _GNU_SOURCE
 #endif
 
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#ifdef PHP_XHPROF_HAVE_CURL
 #include <curl/curl.h>
 #include <curl/easy.h>
-#include "ext/curl/php_curl.h"
-#include "ext/pcre/php_pcre.h"
-#include "ext/standard/url.h"
-#include "ext/pdo/php_pdo_driver.h"
-#include "zend_exceptions.h"
+#endif
 
 #include "php.h"
 #include "php_ini.h"
@@ -38,13 +39,14 @@
 #include "ext/standard/file.h"
 #include "php_xhprof.h"
 #include "zend_extensions.h"
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <stdlib.h>
-#include <unistd.h>
+
+#include "ext/pcre/php_pcre.h"
+#include "ext/standard/url.h"
+#include "ext/pdo/php_pdo_driver.h"
+#include "zend_exceptions.h"
+
 #ifdef __FreeBSD__
 # if __FreeBSD_version >= 700110
-#   include <sys/resource.h>
 #   include <sys/cpuset.h>
 #   define cpu_set_t cpuset_t
 #   define SET_AFFINITY(pid, size, mask) \
@@ -257,6 +259,25 @@ typedef struct hp_global_t {
 	uint8   argument_function_filter[XHPROF_FILTERED_FUNCTION_SIZE];
 
 } hp_global_t;
+
+#ifdef PHP_XHPROF_HAVE_CURL
+typedef struct hp_curl_t {
+	struct {
+		char str[CURL_ERROR_SIZE + 1];
+		int  no;
+	} err;
+
+	void *free;
+
+	struct {
+		char *str;
+		size_t str_len;
+	} hdr;
+
+	void ***thread_ctx;
+	CURL *cp;
+} hp_curl_t;
+#endif
 
 /**
  * ***********************
@@ -1349,8 +1370,9 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 
 			efree(summary);
 		}
+#ifdef PHP_XHPROF_HAVE_CURL
 	} else if (strcmp(ret, "curl_exec#") == 0) {
-		php_curl *ch;
+		hp_curl_t *ch;
 		int  le_curl;
 		char *s_code;
 
@@ -1359,7 +1381,7 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 		argument_element = *(p-arg_count);
 
 		if (Z_TYPE_P(argument_element) == IS_RESOURCE) {
-			ZEND_FETCH_RESOURCE_NO_RETURN(ch, php_curl *, &argument_element, -1, "cURL handle", le_curl);
+			ZEND_FETCH_RESOURCE_NO_RETURN(ch, hp_curl_t *, &argument_element, -1, "cURL handle", le_curl);
 
 			if (ch && curl_easy_getinfo(ch->cp, CURLINFO_EFFECTIVE_URL, &s_code) == CURLE_OK) {
 				summary = hp_get_file_summary(s_code, strlen(s_code));
@@ -1367,6 +1389,7 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 				efree(summary);
 			}
 		}
+#endif
 	} else if (strcmp(ret, "PDO::exec#") == 0 ||
 			strcmp(ret, "PDO::query#") == 0 ||
 			strcmp(ret, "mysql_query#") == 0 ||
