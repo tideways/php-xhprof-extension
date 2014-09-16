@@ -2519,10 +2519,10 @@ static void hp_begin(long level, long xhprof_flags TSRMLS_DC)
 #endif
 		}
 
-		xhprof_original_error_cb = zend_error_cb;
+		/*xhprof_original_error_cb = zend_error_cb;
 		zend_error_cb = xhprof_error_cb;
 
-		zend_throw_exception_hook = xhprof_throw_exception_hook;
+		zend_throw_exception_hook = xhprof_throw_exception_hook;*/
 
 		/* Replace zend_execute_internal with our proxy */
 		_zend_execute_internal = zend_execute_internal;
@@ -2613,8 +2613,8 @@ static void hp_stop(TSRMLS_D)
 	zend_compile_file     = _zend_compile_file;
 	zend_compile_string   = _zend_compile_string;
 
-	zend_error_cb = xhprof_original_error_cb;
-	zend_throw_exception_hook = NULL;
+	/*zend_error_cb = xhprof_original_error_cb;
+	zend_throw_exception_hook = NULL;*/
 
 	/* Resore cpu affinity. */
 	restore_cpu_affinity(&hp_globals.prev_mask);
@@ -2986,6 +2986,7 @@ static void xhprof_throw_exception_hook(zval *exception TSRMLS_DC)
 	}
 
 	hp_globals.last_exception_message = zend_read_property(default_ce, exception, "message", sizeof("message")-1, 0 TSRMLS_CC);
+	Z_ADDREF_P(hp_globals.last_exception_message);
 
 	ALLOC_ZVAL(hp_globals.last_exception_type);
 	Z_UNSET_ISREF_P(hp_globals.last_exception_type);
