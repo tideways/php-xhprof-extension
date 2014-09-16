@@ -19,4 +19,4 @@ before_script:
   - cd extension
   - phpize
 
-script: cd extension && ./configure && NO_INTERACTION=1 REPORT_EXIT_TATUS=1 TEST_PHP_DETAILED=1 make test
+script: ./configure && NO_INTERACTION=1 REPORT_EXIT_TATUS=1 TEST_PHP_DETAILED=1 make test
