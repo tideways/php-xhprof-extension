@@ -1266,7 +1266,7 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 	return result;
 }
 
-static char *hp_get_file_summary(char *filename, int filename_len)
+static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC)
 {
 	php_url *url;
 	char *ret;
@@ -1366,7 +1366,7 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 		argument_element = *(p-arg_count);
 
 		if (Z_TYPE_P(argument_element) == IS_STRING) {
-			summary = hp_get_file_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element));
+			summary = hp_get_file_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element) TSRMLS_CC);
 
 			snprintf(ret, len, "%s%s", ret, summary);
 
@@ -1386,7 +1386,7 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 			ZEND_FETCH_RESOURCE_NO_RETURN(ch, hp_curl_t *, &argument_element, -1, "cURL handle", le_curl);
 
 			if (ch && curl_easy_getinfo(ch->cp, CURLINFO_EFFECTIVE_URL, &s_code) == CURLE_OK) {
-				summary = hp_get_file_summary(s_code, strlen(s_code));
+				summary = hp_get_file_summary(s_code, strlen(s_code) TSRMLS_CC);
 				snprintf(ret, len, "%s%s", ret, summary);
 				efree(summary);
 			}
