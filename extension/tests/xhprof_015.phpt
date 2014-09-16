@@ -5,6 +5,10 @@ Author: beberlei
 <?php
 
 function foo() {
+    try {
+        throw new RuntimeException("foo");
+    } catch (RuntimeException $e) {
+    }
     bar();
 }
 
@@ -20,15 +24,15 @@ xhprof_enable();
 
 foo();
 --EXPECTF--
-Fatal error: Uncaught exception 'Exception' with message 'Hello World!' in %s/xhprof_015.php:8
+Fatal error: Uncaught exception 'Exception' with message 'Hello World!' in %s/xhprof_015.php:12
 Stack trace:
-#0 %s/xhprof_015.php(4): bar()
-#1 %s/xhprof_015.php(17): foo()
+#0 %s/xhprof_015.php(8): bar()
+#1 %s/xhprof_015.php(21): foo()
 #2 {main}
-  thrown in %s/xhprof_015.php on line 8
+  thrown in %s/xhprof_015.php on line 12
 array(5) {
   ["line"]=>
-  int(8)
+  int(12)
   ["file"]=>
   string(%d) "%s/xhprof_015.php"
   ["type"]=>
@@ -36,10 +40,10 @@ array(5) {
   ["message"]=>
   string(12) "Hello World!"
   ["trace"]=>
-  string(%d) "Uncaught exception 'Exception' with message 'Hello World!' in /home/benny/code/php/workspace/xhprof/extension/tests/xhprof_015.php:8
+  string(%d) "Uncaught exception 'Exception' with message 'Hello World!' in /home/benny/code/php/workspace/xhprof/extension/tests/xhprof_015.php:12
 Stack trace:
-#0 %s/xhprof_015.php(4): bar()
-#1 %s/xhprof_015.php(17): foo()
+#0 %s/xhprof_015.php(8): bar()
+#1 %s/xhprof_015.php(21): foo()
 #2 {main}
   thrown"
 }

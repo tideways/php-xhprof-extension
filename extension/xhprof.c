@@ -2981,6 +2981,10 @@ static void xhprof_throw_exception_hook(zval *exception TSRMLS_DC)
 	default_ce = zend_exception_get_default(TSRMLS_C);
 	exception_ce = zend_get_class_entry(exception TSRMLS_CC);
 
+	if (hp_globals.last_exception_message != NULL) {
+		zval_ptr_dtor(&hp_globals.last_exception_message);
+	}
+
 	hp_globals.last_exception_message = zend_read_property(default_ce, exception, "message", sizeof("message")-1, 0 TSRMLS_CC);
 
 	ALLOC_ZVAL(hp_globals.last_exception_type);
