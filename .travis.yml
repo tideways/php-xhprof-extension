@@ -4,6 +4,7 @@ notifications:
   email: false
 
 php:
+  - 5.6
   - 5.5
   - 5.4
   - 5.3
@@ -17,7 +18,5 @@ env:
 before_script:
   - cd extension
   - phpize
-  - ./configure
-  - make -j4
 
-script: make -f Makefile.local test_with_exit_status
+script: cd extension && ./configure && NO_INTERACTION=1 REPORT_EXIT_TATUS=1 TEST_PHP_DETAILED=1 make test
