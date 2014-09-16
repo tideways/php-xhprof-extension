@@ -1,3 +1,10 @@
+# Version 0.9.10
+
+- Fix segfault in Twig_Template#getTemplateName instrumentation.
+
+- Integrate curl dependency into repository cleanly to avoid
+  problems with having to copy the `php_curl.h` header around.
+
 # Version 0.9.9
 
 - Apply patch by tstarling@php.net to fix frequency collection on linux:
