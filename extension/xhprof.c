@@ -875,6 +875,7 @@ void hp_init_profiler_state(int level TSRMLS_DC)
 	if (hp_globals.last_exception_message) {
 		zval_dtor(hp_globals.last_exception_message);
 		FREE_ZVAL(hp_globals.last_exception_message);
+		hp_globals.last_exception_message = NULL;
 	}
 
 	if (hp_globals.last_exception_type) {
@@ -931,7 +932,8 @@ void hp_clean_profiler_state(TSRMLS_D)
 	}
 
 	if (hp_globals.last_exception_message) {
-		zval_ptr_dtor(&hp_globals.last_exception_message);
+		zval_dtor(hp_globals.last_exception_message);
+		FREE_ZVAL(hp_globals.last_exception_message);
 		hp_globals.last_exception_message = NULL;
 	}
 
@@ -2519,10 +2521,10 @@ static void hp_begin(long level, long xhprof_flags TSRMLS_DC)
 #endif
 		}
 
-		/*xhprof_original_error_cb = zend_error_cb;
+		xhprof_original_error_cb = zend_error_cb;
 		zend_error_cb = xhprof_error_cb;
 
-		zend_throw_exception_hook = xhprof_throw_exception_hook;*/
+		zend_throw_exception_hook = xhprof_throw_exception_hook;
 
 		/* Replace zend_execute_internal with our proxy */
 		_zend_execute_internal = zend_execute_internal;
@@ -2613,8 +2615,8 @@ static void hp_stop(TSRMLS_D)
 	zend_compile_file     = _zend_compile_file;
 	zend_compile_string   = _zend_compile_string;
 
-	/*zend_error_cb = xhprof_original_error_cb;
-	zend_throw_exception_hook = NULL;*/
+	zend_error_cb = xhprof_original_error_cb;
+	zend_throw_exception_hook = NULL;
 
 	/* Resore cpu affinity. */
 	restore_cpu_affinity(&hp_globals.prev_mask);
@@ -2917,10 +2919,6 @@ void xhprof_store_error(int type, const char *error_filename, const uint error_l
 
 	res[res_len] = '\0';
 
-	ALLOC_ZVAL(traceString);
-	Z_UNSET_ISREF_P(traceString);
-	ZVAL_STRINGL(traceString, res, res_len, 0);
-
 	/* We have to copy the arglist otherwise it will segfault in original error cb */
 	va_copy(new_args, args);
 
@@ -2931,15 +2929,22 @@ void xhprof_store_error(int type, const char *error_filename, const uint error_l
 		array_init(hp_globals.last_error);
 	}
 
+	ALLOC_ZVAL(traceString);
+
 	add_assoc_long(hp_globals.last_error, "line", (int)error_lineno);
 	add_assoc_string(hp_globals.last_error, "file", error_filename, 1);
 
 	/* We need to see if we have an uncaught exception fatal error now */
 	if (type == E_ERROR && strncmp(buffer, "Uncaught exception", 18) == 0 && hp_globals.last_exception_type && hp_globals.last_exception_message) {
 		add_assoc_zval(hp_globals.last_error, "type", hp_globals.last_exception_type);
-		add_assoc_zval(hp_globals.last_error, "message", hp_globals.last_exception_message);
+
+		MAKE_COPY_ZVAL(&hp_globals.last_exception_message, traceString);
+		add_assoc_zval(hp_globals.last_error, "message", traceString);
 		add_assoc_string(hp_globals.last_error, "trace", buffer, 1);
 	} else {
+		Z_UNSET_ISREF_P(traceString);
+		ZVAL_STRINGL(traceString, res, res_len, 0);
+
 		add_assoc_long(hp_globals.last_error, "type", type);
 		add_assoc_string(hp_globals.last_error, "message", buffer, 1);
 		add_assoc_zval(hp_globals.last_error, "trace", traceString);
@@ -2973,6 +2978,7 @@ void xhprof_error_cb(int type, const char *error_filename, const uint error_line
 static void xhprof_throw_exception_hook(zval *exception TSRMLS_DC)
 {
 	zend_class_entry *default_ce, *exception_ce;
+	zval *tmp;
 
 	if (!exception) {
 		return;
@@ -2982,11 +2988,14 @@ static void xhprof_throw_exception_hook(zval *exception TSRMLS_DC)
 	exception_ce = zend_get_class_entry(exception TSRMLS_CC);
 
 	if (hp_globals.last_exception_message != NULL) {
-		zval_ptr_dtor(&hp_globals.last_exception_message);
+		zval_dtor(hp_globals.last_exception_message);
+		FREE_ZVAL(hp_globals.last_exception_message);
 	}
 
-	hp_globals.last_exception_message = zend_read_property(default_ce, exception, "message", sizeof("message")-1, 0 TSRMLS_CC);
-	Z_ADDREF_P(hp_globals.last_exception_message);
+	tmp = zend_read_property(default_ce, exception, "message", sizeof("message")-1, 0 TSRMLS_CC);
+
+	ALLOC_ZVAL(hp_globals.last_exception_message);
+	MAKE_COPY_ZVAL(&tmp, hp_globals.last_exception_message);
 
 	ALLOC_ZVAL(hp_globals.last_exception_type);
 	Z_UNSET_ISREF_P(hp_globals.last_exception_type);
