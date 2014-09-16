@@ -1401,9 +1401,9 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 
 		if (SUCCESS == call_user_function_ex(EG(function_table), &((*((*data).prev_execute_data)).object), &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
 			snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(retval_ptr));
-		}
 
-		FREE_ZVAL(retval_ptr);
+			FREE_ZVAL(retval_ptr);
+		}
 	} else if (strcmp(ret, "Smarty::fetch#") == 0 || strcmp(ret, "Smarty_Internal_TemplateBase::fetch#") == 0) {
 		argument_element = *(p-arg_count);
 
