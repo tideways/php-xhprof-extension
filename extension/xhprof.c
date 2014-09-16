@@ -1420,11 +1420,17 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 
 		efree(summary);
 	} else if (strcmp(ret, "Twig_Template::render#") == 0 || strcmp(ret, "Twig_Template::display#") == 0) {
-		zval fname, *retval_ptr;
+		zval fname, *retval_ptr, *obj;
 
 		ZVAL_STRING(&fname, "getTemplateName", 0);
 
-		if (SUCCESS == call_user_function_ex(EG(function_table), &((*((*data).prev_execute_data)).object), &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
+#if PHP_VERSION_ID >= 50500
+		obj = (*((*data).prev_execute_data)).object;
+#else
+		obj = data->object;
+#endif
+
+		if (SUCCESS == call_user_function_ex(EG(function_table), &obj, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
 			snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(retval_ptr));
 
 			FREE_ZVAL(retval_ptr);
