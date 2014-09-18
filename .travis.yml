@@ -20,3 +20,5 @@ before_script:
   - phpize
 
 script: ./configure && NO_INTERACTION=1 REPORT_EXIT_TATUS=1 TEST_PHP_DETAILED=1 make test
+
+after_failure: cat tests/*.diff

@@ -42,5 +42,6 @@ PHP_FUNCTION(xhprof_disable);
 PHP_FUNCTION(xhprof_sample_enable);
 PHP_FUNCTION(xhprof_layers_enable);
 PHP_FUNCTION(xhprof_last_fatal_error);
+PHP_FUNCTION(xhprof_last_exception_data);
 
 #endif	/* PHP_XHPROF_H */
