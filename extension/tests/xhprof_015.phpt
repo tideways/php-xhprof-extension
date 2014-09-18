@@ -30,20 +30,19 @@ Stack trace:
 #1 %s/xhprof_015.php(21): foo()
 #2 {main}
   thrown in %s/xhprof_015.php on line 12
-array(5) {
-  ["line"]=>
-  int(12)
-  ["file"]=>
-  string(%d) "%s/xhprof_015.php"
-  ["type"]=>
-  string(9) "Exception"
+array(7) {
   ["message"]=>
   string(12) "Hello World!"
   ["trace"]=>
-  string(%d) "Uncaught exception 'Exception' with message 'Hello World!' in /home/benny/code/php/workspace/xhprof/extension/tests/xhprof_015.php:12
-Stack trace:
-#0 %s/xhprof_015.php(8): bar()
-#1 %s/xhprof_015.php(21): foo()
-#2 {main}
-  thrown"
+  NULL
+  ["file"]=>
+  string(68) "%stests/xhprof_015.php"
+  ["type"]=>
+  int(1)
+  ["line"]=>
+  int(12)
+  ["class"]=>
+  string(9) "Exception"
+  ["code"]=>
+  int(0)
 }
