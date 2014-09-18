@@ -6,7 +6,7 @@ XHProf: Last Exception Data
 xhprof_enable();
 
 try {
-    throw new Exception();
+    throw new Exception("Foo", 1234);
 } catch (Exception $e) {
 }
 

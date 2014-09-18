@@ -184,6 +184,7 @@ typedef struct hp_error {
 	hp_string *message;
 	hp_string *trace;
 	unsigned int type;
+	long code;
 	hp_string *class;
 } hp_error;
 
@@ -372,9 +373,12 @@ static inline int  hp_argument_entry(uint8 hash_code, char *curr_func);
 static inline hp_string *hp_create_string(const char *value, zend_uint length);
 static inline long hp_zval_to_long(zval *z);
 static inline hp_string *hp_zval_to_string(zval *z);
+static inline void hp_string_clean(hp_string *str);
 
+static hp_string *xhprof_backtrace();
 static void hp_error_clean(hp_error *error);
 static void hp_error_to_zval(hp_error *error, zval *z);
+static hp_error *hp_error_create();
 
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_xhprof_enable, 0, 0, 0)
@@ -2912,11 +2916,8 @@ static int xhprof_build_trace_string(zval **frame TSRMLS_DC, int num_args, va_li
 }
 /* }}} */
 
-void xhprof_store_error(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
+static hp_string *xhprof_backtrace()
 {
-	va_list new_args;
-	char *buffer;
-	int buffer_len;
 	zval *trace;
 	char *res, **str, *s_tmp;
 	int res_len = 0, *len = &res_len, num = 0;
@@ -2940,6 +2941,15 @@ void xhprof_store_error(int type, const char *error_filename, const uint error_l
 
 	res[res_len] = '\0';
 
+	return hp_create_string(res, res_len);
+}
+
+void xhprof_store_error(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
+{
+	va_list new_args;
+	char *buffer;
+	int buffer_len;
+
 	/* We have to copy the arglist otherwise it will segfault in original error cb */
 	va_copy(new_args, args);
 
@@ -2948,25 +2958,39 @@ void xhprof_store_error(int type, const char *error_filename, const uint error_l
 	if (!hp_globals.last_error) {
 		hp_error_clean(hp_globals.last_error);
 	}
-	hp_globals.last_error = emalloc(sizeof(hp_error));
+	hp_globals.last_error = hp_error_create();
 
 	hp_globals.last_error->line = (int)error_lineno;
-	hp_globals.last_error->file = estrdup(error_filename);
+	hp_globals.last_error->type = type;
+
+	if (error_filename != NULL) {
+		hp_globals.last_error->file = hp_create_string(error_filename, strlen(error_filename));
+	}
 
 	/* We need to see if we have an uncaught exception fatal error now */
 	if (type == E_ERROR && strncmp(buffer, "Uncaught exception", 18) == 0 && hp_globals.last_exception) {
-		hp_globals.last_error->type = hp_globals.last_exception->type;
+		hp_globals.last_error->code = hp_globals.last_exception->code;
 
 		if (hp_globals.last_exception->message) {
 			hp_globals.last_error->message = emalloc(sizeof(hp_string));
 			memcpy(hp_globals.last_error->message, hp_globals.last_exception->message, sizeof(hp_string));
+			hp_globals.last_error->message->value = estrdup(hp_globals.last_exception->message->value);
 		}
 
-		hp_globals.last_error->trace = hp_create_string(buffer, buffer_len);
+		if (hp_globals.last_exception->class) {
+			hp_globals.last_error->class = emalloc(sizeof(hp_string));
+			memcpy(hp_globals.last_error->class, hp_globals.last_exception->class, sizeof(hp_string));
+			hp_globals.last_error->class->value = estrdup(hp_globals.last_exception->class->value);
+		}
+
+		if (hp_globals.last_exception->trace) {
+			hp_globals.last_error->trace = emalloc(sizeof(hp_string));
+			memcpy(hp_globals.last_error->trace, hp_globals.last_exception->trace, sizeof(hp_string));
+			hp_globals.last_error->trace->value = estrdup(hp_globals.last_exception->trace->value);
+		}
 	} else {
-		hp_globals.last_error->type = type;
 		hp_globals.last_error->message = hp_create_string(buffer, buffer_len);
-		hp_globals.last_error->trace = hp_create_string(res, res_len);
+		hp_globals.last_error->trace = xhprof_backtrace();
 	}
 
 	efree(buffer);
@@ -3013,7 +3037,7 @@ static void xhprof_throw_exception_hook(zval *exception TSRMLS_DC)
 		hp_error_clean(hp_globals.last_exception);
 	}
 
-	hp_globals.last_exception = emalloc(sizeof(hp_error));
+	hp_globals.last_exception = hp_error_create();
 
 	tmp = zend_read_property(default_ce, exception, "message", sizeof("message")-1, 0 TSRMLS_CC);
 	hp_globals.last_exception->message = hp_zval_to_string(tmp);
@@ -3025,7 +3049,10 @@ static void xhprof_throw_exception_hook(zval *exception TSRMLS_DC)
 	hp_globals.last_exception->line = hp_zval_to_long(tmp);
 
 	tmp = zend_read_property(default_ce, exception, "code", sizeof("code")-1, 0 TSRMLS_CC);
-	hp_globals.last_exception->type = hp_zval_to_long(tmp);
+	hp_globals.last_exception->code = hp_zval_to_long(tmp);
+
+	tmp = zend_read_property(default_ce, exception, "trace", sizeof("trace")-1, 0 TSRMLS_CC);
+	hp_globals.last_exception->trace = hp_zval_to_string(tmp);
 
 	hp_globals.last_exception->class = hp_create_string(exception_ce->name, exception_ce->name_length);
 }
@@ -3065,16 +3092,31 @@ static inline zval *hp_string_to_zval(hp_string *str)
 	char *val;
 
 	MAKE_STD_ZVAL(ret);
+	ZVAL_NULL(ret);
 
 	if (str == NULL) {
 		return ret;
 	}
 
-	val = estrdup(str->value);
-	Z_STRVAL_P(ret) = val;
-	Z_STRLEN_P(ret) = str->length;
+	ZVAL_STRINGL(ret, str->value, str->length, 1);
 
 	return ret;
+}
+
+static hp_error *hp_error_create()
+{
+	hp_error *error;
+
+	error = emalloc(sizeof(hp_error));
+	error->type = 0;
+	error->line = 0;
+	error->code = -1;
+	error->message = NULL;
+	error->trace = NULL;
+	error->file = NULL;
+	error->class = NULL;
+
+	return error;
 }
 
 static void hp_error_clean(hp_error *error)
@@ -3084,27 +3126,40 @@ static void hp_error_clean(hp_error *error)
 	}
 
 	if (error->message) {
+		hp_string_clean(error->message);
 		efree(error->message);
 	}
 
 	if (error->class) {
+		hp_string_clean(error->class);
 		efree(error->class);
 	}
 
 	if (error->trace) {
+		hp_string_clean(error->trace);
 		efree(error->trace);
 	}
 
 	if (error->file) {
+		hp_string_clean(error->file);
 		efree(error->file);
 	}
 
 	efree(error);
 }
 
+static inline void hp_string_clean(hp_string *str)
+{
+	if (str == NULL) {
+		return;
+	}
+
+	efree(str->value);
+}
+
 static void hp_error_to_zval(hp_error *error, zval *z)
 {
-	zval *line, *type;
+	zval *line, *type, *code;
 
 	if (error == NULL) {
 		return;
@@ -3116,11 +3171,18 @@ static void hp_error_to_zval(hp_error *error, zval *z)
 	MAKE_STD_ZVAL(type);
 	ZVAL_LONG(type, error->type);
 
+	MAKE_STD_ZVAL(code);
+	ZVAL_LONG(code, error->code);
+
 	array_init(z);
 	add_assoc_zval(z, "message", hp_string_to_zval(error->message));
 	add_assoc_zval(z, "trace", hp_string_to_zval(error->trace));
-	add_assoc_zval(z, "class", hp_string_to_zval(error->class));
-	add_assoc_zval(z, "type", type);
 	add_assoc_zval(z, "file", hp_string_to_zval(error->file));
-	add_assoc_zval(z, "type", line);
+	add_assoc_zval(z, "type", type);
+	add_assoc_zval(z, "line", line);
+
+	if (error->class) {
+		add_assoc_zval(z, "class", hp_string_to_zval(error->class));
+		add_assoc_zval(z, "code", code);
+	}
 }
