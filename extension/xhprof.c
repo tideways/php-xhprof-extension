@@ -375,7 +375,7 @@ static inline long hp_zval_to_long(zval *z);
 static inline hp_string *hp_zval_to_string(zval *z);
 static inline void hp_string_clean(hp_string *str);
 
-static hp_string *xhprof_backtrace();
+static hp_string *xhprof_backtrace(TSRMLS_D);
 static void hp_error_clean(hp_error *error);
 static void hp_error_to_zval(hp_error *error, zval *z);
 static hp_error *hp_error_create();
@@ -2916,7 +2916,7 @@ static int xhprof_build_trace_string(zval **frame TSRMLS_DC, int num_args, va_li
 }
 /* }}} */
 
-static hp_string *xhprof_backtrace(TSRMLS_DC)
+static hp_string *xhprof_backtrace(TSRMLS_D)
 {
 	zval *trace;
 	char *res, **str, *s_tmp;
