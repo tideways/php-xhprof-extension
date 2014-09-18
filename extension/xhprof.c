@@ -2916,13 +2916,11 @@ static int xhprof_build_trace_string(zval **frame TSRMLS_DC, int num_args, va_li
 }
 /* }}} */
 
-static hp_string *xhprof_backtrace()
+static hp_string *xhprof_backtrace(TSRMLS_DC)
 {
 	zval *trace;
 	char *res, **str, *s_tmp;
 	int res_len = 0, *len = &res_len, num = 0;
-
-	TSRMLS_FETCH();
 
 	res = estrdup("");
 	str = &res;
@@ -2944,7 +2942,7 @@ static hp_string *xhprof_backtrace()
 	return hp_create_string(res, res_len);
 }
 
-void xhprof_store_error(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
+void xhprof_store_error(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args TSRMLS_DC)
 {
 	va_list new_args;
 	char *buffer;
@@ -2990,7 +2988,7 @@ void xhprof_store_error(int type, const char *error_filename, const uint error_l
 		}
 	} else {
 		hp_globals.last_error->message = hp_create_string(buffer, buffer_len);
-		hp_globals.last_error->trace = xhprof_backtrace();
+		hp_globals.last_error->trace = xhprof_backtrace(TSRMLS_C);
 	}
 
 	efree(buffer);
@@ -3013,7 +3011,7 @@ void xhprof_error_cb(int type, const char *error_filename, const uint error_line
 			case E_ERROR:
 			case E_CORE_ERROR:
 			case E_USER_ERROR:
-				xhprof_store_error(type, error_filename, error_lineno, format, args);
+				xhprof_store_error(type, error_filename, error_lineno, format, args TSRMLS_CC);
 		}
 	}
 
