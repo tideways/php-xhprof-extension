@@ -174,7 +174,7 @@ typedef struct hp_mode_cb {
 
 typedef struct hp_string {
 	const char *value;
-	zend_uint length;
+	size_t length;
 } hp_string;
 
 /* Struct that defines caught errors or exceptions inside the engine. */
@@ -370,7 +370,7 @@ static inline zval  *hp_zval_at_key(char  *key, zval  *values);
 static inline char **hp_strings_in_zval(zval  *values);
 static inline void   hp_array_del(char **name_array);
 static inline int  hp_argument_entry(uint8 hash_code, char *curr_func);
-static inline hp_string *hp_create_string(const char *value, zend_uint length);
+static inline hp_string *hp_create_string(const char *value, size_t length);
 static inline long hp_zval_to_long(zval *z);
 static inline hp_string *hp_zval_to_string(zval *z);
 static inline void hp_string_clean(hp_string *str);
@@ -3055,7 +3055,7 @@ static void xhprof_throw_exception_hook(zval *exception TSRMLS_DC)
 	hp_globals.last_exception->class = hp_create_string(exception_ce->name, exception_ce->name_length);
 }
 
-static inline hp_string *hp_create_string(const char *value, zend_uint length)
+static inline hp_string *hp_create_string(const char *value, size_t length)
 {
 	hp_string *str;
 
