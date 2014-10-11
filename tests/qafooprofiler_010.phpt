@@ -5,7 +5,7 @@ XHProf: SQL Summanry
 
 include_once dirname(__FILE__).'/common.php';
 
-xhprof_enable(0, array('argument_functions' => array('PDOStatement::execute', 'PDO::query', 'PDO::exec')));
+qafooprofiler_enable(0, array('argument_functions' => array('PDOStatement::execute', 'PDO::query', 'PDO::exec')));
 
 $pdo = new PDO('sqlite:memory:', 'root', '');
 
@@ -26,7 +26,7 @@ $stmt->execute();
 $stmt = $pdo->query("SELECT count(*) FROM baz");
 $stmt->execute();
 
-print_canonical(xhprof_disable());
+print_canonical(qafooprofiler_disable());
 --EXPECT--
 main()                                  : ct=       1; wt=*;
 main()==>PDO::__construct               : ct=       1; wt=*;
@@ -38,4 +38,4 @@ main()==>PDOStatement::execute#insert baz: ct=       1; wt=*;
 main()==>PDOStatement::execute#select 'baz': ct=       1; wt=*;
 main()==>PDOStatement::execute#select baz: ct=       1; wt=*;
 main()==>PDOStatement::execute#update baz: ct=       1; wt=*;
-main()==>xhprof_disable                 : ct=       1; wt=*;
+main()==>qafooprofiler_disable          : ct=       1; wt=*;

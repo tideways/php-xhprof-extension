@@ -17,26 +17,26 @@ function bar() {
 }
 
 register_shutdown_function(function () {
-    var_dump(xhprof_last_fatal_error());
+    var_dump(qafooprofiler_last_fatal_error());
 });
 
-xhprof_enable();
+qafooprofiler_enable();
 
 foo();
 --EXPECTF--
-Fatal error: Uncaught exception 'Exception' with message 'Hello World!' in %s/xhprof_015.php:12
+Fatal error: Uncaught exception 'Exception' with message 'Hello World!' in %s/qafooprofiler_015.php:12
 Stack trace:
-#0 %s/xhprof_015.php(8): bar()
-#1 %s/xhprof_015.php(21): foo()
+#0 %s/qafooprofiler_015.php(8): bar()
+#1 %s/qafooprofiler_015.php(21): foo()
 #2 {main}
-  thrown in %s/xhprof_015.php on line 12
+  thrown in %s/qafooprofiler_015.php on line 12
 array(7) {
   ["message"]=>
   string(12) "Hello World!"
   ["trace"]=>
   NULL
   ["file"]=>
-  string(68) "%stests/xhprof_015.php"
+  string(%d) "%stests/qafooprofiler_015.php"
   ["type"]=>
   int(1)
   ["line"]=>

@@ -10,9 +10,9 @@ function test_stringlength($string)
     return strlen($string);
 }
 
-xhprof_enable(XHPROF_FLAGS_MEMORY, array('functions' => array('strlen')));
+qafooprofiler_enable(QAFOOPROFILER_FLAGS_MEMORY, array('functions' => array('strlen')));
 test_stringlength('foo_array');
-$output = xhprof_disable();
+$output = qafooprofiler_disable();
 
 if (count($output) == 2 && isset($output['main()']) && isset($output['main()==>strlen'])) {
     echo "Test passed";

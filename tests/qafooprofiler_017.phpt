@@ -6,26 +6,26 @@ Author: beberlei
 
 include_once dirname(__FILE__).'/common.php';
 
-xhprof_enable(0, array('argument_functions' => array('strlen')));
+qafooprofiler_enable(0, array('argument_functions' => array('strlen')));
 
 strlen("foo");
 strlen("bar");
 
-$result = xhprof_disable();
+$result = qafooprofiler_disable();
 
-xhprof_enable(0, array('argument_functions' => array('strlen')));
+qafooprofiler_enable(0, array('argument_functions' => array('strlen')));
 
 strlen("foo");
 strlen("bar");
 
-print_canonical(xhprof_disable());
+print_canonical(qafooprofiler_disable());
 
-xhprof_enable(0, array('argument_functions' => array('strlen')));
-$result = xhprof_disable();
+qafooprofiler_enable(0, array('argument_functions' => array('strlen')));
+$result = qafooprofiler_disable();
 
 ?>
 --EXPECT--
 main()                                  : ct=       1; wt=*;
+main()==>qafooprofiler_disable          : ct=       1; wt=*;
 main()==>strlen#bar                     : ct=       1; wt=*;
 main()==>strlen#foo                     : ct=       1; wt=*;
-main()==>xhprof_disable                 : ct=       1; wt=*;

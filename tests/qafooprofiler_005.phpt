@@ -35,9 +35,9 @@ function invoke_all() {
   sleep_50000_micro();
 }
 
-xhprof_enable();
+qafooprofiler_enable();
 invoke_all();
-$output = xhprof_disable();
+$output = qafooprofiler_disable();
 
 // verify output
 

@@ -3,21 +3,21 @@ XHProf: Last Exception Data
 --FILE--
 <?php
 
-xhprof_enable();
+qafooprofiler_enable();
 
 try {
     throw new Exception("Foo", 1234);
 } catch (Exception $e) {
 }
 
-var_dump(xhprof_last_exception_data());
+var_dump(qafooprofiler_last_exception_data());
 
 try {
     throw new RuntimeException("Bar", 1337);
 } catch (Exception $e) {
 }
 
-var_dump(xhprof_last_exception_data());
+var_dump(qafooprofiler_last_exception_data());
 --EXPECTF--
 array(7) {
   ["message"]=>
@@ -25,7 +25,7 @@ array(7) {
   ["trace"]=>
   NULL
   ["file"]=>
-  string(68) "%stests/xhprof_022.php"
+  string(%d) "%stests/qafooprofiler_022.php"
   ["type"]=>
   int(0)
   ["line"]=>
@@ -41,7 +41,7 @@ array(7) {
   ["trace"]=>
   NULL
   ["file"]=>
-  string(68) "%stests/xhprof_022.php"
+  string(%d) "%stests/qafooprofiler_022.php"
   ["type"]=>
   int(0)
   ["line"]=>

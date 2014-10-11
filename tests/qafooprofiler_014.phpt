@@ -13,12 +13,12 @@ function bar() {
 }
 
 register_shutdown_function(function () {
-    var_dump(xhprof_last_fatal_error());
+    var_dump(qafooprofiler_last_fatal_error());
 });
 
-xhprof_last_fatal_error();
+qafooprofiler_last_fatal_error();
 
-xhprof_enable();
+qafooprofiler_enable();
 
 foo();
 --EXPECTF--
@@ -27,11 +27,11 @@ array(5) {
   ["message"]=>
   string(36) "Call to undefined function unknown()"
   ["trace"]=>
-  string(%d) "#0 %s/xhprof_014.php(4): bar()
-#1 %s/xhprof_014.php(19): foo()
+  string(%d) "#0 %s/qafooprofiler_014.php(4): bar()
+#1 %s/qafooprofiler_014.php(19): foo()
 #2 {main}"
   ["file"]=>
-  string(%d) "%s/xhprof_014.php"
+  string(%d) "%s/qafooprofiler_014.php"
   ["type"]=>
   int(1)
   ["line"]=>

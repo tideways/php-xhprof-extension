@@ -21,18 +21,18 @@ function foo($depth, $use_direct_recursion = false) {
 }
 
 
-xhprof_enable();
+qafooprofiler_enable();
 foo(4, true);
-$output = xhprof_disable();
+$output = qafooprofiler_disable();
 
 echo "Direct Recursion\n";
 print_canonical($output);
 echo "\n";
 
 
-xhprof_enable();
+qafooprofiler_enable();
 foo(4, false);
-$output = xhprof_disable();
+$output = qafooprofiler_disable();
 
 echo "Indirect Recursion\n";
 print_canonical($output);
@@ -47,7 +47,7 @@ foo@2==>foo@3                           : ct=       1; wt=*;
 foo@3==>foo@4                           : ct=       1; wt=*;
 main()                                  : ct=       1; wt=*;
 main()==>foo                            : ct=       1; wt=*;
-main()==>xhprof_disable                 : ct=       1; wt=*;
+main()==>qafooprofiler_disable          : ct=       1; wt=*;
 
 Indirect Recursion
 bar==>foo@1                             : ct=       1; wt=*;
@@ -60,4 +60,4 @@ foo@2==>bar@2                           : ct=       1; wt=*;
 foo@3==>bar@3                           : ct=       1; wt=*;
 main()                                  : ct=       1; wt=*;
 main()==>foo                            : ct=       1; wt=*;
-main()==>xhprof_disable                 : ct=       1; wt=*;
+main()==>qafooprofiler_disable          : ct=       1; wt=*;

@@ -19,45 +19,45 @@ function foo($x) {
 }
 
 // 1: Sanity test a simple profile run
-xhprof_enable();
+qafooprofiler_enable();
 foo("this is a test");
-$output = xhprof_disable();
+$output = qafooprofiler_disable();
 
 echo "Part 1: Default Flags\n";
 print_canonical($output);
 echo "\n";
 
 // 2: Sanity test profiling options
-xhprof_enable(XHPROF_FLAGS_CPU);
+qafooprofiler_enable(QAFOOPROFILER_FLAGS_CPU);
 foo("this is a test");
-$output = xhprof_disable();
+$output = qafooprofiler_disable();
 
 echo "Part 2: CPU\n";
 print_canonical($output);
 echo "\n";
 
 // 3: Sanity test profiling options
-xhprof_enable(XHPROF_FLAGS_NO_BUILTINS);
+qafooprofiler_enable(QAFOOPROFILER_FLAGS_NO_BUILTINS);
 foo("this is a test");
-$output = xhprof_disable();
+$output = qafooprofiler_disable();
 
 echo "Part 3: No Builtins\n";
 print_canonical($output);
 echo "\n";
 
 // 4: Sanity test profiling options
-xhprof_enable(XHPROF_FLAGS_MEMORY);
+qafooprofiler_enable(QAFOOPROFILER_FLAGS_MEMORY);
 foo("this is a test");
-$output = xhprof_disable();
+$output = qafooprofiler_disable();
 
 echo "Part 4: Memory\n";
 print_canonical($output);
 echo "\n";
 
 // 5: Sanity test combo of profiling options
-xhprof_enable(XHPROF_FLAGS_MEMORY + XHPROF_FLAGS_CPU);
+qafooprofiler_enable(QAFOOPROFILER_FLAGS_MEMORY + QAFOOPROFILER_FLAGS_CPU);
 foo("this is a test");
-$output = xhprof_disable();
+$output = qafooprofiler_disable();
 
 echo "Part 5: Memory & CPU\n";
 print_canonical($output);
@@ -70,14 +70,14 @@ foo==>bar                               : ct=       2; wt=*;
 foo==>strlen                            : ct=       1; wt=*;
 main()                                  : ct=       1; wt=*;
 main()==>foo                            : ct=       1; wt=*;
-main()==>xhprof_disable                 : ct=       1; wt=*;
+main()==>qafooprofiler_disable          : ct=       1; wt=*;
 
 Part 2: CPU
 foo==>bar                               : cpu=*; ct=       2; wt=*;
 foo==>strlen                            : cpu=*; ct=       1; wt=*;
 main()                                  : cpu=*; ct=       1; wt=*;
 main()==>foo                            : cpu=*; ct=       1; wt=*;
-main()==>xhprof_disable                 : cpu=*; ct=       1; wt=*;
+main()==>qafooprofiler_disable          : cpu=*; ct=       1; wt=*;
 
 Part 3: No Builtins
 foo==>bar                               : ct=       2; wt=*;
@@ -89,13 +89,13 @@ foo==>bar                               : ct=       2; mu=*; pmu=*; wt=*;
 foo==>strlen                            : ct=       1; mu=*; pmu=*; wt=*;
 main()                                  : ct=       1; mu=*; pmu=*; wt=*;
 main()==>foo                            : ct=       1; mu=*; pmu=*; wt=*;
-main()==>xhprof_disable                 : ct=       1; mu=*; pmu=*; wt=*;
+main()==>qafooprofiler_disable          : ct=       1; mu=*; pmu=*; wt=*;
 
 Part 5: Memory & CPU
 foo==>bar                               : cpu=*; ct=       2; mu=*; pmu=*; wt=*;
 foo==>strlen                            : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
 main()                                  : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
 main()==>foo                            : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
-main()==>xhprof_disable                 : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
+main()==>qafooprofiler_disable          : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
 
 

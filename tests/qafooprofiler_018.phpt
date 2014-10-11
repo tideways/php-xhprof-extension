@@ -13,13 +13,13 @@ function bar($x) {
     return strlen($x);
 }
 
-xhprof_enable(XHPROF_FLAGS_NO_USERLAND);
+qafooprofiler_enable(QAFOOPROFILER_FLAGS_NO_USERLAND);
 foo("foo");
-$data = xhprof_disable();
+$data = qafooprofiler_disable();
 
 print_canonical($data);
 ?>
 --EXPECTF--
 main()                                  : ct=       1; wt=*;
+main()==>qafooprofiler_disable          : ct=       1; wt=*;
 main()==>strlen                         : ct=       1; wt=*;
-main()==>xhprof_disable                 : ct=       1; wt=*;

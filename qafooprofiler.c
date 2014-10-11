@@ -1,5 +1,6 @@
 /*
  *  Copyright (c) 2009 Facebook
+ *  Copyright (c) 2014 Qafoo GmbH
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -28,7 +29,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-#ifdef PHP_XHPROF_HAVE_CURL
+#ifdef PHP_QAFOOPROFILER_HAVE_CURL
 #include <curl/curl.h>
 #include <curl/easy.h>
 #endif
@@ -37,7 +38,7 @@
 #include "php_ini.h"
 #include "ext/standard/info.h"
 #include "ext/standard/file.h"
-#include "php_xhprof.h"
+#include "php_qafooprofiler.h"
 #include "zend_extensions.h"
 
 #include "ext/pcre/php_pcre.h"
@@ -86,8 +87,8 @@
  * **********************
  */
 
-/* XHProf version                           */
-#define XHPROF_VERSION       "0.9.11"
+/* Qafoo Profiler version                           */
+#define QAFOOPROFILER_VERSION       "0.9.11"
 
 /* Fictitious function name to represent top of the call tree. The paranthesis
  * in the name is to ensure we don't conflict with user function names.  */
@@ -96,11 +97,11 @@
 /* Size of a temp scratch buffer            */
 #define SCRATCH_BUF_LEN            512
 
-/* Various XHPROF modes. If you are adding a new mode, register the appropriate
+/* Various QAFOOPROFILER modes. If you are adding a new mode, register the appropriate
  * callbacks in hp_begin() */
-#define XHPROF_MODE_HIERARCHICAL	1
-#define XHPROF_MODE_SAMPLED			620002      /* Rockfort's zip code */
-#define XHPROF_MODE_LAYER			2
+#define QAFOOPROFILER_MODE_HIERARCHICAL	1
+#define QAFOOPROFILER_MODE_SAMPLED			620002      /* Rockfort's zip code */
+#define QAFOOPROFILER_MODE_LAYER			2
 
 /* Hierarchical profiling flags.
  *
@@ -108,19 +109,19 @@
  * The following optional flags can be used to control other aspects of
  * profiling.
  */
-#define XHPROF_FLAGS_NO_BUILTINS   0x0001 /* do not profile builtins */
-#define XHPROF_FLAGS_CPU           0x0002 /* gather CPU times for funcs */
-#define XHPROF_FLAGS_MEMORY        0x0004 /* gather memory usage for funcs */
-#define XHPROF_FLAGS_NO_USERLAND   0x0008 /* do not profile userland functions */
+#define QAFOOPROFILER_FLAGS_NO_BUILTINS   0x0001 /* do not profile builtins */
+#define QAFOOPROFILER_FLAGS_CPU           0x0002 /* gather CPU times for funcs */
+#define QAFOOPROFILER_FLAGS_MEMORY        0x0004 /* gather memory usage for funcs */
+#define QAFOOPROFILER_FLAGS_NO_USERLAND   0x0008 /* do not profile userland functions */
 
-/* Constants for XHPROF_MODE_SAMPLED        */
-#define XHPROF_SAMPLING_INTERVAL       100000      /* In microsecs        */
+/* Constants for QAFOOPROFILER_MODE_SAMPLED        */
+#define QAFOOPROFILER_SAMPLING_INTERVAL       100000      /* In microsecs        */
 
 /* Constant for ignoring functions, transparent to hierarchical profile */
-#define XHPROF_MAX_FILTERED_FUNCTIONS  256
-#define XHPROF_FILTERED_FUNCTION_SIZE                           \
-               ((XHPROF_MAX_FILTERED_FUNCTIONS + 7)/8)
-#define XHPROF_MAX_ARGUMENT_LEN 256
+#define QAFOOPROFILER_MAX_FILTERED_FUNCTIONS  256
+#define QAFOOPROFILER_FILTERED_FUNCTION_SIZE                           \
+               ((QAFOOPROFILER_MAX_FILTERED_FUNCTIONS + 7)/8)
+#define QAFOOPROFILER_MAX_ARGUMENT_LEN 256
 
 #if !defined(uint64)
 typedef unsigned long long uint64;
@@ -139,7 +140,7 @@ typedef unsigned char uint8;
  * *****************************
  */
 
-/* XHProf maintains a stack of entries being profiled. The memory for the entry
+/* Qafoo Profiler maintains a stack of entries being profiled. The memory for the entry
  * is passed by the layer that invokes BEGIN_PROFILING(), e.g. the hp_execute()
  * function. Often, this is just C-stack memory.
  *
@@ -157,14 +158,14 @@ typedef struct hp_entry_t {
 	uint8                   hash_code;     /* hash_code for the function name  */
 } hp_entry_t;
 
-/* Various types for XHPROF callbacks       */
+/* Various types for QAFOOPROFILER callbacks       */
 typedef void (*hp_init_cb)           (TSRMLS_D);
 typedef void (*hp_exit_cb)           (TSRMLS_D);
 typedef void (*hp_begin_function_cb) (hp_entry_t **entries,
                                       hp_entry_t *current   TSRMLS_DC);
 typedef void (*hp_end_function_cb)   (hp_entry_t **entries  TSRMLS_DC);
 
-/* Struct to hold the various callbacks for a single xhprof mode */
+/* Struct to hold the various callbacks for a single profiling mode */
 typedef struct hp_mode_cb {
 	hp_init_cb             init_cb;
 	hp_exit_cb             exit_cb;
@@ -188,7 +189,7 @@ typedef struct hp_error {
 	hp_string *class;
 } hp_error;
 
-/* Xhprof's global state.
+/* Qafoo Profiler's global state.
  *
  * This structure is instantiated once.  Initialize defaults for attributes in
  * hp_init_profiler_state() Cleanup/free attributes in
@@ -197,10 +198,10 @@ typedef struct hp_global_t {
 
 	/*       ----------   Global attributes:  -----------       */
 
-	/* Indicates if xhprof is currently enabled */
+	/* Indicates if Qafoo Profiler is currently enabled */
 	int              enabled;
 
-	/* Indicates if xhprof was ever enabled during this request */
+	/* Indicates if Qafoo Profiler was ever enabled during this request */
 	int              ever_enabled;
 
 	/* Holds all information about layer profiling */
@@ -209,7 +210,7 @@ typedef struct hp_global_t {
 	/* A key=>value list of function calls to their respective layers. */
 	HashTable       *layers_definition;
 
-	/* Holds all the xhprof statistics */
+	/* Holds all the Qafoo Profiler statistics */
 	zval            *stats_count;
 
 	/* Holds all the information about last error. */
@@ -218,7 +219,7 @@ typedef struct hp_global_t {
 	/* Holds the last exception */
 	hp_error            *last_exception;
 
-	/* Indicates the current xhprof mode or level */
+	/* Indicates the current Qafoo Profiler mode or level */
 	int              profiler_level;
 
 	/* Top of the profile stack */
@@ -227,7 +228,7 @@ typedef struct hp_global_t {
 	/* freelist of hp_entry_t chunks for reuse... */
 	hp_entry_t      *entry_free_list;
 
-	/* Callbacks for various xhprof modes */
+	/* Callbacks for various Qafoo Profiler modes */
 	hp_mode_cb       mode_cb;
 
 	/*       ----------   Mode specific attributes:  -----------       */
@@ -235,7 +236,7 @@ typedef struct hp_global_t {
 	/* Global to track the time of the last sample in time and ticks */
 	struct timeval   last_sample_time;
 	uint64           last_sample_tsc;
-	/* XHPROF_SAMPLING_INTERVAL in ticks */
+	/* QAFOOPROFILER_SAMPLING_INTERVAL in ticks */
 	uint64           sampling_interval_tsc;
 
 	/* This array is used to store cpu frequencies for all available logical
@@ -256,8 +257,8 @@ typedef struct hp_global_t {
 	/* The cpu id current process is bound to. (default 0) */
 	uint32 cur_cpu_id;
 
-	/* XHProf flags */
-	uint32 xhprof_flags;
+	/* Qafoo Profiler flags */
+	uint32 qafooprofiler_flags;
 
 	/* counter table indexed by hash value of function names. */
 	uint8  func_hash_counters[256];
@@ -265,15 +266,15 @@ typedef struct hp_global_t {
 	/* Table of filtered function names and their filter */
 	int     filtered_type; // 1 = blacklist, 2 = whitelist, 0 = nothing
 	char  **filtered_function_names;
-	uint8   filtered_function_filter[XHPROF_FILTERED_FUNCTION_SIZE];
+	uint8   filtered_function_filter[QAFOOPROFILER_FILTERED_FUNCTION_SIZE];
 
 	/* Table of function which get extended with their arguments */
 	char  **argument_function_names;
-	uint8   argument_function_filter[XHPROF_FILTERED_FUNCTION_SIZE];
+	uint8   argument_function_filter[QAFOOPROFILER_FILTERED_FUNCTION_SIZE];
 
 } hp_global_t;
 
-#ifdef PHP_XHPROF_HAVE_CURL
+#ifdef PHP_QAFOOPROFILER_HAVE_CURL
 typedef struct hp_curl_t {
 	struct {
 		char str[CURL_ERROR_SIZE + 1];
@@ -297,7 +298,7 @@ typedef struct hp_curl_t {
  * GLOBAL STATIC VARIABLES
  * ***********************
  */
-/* XHProf global state */
+/* Qafoo Profiler global state */
 static hp_global_t       hp_globals;
 
 #if PHP_VERSION_ID < 50500
@@ -324,9 +325,9 @@ static zend_op_array * (*_zend_compile_file) (zend_file_handle *file_handle,
 static zend_op_array * (*_zend_compile_string) (zval *source_string, char *filename TSRMLS_DC);
 
 /* error callback replacement functions */
-void (*xhprof_original_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
-void xhprof_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
-static void xhprof_throw_exception_hook(zval *exception TSRMLS_DC);
+void (*qafooprofiler_original_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
+void qafooprofiler_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
+static void qafooprofiler_throw_exception_hook(zval *exception TSRMLS_DC);
 
 /* Bloom filter for function names to be ignored */
 #define INDEX_2_BYTE(index)  (index >> 3)
@@ -340,7 +341,7 @@ static void xhprof_throw_exception_hook(zval *exception TSRMLS_DC);
  */
 static void hp_register_constants(INIT_FUNC_ARGS);
 
-static void hp_begin(long level, long xhprof_flags TSRMLS_DC);
+static void hp_begin(long level, long qafooprofiler_flags TSRMLS_DC);
 static void hp_stop(TSRMLS_D);
 static void hp_end(TSRMLS_D);
 
@@ -375,30 +376,30 @@ static inline long hp_zval_to_long(zval *z);
 static inline hp_string *hp_zval_to_string(zval *z);
 static inline void hp_string_clean(hp_string *str);
 
-static hp_string *xhprof_backtrace(TSRMLS_D);
+static hp_string *qafooprofiler_backtrace(TSRMLS_D);
 static void hp_error_clean(hp_error *error);
 static void hp_error_to_zval(hp_error *error, zval *z);
 static hp_error *hp_error_create();
 
 /* {{{ arginfo */
-ZEND_BEGIN_ARG_INFO_EX(arginfo_xhprof_enable, 0, 0, 0)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_qafooprofiler_enable, 0, 0, 0)
   ZEND_ARG_INFO(0, flags)
   ZEND_ARG_INFO(0, options)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO(arginfo_xhprof_disable, 0)
+ZEND_BEGIN_ARG_INFO(arginfo_qafooprofiler_disable, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO(arginfo_xhprof_last_fatal_error, 0)
+ZEND_BEGIN_ARG_INFO(arginfo_qafooprofiler_last_fatal_error, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO(arginfo_xhprof_last_exception_data, 0)
+ZEND_BEGIN_ARG_INFO(arginfo_qafooprofiler_last_exception_data, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO(arginfo_xhprof_sample_enable, 0)
+ZEND_BEGIN_ARG_INFO(arginfo_qafooprofiler_sample_enable, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO(arginfo_xhprof_layers_enable, 0)
+ZEND_BEGIN_ARG_INFO(arginfo_qafooprofiler_layers_enable, 0)
 	ZEND_ARG_INFO(0, layers)
 ZEND_END_ARG_INFO()
 
@@ -417,49 +418,50 @@ int bind_to_cpu(uint32 cpu_id);
  * PHP EXTENSION GLOBALS
  * *********************
  */
-/* List of functions implemented/exposed by xhprof */
-zend_function_entry xhprof_functions[] = {
-	PHP_FE(xhprof_enable, arginfo_xhprof_enable)
-	PHP_FE(xhprof_disable, arginfo_xhprof_disable)
-	PHP_FE(xhprof_last_fatal_error, arginfo_xhprof_last_fatal_error)
-	PHP_FE(xhprof_last_exception_data, arginfo_xhprof_last_exception_data)
-	PHP_FE(xhprof_sample_enable, arginfo_xhprof_sample_enable)
-	PHP_FE(xhprof_layers_enable, arginfo_xhprof_layers_enable)
+/* List of functions implemented/exposed by Qafoo Profiler */
+zend_function_entry qafooprofiler_functions[] = {
+	PHP_FE(qafooprofiler_enable, arginfo_qafooprofiler_enable)
+	PHP_FE(qafooprofiler_disable, arginfo_qafooprofiler_disable)
+	PHP_FE(qafooprofiler_last_fatal_error, arginfo_qafooprofiler_last_fatal_error)
+	PHP_FE(qafooprofiler_last_exception_data, arginfo_qafooprofiler_last_exception_data)
+	PHP_FE(qafooprofiler_sample_enable, arginfo_qafooprofiler_sample_enable)
+	PHP_FE(qafooprofiler_layers_enable, arginfo_qafooprofiler_layers_enable)
 	{NULL, NULL, NULL}
 };
 
-/* Callback functions for the xhprof extension */
-zend_module_entry xhprof_module_entry = {
+/* Callback functions for the Qafoo Profiler extension */
+zend_module_entry qafooprofiler_module_entry = {
 #if ZEND_MODULE_API_NO >= 20010901
 	STANDARD_MODULE_HEADER,
 #endif
-	"xhprof",                        /* Name of the extension */
-	xhprof_functions,                /* List of functions exposed */
-	PHP_MINIT(xhprof),               /* Module init callback */
-	PHP_MSHUTDOWN(xhprof),           /* Module shutdown callback */
-	PHP_RINIT(xhprof),               /* Request init callback */
-	PHP_RSHUTDOWN(xhprof),           /* Request shutdown callback */
-	PHP_MINFO(xhprof),               /* Module info callback */
+	"qafooprofiler",                        /* Name of the extension */
+	qafooprofiler_functions,                /* List of functions exposed */
+	PHP_MINIT(qafooprofiler),               /* Module init callback */
+	PHP_MSHUTDOWN(qafooprofiler),           /* Module shutdown callback */
+	PHP_RINIT(qafooprofiler),               /* Request init callback */
+	PHP_RSHUTDOWN(qafooprofiler),           /* Request shutdown callback */
+	PHP_MINFO(qafooprofiler),               /* Module info callback */
 #if ZEND_MODULE_API_NO >= 20010901
-	XHPROF_VERSION,
+	QAFOOPROFILER_VERSION,
 #endif
 	STANDARD_MODULE_PROPERTIES
 };
 
 PHP_INI_BEGIN()
 
-/* output directory:
- * Currently this is not used by the extension itself.
- * But some implementations of iXHProfRuns interface might
- * choose to save/restore XHProf profiler runs in the
- * directory specified by this ini setting.
+/**
+ * INI-Settings are not yet used by the extension, but by the PHP library.
  */
-PHP_INI_ENTRY("xhprof.output_dir", "", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("qafooprofiler.socket", "/tmp/qprofd.sock", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("qafooprofiler.sample_rate", "10", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("qafooprofiler.enable_layers", "0", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("qafooprofiler.enable_arguments", "0", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("qafooprofiler.enabled", "1", PHP_INI_ALL, NULL)
 
 PHP_INI_END()
 
 /* Init module */
-ZEND_GET_MODULE(xhprof)
+ZEND_GET_MODULE(qafooprofiler)
 
 
 /**
@@ -469,15 +471,15 @@ ZEND_GET_MODULE(xhprof)
  */
 
 /**
- * Start XHProf profiling in hierarchical mode.
+ * Start Qafoo Profiler profiling in hierarchical mode.
  *
  * @param  long $flags  flags for hierarchical mode
  * @return void
  * @author kannan
  */
-PHP_FUNCTION(xhprof_enable)
+PHP_FUNCTION(qafooprofiler_enable)
 {
-	long  xhprof_flags = 0;                                    /* XHProf flags */
+	long  qafooprofiler_flags = 0;       /* Qafoo PRofiler flags */
 	zval *optional_array = NULL;         /* optional array arg: for future use */
 
 	if (hp_globals.enabled) {
@@ -485,23 +487,23 @@ PHP_FUNCTION(xhprof_enable)
 	}
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
-				"|lz", &xhprof_flags, &optional_array) == FAILURE) {
+				"|lz", &qafooprofiler_flags, &optional_array) == FAILURE) {
 		return;
 	}
 
 	hp_parse_options_from_arg(optional_array);
 
-	hp_begin(XHPROF_MODE_HIERARCHICAL, xhprof_flags TSRMLS_CC);
+	hp_begin(QAFOOPROFILER_MODE_HIERARCHICAL, qafooprofiler_flags TSRMLS_CC);
 }
 
-PHP_FUNCTION(xhprof_last_fatal_error)
+PHP_FUNCTION(qafooprofiler_last_fatal_error)
 {
 	if (hp_globals.enabled && hp_globals.last_error) {
 		hp_error_to_zval(hp_globals.last_error, return_value);
 	}
 }
 
-PHP_FUNCTION(xhprof_last_exception_data)
+PHP_FUNCTION(qafooprofiler_last_exception_data)
 {
 	if (hp_globals.enabled && hp_globals.last_exception) {
 		hp_error_to_zval(hp_globals.last_exception, return_value);
@@ -509,24 +511,24 @@ PHP_FUNCTION(xhprof_last_exception_data)
 }
 
 /**
- * Start XHProf profiling in sampling mode.
+ * Start Qafoo Profiler in sampling mode.
  *
  * @return void
  * @author cjiang
  */
-PHP_FUNCTION(xhprof_sample_enable)
+PHP_FUNCTION(qafooprofiler_sample_enable)
 {
-	long  xhprof_flags = 0;                                    /* XHProf flags */
+	long  qafooprofiler_flags = 0;                                    /* Qafoo Profiler flags */
 	hp_parse_options_from_arg(NULL);
-	hp_begin(XHPROF_MODE_SAMPLED, xhprof_flags TSRMLS_CC);
+	hp_begin(QAFOOPROFILER_MODE_SAMPLED, qafooprofiler_flags TSRMLS_CC);
 }
 
 /**
- * Start XHProf profiling in layers mode.
+ * Start Qafoo Profiler profiling in layers mode.
  */
-PHP_FUNCTION(xhprof_layers_enable)
+PHP_FUNCTION(qafooprofiler_layers_enable)
 {
-	long xhprof_flags = XHPROF_FLAGS_NO_USERLAND;
+	long qafooprofiler_flags = QAFOOPROFILER_FLAGS_NO_USERLAND;
 
 	zval *layers = NULL;         /* optional array arg: for future use */
 
@@ -539,7 +541,7 @@ PHP_FUNCTION(xhprof_layers_enable)
 	}
 
 	if (layers == NULL || Z_TYPE_P(layers) != IS_ARRAY) {
-		zend_error(E_NOTICE, "xhprof_layers_enable() requires first argument to be array");
+		zend_error(E_NOTICE, "qafooprofiler_layers_enable() requires first argument to be array");
 		return;
 	}
 
@@ -550,17 +552,17 @@ PHP_FUNCTION(xhprof_layers_enable)
 	hp_globals.filtered_type = 2;
 	hp_globals.filtered_function_names = hp_strings_in_zval(layers);
 
-	hp_begin(XHPROF_MODE_LAYER, xhprof_flags TSRMLS_CC);
+	hp_begin(QAFOOPROFILER_MODE_LAYER, qafooprofiler_flags TSRMLS_CC);
 }
 
 /**
- * Stops XHProf from profiling  and returns the profile info.
+ * Stops Qafoo Profiler from profiling  and returns the profile info.
  *
  * @param  void
- * @return array  hash-array of XHProf's profile info
+ * @return array  hash-array of Qafoo Profiler's profile info
  * @author cjiang
  */
-PHP_FUNCTION(xhprof_disable)
+PHP_FUNCTION(qafooprofiler_disable)
 {
 	zval *tmp, *value;
 	void *data;
@@ -571,7 +573,7 @@ PHP_FUNCTION(xhprof_disable)
 
 	hp_stop(TSRMLS_C);
 
-	if (hp_globals.profiler_level == XHPROF_MODE_LAYER) {
+	if (hp_globals.profiler_level == QAFOOPROFILER_MODE_LAYER) {
 		if (zend_hash_find(Z_ARRVAL_P(hp_globals.stats_count), ROOT_SYMBOL, strlen(ROOT_SYMBOL) + 1, &data) == SUCCESS) {
 			tmp = *(zval **) data;
 
@@ -581,7 +583,7 @@ PHP_FUNCTION(xhprof_disable)
 		RETURN_ZVAL(hp_globals.layers_count, 1, 0);
 	}
 
-	if (hp_globals.profiler_level == XHPROF_MODE_HIERARCHICAL) {
+	if (hp_globals.profiler_level == QAFOOPROFILER_MODE_HIERARCHICAL) {
 		if (hp_globals.layers_count) {
 			if (zend_hash_find(Z_ARRVAL_P(hp_globals.stats_count), ROOT_SYMBOL, strlen(ROOT_SYMBOL) + 1, &data) == SUCCESS) {
 				tmp = *(zval **) data;
@@ -595,7 +597,7 @@ PHP_FUNCTION(xhprof_disable)
 		RETURN_ZVAL(hp_globals.stats_count, 1, 0);
 	}
 
-	if (hp_globals.profiler_level == XHPROF_MODE_SAMPLED) {
+	if (hp_globals.profiler_level == QAFOOPROFILER_MODE_SAMPLED) {
 		RETURN_ZVAL(hp_globals.stats_count, 1, 0);
 	}
 }
@@ -605,7 +607,7 @@ PHP_FUNCTION(xhprof_disable)
  *
  * @author cjiang
  */
-PHP_MINIT_FUNCTION(xhprof)
+PHP_MINIT_FUNCTION(qafooprofiler)
 {
 	int i;
 
@@ -655,7 +657,7 @@ PHP_MINIT_FUNCTION(xhprof)
 /**
  * Module shutdown callback.
  */
-PHP_MSHUTDOWN_FUNCTION(xhprof)
+PHP_MSHUTDOWN_FUNCTION(qafooprofiler)
 {
 	/* Make sure cpu_frequencies is free'ed. */
 	clear_frequencies();
@@ -671,7 +673,7 @@ PHP_MSHUTDOWN_FUNCTION(xhprof)
 /**
  * Request init callback. Nothing to do yet!
  */
-PHP_RINIT_FUNCTION(xhprof)
+PHP_RINIT_FUNCTION(qafooprofiler)
 {
 	return SUCCESS;
 }
@@ -679,16 +681,16 @@ PHP_RINIT_FUNCTION(xhprof)
 /**
  * Request shutdown callback. Stop profiling and return.
  */
-PHP_RSHUTDOWN_FUNCTION(xhprof)
+PHP_RSHUTDOWN_FUNCTION(qafooprofiler)
 {
 	hp_end(TSRMLS_C);
 	return SUCCESS;
 }
 
 /**
- * Module info callback. Returns the xhprof version.
+ * Module info callback. Returns the Qafoo Profiler version.
  */
-PHP_MINFO_FUNCTION(xhprof)
+PHP_MINFO_FUNCTION(qafooprofiler)
 {
 	char buf[SCRATCH_BUF_LEN];
 	char tmp[SCRATCH_BUF_LEN];
@@ -696,7 +698,7 @@ PHP_MINFO_FUNCTION(xhprof)
 	int len;
 
 	php_info_print_table_start();
-	php_info_print_table_header(2, "xhprof", XHPROF_VERSION);
+	php_info_print_table_header(2, "qafooprofiler", QAFOOPROFILER_VERSION);
 	php_info_print_table_row(2, "TSC Invariant", is_invariant_tsc() ? "Yes" : "No");
 	len = snprintf(buf, SCRATCH_BUF_LEN, "%d", hp_globals.cpu_num);
 	buf[len] = 0;
@@ -727,20 +729,20 @@ PHP_MINFO_FUNCTION(xhprof)
 
 static void hp_register_constants(INIT_FUNC_ARGS)
 {
-	REGISTER_LONG_CONSTANT("XHPROF_FLAGS_NO_BUILTINS",
-			XHPROF_FLAGS_NO_BUILTINS,
+	REGISTER_LONG_CONSTANT("QAFOOPROFILER_FLAGS_NO_BUILTINS",
+			QAFOOPROFILER_FLAGS_NO_BUILTINS,
 			CONST_CS | CONST_PERSISTENT);
 
-	REGISTER_LONG_CONSTANT("XHPROF_FLAGS_CPU",
-			XHPROF_FLAGS_CPU,
+	REGISTER_LONG_CONSTANT("QAFOOPROFILER_FLAGS_CPU",
+			QAFOOPROFILER_FLAGS_CPU,
 			CONST_CS | CONST_PERSISTENT);
 
-	REGISTER_LONG_CONSTANT("XHPROF_FLAGS_MEMORY",
-			XHPROF_FLAGS_MEMORY,
+	REGISTER_LONG_CONSTANT("QAFOOPROFILER_FLAGS_MEMORY",
+			QAFOOPROFILER_FLAGS_MEMORY,
 			CONST_CS | CONST_PERSISTENT);
 
-	REGISTER_LONG_CONSTANT("XHPROF_FLAGS_NO_USERLAND",
-			XHPROF_FLAGS_NO_USERLAND,
+	REGISTER_LONG_CONSTANT("QAFOOPROFILER_FLAGS_NO_USERLAND",
+			QAFOOPROFILER_FLAGS_NO_USERLAND,
 			CONST_CS | CONST_PERSISTENT);
 }
 
@@ -834,7 +836,7 @@ static void hp_filtered_functions_filter_clear()
 {
 	hp_globals.filtered_type = 0;
 	memset(hp_globals.filtered_function_filter, 0,
-			XHPROF_FILTERED_FUNCTION_SIZE);
+			QAFOOPROFILER_FILTERED_FUNCTION_SIZE);
 }
 
 /**
@@ -1232,7 +1234,7 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 
 	arrayParts = Z_ARRVAL_P(parts);
 
-	result_len = XHPROF_MAX_ARGUMENT_LEN;
+	result_len = QAFOOPROFILER_MAX_ARGUMENT_LEN;
 	result = emalloc(result_len);
 
 	for(zend_hash_internal_pointer_reset_ex(arrayParts, &pointer);
@@ -1291,7 +1293,7 @@ static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC)
 	char *ret;
 	int len;
 
-	len = XHPROF_MAX_ARGUMENT_LEN;
+	len = QAFOOPROFILER_MAX_ARGUMENT_LEN;
 	ret = emalloc(len);
 	snprintf(ret, len, "");
 
@@ -1355,7 +1357,7 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 
 	arg_count = (int)(zend_uintptr_t) *p;       /* this is the amount of arguments passed to function */
 
-	len = XHPROF_MAX_ARGUMENT_LEN;
+	len = QAFOOPROFILER_MAX_ARGUMENT_LEN;
 	ret = emalloc(len);
 	snprintf(ret, len, "%s#", oldret);
 	efree(oldret);
@@ -1391,7 +1393,7 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 
 			efree(summary);
 		}
-#ifdef PHP_XHPROF_HAVE_CURL
+#ifdef PHP_QAFOOPROFILER_HAVE_CURL
 	} else if (strcmp(ret, "curl_exec#") == 0) {
 		hp_curl_t *ch;
 		int  le_curl;
@@ -1783,7 +1785,7 @@ void hp_sample_check(hp_entry_t **entries  TSRMLS_DC)
 		hp_globals.last_sample_tsc += hp_globals.sampling_interval_tsc;
 
 		/* bump last_sample_time - HAS TO BE UPDATED BEFORE calling hp_sample_stack */
-		incr_us_interval(&hp_globals.last_sample_time, XHPROF_SAMPLING_INTERVAL);
+		incr_us_interval(&hp_globals.last_sample_time, QAFOOPROFILER_SAMPLING_INTERVAL);
 
 		/* sample the stack */
 		hp_sample_stack(entries  TSRMLS_CC);
@@ -2046,7 +2048,7 @@ static void clear_frequencies()
 
 /**
  * ***************************
- * XHPROF DUMMY CALLBACKS
+ * QAFOOPROFILER DUMMY CALLBACKS
  * ***************************
  */
 void hp_mode_dummy_init_cb(TSRMLS_D) { }
@@ -2063,11 +2065,11 @@ void hp_mode_dummy_endfn_cb(hp_entry_t **entries   TSRMLS_DC) { }
 
 /**
  * ****************************
- * XHPROF COMMON CALLBACKS
+ * QAFOOPROFILER COMMON CALLBACKS
  * ****************************
  */
 /**
- * XHPROF universal begin function.
+ * QAFOOPROFILER universal begin function.
  * This function is called for all modes before the
  * mode's specific begin_function callback is called.
  *
@@ -2100,7 +2102,7 @@ void hp_mode_common_beginfn(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC)
 }
 
 /**
- * XHPROF universal end function.  This function is called for all modes after
+ * QAFOOPROFILER universal end function.  This function is called for all modes after
  * the mode's specific end_function callback is called.
  *
  * @param  hp_entry_t **entries  linked list (stack) of hprof entries
@@ -2115,11 +2117,11 @@ void hp_mode_common_endfn(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC)
 
 /**
  * *********************************
- * XHPROF INIT MODULE CALLBACKS
+ * QAFOOPROFILER INIT MODULE CALLBACKS
  * *********************************
  */
 /**
- * XHPROF_MODE_SAMPLED's init callback
+ * QAFOOPROFILER_MODE_SAMPLED's init callback
  *
  * @author veeve
  */
@@ -2136,7 +2138,7 @@ void hp_mode_sampled_init_cb(TSRMLS_D)
 	/* Find the microseconds that need to be truncated */
 	gettimeofday(&hp_globals.last_sample_time, 0);
 	now = hp_globals.last_sample_time;
-	hp_trunc_time(&hp_globals.last_sample_time, XHPROF_SAMPLING_INTERVAL);
+	hp_trunc_time(&hp_globals.last_sample_time, QAFOOPROFILER_SAMPLING_INTERVAL);
 
 	/* Subtract truncated time from last_sample_tsc */
 	truncated_us  = get_us_interval(&hp_globals.last_sample_time, &now);
@@ -2148,18 +2150,18 @@ void hp_mode_sampled_init_cb(TSRMLS_D)
 
 	/* Convert sampling interval to ticks */
 	hp_globals.sampling_interval_tsc =
-		get_tsc_from_us(XHPROF_SAMPLING_INTERVAL, cpu_freq);
+		get_tsc_from_us(QAFOOPROFILER_SAMPLING_INTERVAL, cpu_freq);
 }
 
 
 /**
  * ************************************
- * XHPROF BEGIN FUNCTION CALLBACKS
+ * QAFOOPROFILER BEGIN FUNCTION CALLBACKS
  * ************************************
  */
 
 /**
- * XHPROF_MODE_HIERARCHICAL's begin function callback
+ * QAFOOPROFILER_MODE_HIERARCHICAL's begin function callback
  *
  * @author kannan
  */
@@ -2169,12 +2171,12 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC
 	current->tsc_start = cycle_timer();
 
 	/* Get CPU usage */
-	if (hp_globals.xhprof_flags & XHPROF_FLAGS_CPU) {
+	if (hp_globals.qafooprofiler_flags & QAFOOPROFILER_FLAGS_CPU) {
 		getrusage(RUSAGE_SELF, &(current->ru_start_hprof));
 	}
 
 	/* Get memory usage */
-	if (hp_globals.xhprof_flags & XHPROF_FLAGS_MEMORY) {
+	if (hp_globals.qafooprofiler_flags & QAFOOPROFILER_FLAGS_MEMORY) {
 		current->mu_start_hprof  = zend_memory_usage(0 TSRMLS_CC);
 		current->pmu_start_hprof = zend_memory_peak_usage(0 TSRMLS_CC);
 	}
@@ -2182,7 +2184,7 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC
 
 
 /**
- * XHPROF_MODE_SAMPLED's begin function callback
+ * QAFOOPROFILER_MODE_SAMPLED's begin function callback
  *
  * @author veeve
  */
@@ -2195,12 +2197,12 @@ void hp_mode_sampled_beginfn_cb(hp_entry_t **entries, hp_entry_t *current TSRMLS
 
 /**
  * **********************************
- * XHPROF END FUNCTION CALLBACKS
+ * QAFOOPROFILER END FUNCTION CALLBACKS
  * **********************************
  */
 
 /**
- * XHPROF shared end function callback
+ * QAFOOPROFILER shared end function callback
  *
  * @author kannan
  */
@@ -2245,7 +2247,7 @@ zval * hp_mode_shared_endfn_cb(hp_entry_t *top, char *symbol TSRMLS_DC)
 }
 
 /**
- * XHPROF_MODE_HIERARCHICAL's end function callback
+ * QAFOOPROFILER_MODE_HIERARCHICAL's end function callback
  *
  * @author kannan
  */
@@ -2265,7 +2267,7 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 		return;
 	}
 
-	if (hp_globals.xhprof_flags & XHPROF_FLAGS_CPU) {
+	if (hp_globals.qafooprofiler_flags & QAFOOPROFILER_FLAGS_CPU) {
 		/* Get CPU usage */
 		getrusage(RUSAGE_SELF, &ru_end);
 
@@ -2277,7 +2279,7 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 				TSRMLS_CC);
 	}
 
-	if (hp_globals.xhprof_flags & XHPROF_FLAGS_MEMORY) {
+	if (hp_globals.qafooprofiler_flags & QAFOOPROFILER_FLAGS_MEMORY) {
 		/* Get Memory usage */
 		mu_end  = zend_memory_usage(0 TSRMLS_CC);
 		pmu_end = zend_memory_peak_usage(0 TSRMLS_CC);
@@ -2322,7 +2324,7 @@ void hp_mode_layer_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 }
 
 /**
- * XHPROF_MODE_SAMPLED's end function callback
+ * QAFOOPROFILER_MODE_SAMPLED's end function callback
  *
  * @author veeve
  */
@@ -2340,7 +2342,7 @@ void hp_mode_sampled_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
  */
 
 /**
- * XHProf enable replaced the zend_execute function with this
+ * Qafoo Profiler enable replaced the zend_execute function with this
  * new execute function. We can do whatever profiling we need to
  * before and after calling the actual zend_execute().
  *
@@ -2486,22 +2488,22 @@ ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filena
 
 /**
  * **************************
- * MAIN XHPROF CALLBACKS
+ * MAIN QAFOOPROFILER CALLBACKS
  * **************************
  */
 
 /**
- * This function gets called once when xhprof gets enabled.
+ * This function gets called once when Qafoo Profiler gets enabled.
  * It replaces all the functions like zend_execute, zend_execute_internal,
  * etc that needs to be instrumented with their corresponding proxies.
  */
-static void hp_begin(long level, long xhprof_flags TSRMLS_DC)
+static void hp_begin(long level, long qafooprofiler_flags TSRMLS_DC)
 {
 	if (!hp_globals.enabled) {
 		int hp_profile_flag = 1;
 
 		hp_globals.enabled      = 1;
-		hp_globals.xhprof_flags = (uint32)xhprof_flags;
+		hp_globals.qafooprofiler_flags = (uint32)qafooprofiler_flags;
 
 		/* Replace zend_compile with our proxy */
 		_zend_compile_file = zend_compile_file;
@@ -2512,7 +2514,7 @@ static void hp_begin(long level, long xhprof_flags TSRMLS_DC)
 		zend_compile_string = hp_compile_string;
 
 		/* Replace zend_execute with our proxy */
-		if (!(hp_globals.xhprof_flags & XHPROF_FLAGS_NO_USERLAND)) {
+		if (!(hp_globals.qafooprofiler_flags & QAFOOPROFILER_FLAGS_NO_USERLAND)) {
 #if PHP_VERSION_ID < 50500
 			_zend_execute = zend_execute;
 			zend_execute  = hp_execute;
@@ -2522,14 +2524,14 @@ static void hp_begin(long level, long xhprof_flags TSRMLS_DC)
 #endif
 		}
 
-		xhprof_original_error_cb = zend_error_cb;
-		zend_error_cb = xhprof_error_cb;
+		qafooprofiler_original_error_cb = zend_error_cb;
+		zend_error_cb = qafooprofiler_error_cb;
 
-		zend_throw_exception_hook = xhprof_throw_exception_hook;
+		zend_throw_exception_hook = qafooprofiler_throw_exception_hook;
 
 		/* Replace zend_execute_internal with our proxy */
 		_zend_execute_internal = zend_execute_internal;
-		if (!(hp_globals.xhprof_flags & XHPROF_FLAGS_NO_BUILTINS)) {
+		if (!(hp_globals.qafooprofiler_flags & QAFOOPROFILER_FLAGS_NO_BUILTINS)) {
 			/* if NO_BUILTINS is not set (i.e. user wants to profile builtins),
 			 * then we intercept internal (builtin) function calls.
 			 */
@@ -2546,17 +2548,17 @@ static void hp_begin(long level, long xhprof_flags TSRMLS_DC)
 		/* Register the appropriate callback functions Override just a subset of
 		 * all the callbacks is OK. */
 		switch(level) {
-			case XHPROF_MODE_HIERARCHICAL:
+			case QAFOOPROFILER_MODE_HIERARCHICAL:
 				hp_globals.mode_cb.begin_fn_cb = hp_mode_hier_beginfn_cb;
 				hp_globals.mode_cb.end_fn_cb   = hp_mode_hier_endfn_cb;
 				break;
 
-			case XHPROF_MODE_LAYER:
+			case QAFOOPROFILER_MODE_LAYER:
 				hp_globals.mode_cb.begin_fn_cb = hp_mode_hier_beginfn_cb;
 				hp_globals.mode_cb.end_fn_cb   = hp_mode_layer_endfn_cb;
 				break;
 
-			case XHPROF_MODE_SAMPLED:
+			case QAFOOPROFILER_MODE_SAMPLED:
 				hp_globals.mode_cb.init_cb     = hp_mode_sampled_init_cb;
 				hp_globals.mode_cb.begin_fn_cb = hp_mode_sampled_beginfn_cb;
 				hp_globals.mode_cb.end_fn_cb   = hp_mode_sampled_endfn_cb;
@@ -2591,7 +2593,7 @@ static void hp_end(TSRMLS_D)
 }
 
 /**
- * Called from xhprof_disable(). Removes all the proxies setup by
+ * Called from qafooprofiler_disable(). Removes all the proxies setup by
  * hp_begin() and restores the original values.
  */
 static void hp_stop(TSRMLS_D)
@@ -2604,7 +2606,7 @@ static void hp_stop(TSRMLS_D)
 	}
 
 	/* Remove proxies, restore the originals */
-	if (!(hp_globals.xhprof_flags & XHPROF_FLAGS_NO_USERLAND)) {
+	if (!(hp_globals.qafooprofiler_flags & QAFOOPROFILER_FLAGS_NO_USERLAND)) {
 #if PHP_VERSION_ID < 50500
 		zend_execute          = _zend_execute;
 #else
@@ -2616,7 +2618,7 @@ static void hp_stop(TSRMLS_D)
 	zend_compile_file     = _zend_compile_file;
 	zend_compile_string   = _zend_compile_string;
 
-	zend_error_cb = xhprof_original_error_cb;
+	zend_error_cb = qafooprofiler_original_error_cb;
 	zend_throw_exception_hook = NULL;
 
 	/* Resore cpu affinity. */
@@ -2629,7 +2631,7 @@ static void hp_stop(TSRMLS_D)
 
 /**
  * *****************************
- * XHPROF ZVAL UTILITY FUNCTIONS
+ * QAFOOPROFILER ZVAL UTILITY FUNCTIONS
  * *****************************
  */
 
@@ -2729,7 +2731,7 @@ static inline void hp_array_del(char **name_array)
 {
 	if (name_array != NULL) {
 		int i = 0;
-		for(; name_array[i] != NULL && i < XHPROF_MAX_FILTERED_FUNCTIONS; i++) {
+		for(; name_array[i] != NULL && i < QAFOOPROFILER_MAX_FILTERED_FUNCTIONS; i++) {
 			efree(name_array[i]);
 		}
 		efree(name_array);
@@ -2745,7 +2747,7 @@ static inline void hp_array_del(char **name_array)
  */
 static void hp_argument_functions_filter_clear()
 {
-	memset(hp_globals.argument_function_filter, 0, XHPROF_FILTERED_FUNCTION_SIZE);
+	memset(hp_globals.argument_function_filter, 0, QAFOOPROFILER_FILTERED_FUNCTION_SIZE);
 }
 
 /**
@@ -2808,11 +2810,11 @@ static inline int  hp_argument_entry(uint8 hash_code, char *curr_func)
 }
 
 /* {{{ gettraceasstring() macros */
-#define XHPROF_TRACE_APPEND_CHR(chr)				\
+#define QAFOOPROFILER_TRACE_APPEND_CHR(chr)				\
 	*str = (char*)erealloc(*str, *len + 1 + 1);		\
 	(*str)[(*len)++] = chr
 
-#define XHPROF_TRACE_APPEND_STRL(val, vallen)							\
+#define QAFOOPROFILER_TRACE_APPEND_STRL(val, vallen)							\
 	{                                                                   \
 		int l = vallen;                                                 \
 		*str = (char*)erealloc(*str, *len + l + 1);                     \
@@ -2820,16 +2822,16 @@ static inline int  hp_argument_entry(uint8 hash_code, char *curr_func)
 		*len += l;                                                      \
 	}
 
-#define XHPROF_TRACE_APPEND_STR(val)                                            \
-    XHPROF_TRACE_APPEND_STRL(val, sizeof(val)-1)
+#define QAFOOPROFILER_TRACE_APPEND_STR(val)                                            \
+    QAFOOPROFILER_TRACE_APPEND_STRL(val, sizeof(val)-1)
 
-#define XHPROF_TRACE_APPEND_KEY(key)										\
+#define QAFOOPROFILER_TRACE_APPEND_KEY(key)										\
 	if (zend_hash_find(ht, key, sizeof(key), (void**)&tmp) == SUCCESS) {    \
 		if (Z_TYPE_PP(tmp) != IS_STRING) {									\
 			zend_error(E_WARNING, "Value for %s is no string", key);		\
-			XHPROF_TRACE_APPEND_STR("[unknown]");							\
+			QAFOOPROFILER_TRACE_APPEND_STR("[unknown]");							\
 		} else {															\
-			XHPROF_TRACE_APPEND_STRL(Z_STRVAL_PP(tmp), Z_STRLEN_PP(tmp));	\
+			QAFOOPROFILER_TRACE_APPEND_STRL(Z_STRVAL_PP(tmp), Z_STRLEN_PP(tmp));	\
 		}																	\
 	}
 
@@ -2840,7 +2842,7 @@ static inline int  hp_argument_entry(uint8 hash_code, char *curr_func)
 
 /* }}} */
 
-static int xhprof_build_trace_string(zval **frame TSRMLS_DC, int num_args, va_list args, zend_hash_key *hash_key) /* {{{ */
+static int qafooprofiler_build_trace_string(zval **frame TSRMLS_DC, int num_args, va_list args, zend_hash_key *hash_key) /* {{{ */
 {
 	char *s_tmp, **str;
 	int *len, *num;
@@ -2859,12 +2861,12 @@ static int xhprof_build_trace_string(zval **frame TSRMLS_DC, int num_args, va_li
 
 	s_tmp = emalloc(1 + MAX_LENGTH_OF_LONG + 1 + 1);
 	sprintf(s_tmp, "#%d ", (*num)++);
-	XHPROF_TRACE_APPEND_STRL(s_tmp, strlen(s_tmp));
+	QAFOOPROFILER_TRACE_APPEND_STRL(s_tmp, strlen(s_tmp));
 	efree(s_tmp);
 	if (zend_hash_find(ht, "file", sizeof("file"), (void**)&file) == SUCCESS) {
 		if (Z_TYPE_PP(file) != IS_STRING) {
 			zend_error(E_WARNING, "Function name is no string");
-			XHPROF_TRACE_APPEND_STR("[unknown function]");
+			QAFOOPROFILER_TRACE_APPEND_STR("[unknown function]");
 		} else{
 			if (zend_hash_find(ht, "line", sizeof("line"), (void**)&tmp) == SUCCESS) {
 				if (Z_TYPE_PP(tmp) == IS_LONG) {
@@ -2878,21 +2880,21 @@ static int xhprof_build_trace_string(zval **frame TSRMLS_DC, int num_args, va_li
 			}
 			s_tmp = emalloc(Z_STRLEN_PP(file) + MAX_LENGTH_OF_LONG + 4 + 1);
 			sprintf(s_tmp, "%s(%ld): ", Z_STRVAL_PP(file), line);
-			XHPROF_TRACE_APPEND_STRL(s_tmp, strlen(s_tmp));
+			QAFOOPROFILER_TRACE_APPEND_STRL(s_tmp, strlen(s_tmp));
 			efree(s_tmp);
 		}
 	} else {
-		XHPROF_TRACE_APPEND_STR("[internal function]: ");
+		QAFOOPROFILER_TRACE_APPEND_STR("[internal function]: ");
 	}
-	XHPROF_TRACE_APPEND_KEY("class");
-	XHPROF_TRACE_APPEND_KEY("type");
-	XHPROF_TRACE_APPEND_KEY("function");
-	XHPROF_TRACE_APPEND_STR("()\n");
+	QAFOOPROFILER_TRACE_APPEND_KEY("class");
+	QAFOOPROFILER_TRACE_APPEND_KEY("type");
+	QAFOOPROFILER_TRACE_APPEND_KEY("function");
+	QAFOOPROFILER_TRACE_APPEND_STR("()\n");
 	return ZEND_HASH_APPLY_KEEP;
 }
 /* }}} */
 
-static hp_string *xhprof_backtrace(TSRMLS_D)
+static hp_string *qafooprofiler_backtrace(TSRMLS_D)
 {
 	zval *trace;
 	char *res, **str, *s_tmp;
@@ -2906,11 +2908,11 @@ static hp_string *xhprof_backtrace(TSRMLS_D)
 	Z_SET_REFCOUNT_P(trace, 0);
 
 	zend_fetch_debug_backtrace(trace, 1, 0, 0 TSRMLS_CC);
-	zend_hash_apply_with_arguments(Z_ARRVAL_P(trace) TSRMLS_CC, (apply_func_args_t)xhprof_build_trace_string, 3, str, len, &num);
+	zend_hash_apply_with_arguments(Z_ARRVAL_P(trace) TSRMLS_CC, (apply_func_args_t)qafooprofiler_build_trace_string, 3, str, len, &num);
 
 	s_tmp = emalloc(1 + MAX_LENGTH_OF_LONG + 7 + 1);
 	sprintf(s_tmp, "#%d {main}", num);
-	XHPROF_TRACE_APPEND_STRL(s_tmp, strlen(s_tmp));
+	QAFOOPROFILER_TRACE_APPEND_STRL(s_tmp, strlen(s_tmp));
 	efree(s_tmp);
 
 	res[res_len] = '\0';
@@ -2918,7 +2920,7 @@ static hp_string *xhprof_backtrace(TSRMLS_D)
 	return hp_create_string(res, res_len);
 }
 
-void xhprof_store_error(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args TSRMLS_DC)
+void qafooprofiler_store_error(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args TSRMLS_DC)
 {
 	va_list new_args;
 	char *buffer;
@@ -2964,13 +2966,13 @@ void xhprof_store_error(int type, const char *error_filename, const uint error_l
 		}
 	} else {
 		hp_globals.last_error->message = hp_create_string(buffer, buffer_len);
-		hp_globals.last_error->trace = xhprof_backtrace(TSRMLS_C);
+		hp_globals.last_error->trace = qafooprofiler_backtrace(TSRMLS_C);
 	}
 
 	efree(buffer);
 }
 
-void xhprof_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
+void qafooprofiler_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
 {
 	error_handling_t  error_handling;
 
@@ -2987,14 +2989,14 @@ void xhprof_error_cb(int type, const char *error_filename, const uint error_line
 			case E_ERROR:
 			case E_CORE_ERROR:
 			case E_USER_ERROR:
-				xhprof_store_error(type, error_filename, error_lineno, format, args TSRMLS_CC);
+				qafooprofiler_store_error(type, error_filename, error_lineno, format, args TSRMLS_CC);
 		}
 	}
 
-	xhprof_original_error_cb(type, error_filename, error_lineno, format, args);
+	qafooprofiler_original_error_cb(type, error_filename, error_lineno, format, args);
 }
 
-static void xhprof_throw_exception_hook(zval *exception TSRMLS_DC)
+static void qafooprofiler_throw_exception_hook(zval *exception TSRMLS_DC)
 {
 	zend_class_entry *default_ce, *exception_ce;
 	zval *tmp;

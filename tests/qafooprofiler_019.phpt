@@ -1,5 +1,5 @@
 --TEST--
-XHPRof: xhprof_layers_enable()
+XHPRof: qafooprofiler_layers_enable()
 Author: beberlei
 --FILE--
 <?php
@@ -14,15 +14,15 @@ function bar($x) {
 }
 
 echo "With layers:\n";
-xhprof_layers_enable(array('file_get_contents' => 'io', 'strlen' => 'db', 'main()' => 'main()'));
+qafooprofiler_layers_enable(array('file_get_contents' => 'io', 'strlen' => 'db', 'main()' => 'main()'));
 foo("bar");
 bar("baz");
-$data = xhprof_disable();
+$data = qafooprofiler_disable();
 
 print_canonical($data);
 
 echo "\nWithout layers:\n";
-xhprof_layers_enable(NULL);
+qafooprofiler_layers_enable(NULL);
 ?>
 --EXPECTF--
 With layers:
@@ -32,4 +32,4 @@ main()                                  : ct=       1; wt=*;
 
 Without layers:
 
-Notice: xhprof_layers_enable() requires first argument to be array in %s/xhprof_019.php on line %d
+Notice: qafooprofiler_layers_enable() requires first argument to be array in %s/qafooprofiler_019.php on line %d
