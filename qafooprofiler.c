@@ -411,6 +411,7 @@ ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO(arginfo_qafooprofiler_layers_enable, 0)
 	ZEND_ARG_INFO(0, layers)
+	ZEND_ARG_INFO(0, transaction_function)
 ZEND_END_ARG_INFO()
 
 /* }}} */
@@ -541,19 +542,23 @@ PHP_FUNCTION(qafooprofiler_layers_enable)
 {
 	long qafooprofiler_flags = QAFOOPROFILER_FLAGS_NO_USERLAND;
 
-	zval *layers = NULL;         /* optional array arg: for future use */
+	zval *layers, *transaction_function = NULL;
 
 	if (hp_globals.enabled) {
 		return;
 	}
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|z", &layers) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|zz", &layers, &transaction_function) == FAILURE) {
 		return;
 	}
 
 	if (layers == NULL || Z_TYPE_P(layers) != IS_ARRAY) {
 		zend_error(E_NOTICE, "qafooprofiler_layers_enable() requires first argument to be array");
 		return;
+	}
+
+	if (transaction_function != NULL && Z_TYPE_P(transaction_function) == IS_STRING) {
+		hp_globals.transaction_function = hp_zval_to_string(transaction_function);
 	}
 
 	hp_clean_profiler_options_state();
@@ -2450,6 +2455,36 @@ void hp_mode_sampled_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
  */
 
 /**
+ * For transaction name detection in layer mode we only need a very simple user function overwrite.
+ * Layer mode skips profiling userland functions, so we can simplify here.
+ */
+#if PHP_VERSION_ID < 50500
+ZEND_DLEXPORT void hp_detect_tx_execute (zend_op_array *ops TSRMLS_DC) {
+#else
+ZEND_DLEXPORT void hp_detect_tx_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
+	zend_op_array *ops = execute_data->op_array;
+#endif
+	char          *func = NULL;
+
+	func = hp_get_function_name(ops TSRMLS_CC);
+	efree(func);
+
+#if PHP_VERSION_ID < 50500
+	_zend_execute(ops TSRMLS_CC);
+#else
+	_zend_execute_ex(execute_data TSRMLS_CC);
+#endif
+
+	if (hp_globals.transaction_name) {
+#if PHP_VERSION_ID < 50500
+		zend_execute          = _zend_execute;
+#else
+		zend_execute_ex       = _zend_execute_ex;
+#endif
+	}
+}
+
+/**
  * Qafoo Profiler enable replaced the zend_execute function with this
  * new execute function. We can do whatever profiling we need to
  * before and after calling the actual zend_execute().
@@ -2629,6 +2664,14 @@ static void hp_begin(long level, long qafooprofiler_flags TSRMLS_DC)
 #else
 			_zend_execute_ex = zend_execute_ex;
 			zend_execute_ex  = hp_execute_ex;
+#endif
+		} else if (hp_globals.transaction_function) {
+#if PHP_VERSION_ID < 50500
+			_zend_execute = zend_execute;
+			zend_execute  = hp_detect_tx_execute;
+#else
+			_zend_execute_ex = zend_execute_ex;
+			zend_execute_ex  = hp_detect_tx_execute_ex;
 #endif
 		}
 

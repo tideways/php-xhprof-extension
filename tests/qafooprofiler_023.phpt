@@ -1,5 +1,5 @@
 --TEST--
-XHProf: Invoke transaction function callback 
+XHProf: Transaction Name Detection in Hierachical Profiling Mode
 --FILE--
 <?php
 
