@@ -1560,7 +1560,7 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 	return ret;
 }
 
-static void hp_detect_transaction_name(char *ret, zend_execute_data *data)
+static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS_DC)
 {
 	if (!hp_globals.transaction_function ||
 		hp_globals.transaction_name ||
@@ -1663,8 +1663,6 @@ static char *hp_get_function_name(zend_op_array *ops TSRMLS_DC)
 			}
 
 			hash_code  = hp_inline_hash(ret);
-
-			hp_detect_transaction_name(ret, data);
 
 			if (hp_argument_entry(hash_code, ret)) {
 				ret = hp_get_function_argument_summary(ret, len, data TSRMLS_CC);
@@ -2463,6 +2461,7 @@ void hp_mode_sampled_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
  */
 #if PHP_VERSION_ID < 50500
 ZEND_DLEXPORT void hp_detect_tx_execute (zend_op_array *ops TSRMLS_DC) {
+	zend_execute_data *execute_data = EG(current_execute_data);
 #else
 ZEND_DLEXPORT void hp_detect_tx_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 	zend_op_array *ops = execute_data->op_array;
@@ -2470,6 +2469,9 @@ ZEND_DLEXPORT void hp_detect_tx_execute_ex (zend_execute_data *execute_data TSRM
 	char          *func = NULL;
 
 	func = hp_get_function_name(ops TSRMLS_CC);
+	if (func) {
+		hp_detect_transaction_name(func, execute_data TSRMLS_CC);
+	}
 	efree(func);
 
 #if PHP_VERSION_ID < 50500
@@ -2496,6 +2498,7 @@ ZEND_DLEXPORT void hp_detect_tx_execute_ex (zend_execute_data *execute_data TSRM
  */
 #if PHP_VERSION_ID < 50500
 ZEND_DLEXPORT void hp_execute (zend_op_array *ops TSRMLS_DC) {
+	zend_execute_data *execute_data = EG(current_execute_data);
 #else
 ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 	zend_op_array *ops = execute_data->op_array;
@@ -2512,6 +2515,8 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 #endif
 		return;
 	}
+
+	hp_detect_transaction_name(func, execute_data TSRMLS_CC);
 
 	BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag);
 #if PHP_VERSION_ID < 50500
