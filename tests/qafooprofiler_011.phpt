@@ -13,17 +13,18 @@ $fh = fopen(__DIR__, "r");
 fgets($fh);
 fclose($fh);
 
-$fh = fopen("http://localhost/?foo=bar", "r");
+$fh = fopen(__FILE__, "r");
 fgets($fh);
 fclose($fh);
 
-$fh = fopen("http://127.0.0.1", "r");
+$fh = fopen(dirname(__FILE__).'/common.php', "r");
 fgets($fh);
 fclose($fh);
 
 print_canonical(qafooprofiler_disable());
 --EXPECTF--
 main()                                  : ct=       1; wt=*;
+main()==>dirname                        : ct=       1; wt=*;
 main()==>fclose#%d                       : ct=       1; wt=*;
 main()==>fclose#%d                       : ct=       1; wt=*;
 main()==>fclose#%d                       : ct=       1; wt=*;
@@ -31,6 +32,6 @@ main()==>fgets#%d                        : ct=       1; wt=*;
 main()==>fgets#%d                        : ct=       1; wt=*;
 main()==>fgets#%d                        : ct=       1; wt=*;
 main()==>fopen#%s#%d: ct=       1; wt=*;
-main()==>fopen#http://127.0.0.1#%d       : ct=       1; wt=*;
-main()==>fopen#http://localhost/#%d      : ct=       1; wt=*;
+main()==>fopen#%s/tests/common.php#%d: ct=       1; wt=*;
+main()==>fopen#%s/tests/qafooprofiler_011.php#%d: ct=       1; wt=*;
 main()==>qafooprofiler_disable          : ct=       1; wt=*;
