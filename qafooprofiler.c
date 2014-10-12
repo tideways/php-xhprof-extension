@@ -2548,12 +2548,10 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
 ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
                                        struct _zend_fcall_info *fci, int ret TSRMLS_DC) {
 #endif
-	zend_execute_data *current_data;
 	char             *func = NULL;
 	int    hp_profile_flag = 1;
 
-	current_data = EG(current_execute_data);
-	func = hp_get_function_name(current_data->op_array, current_data TSRMLS_CC);
+	func = hp_get_function_name(execute_data->op_array, execute_data TSRMLS_CC);
 
 	if (func) {
 		BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag);
