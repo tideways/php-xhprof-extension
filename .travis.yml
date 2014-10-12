@@ -13,11 +13,12 @@ php:
 env:
   global:
     - TEST_PHP_ARGS="-q"
-    - REPORT_EXIT_STATUS=1
+    - NO_INTERACTION=1
 
 before_script:
   - phpize
+  - ./configure 
 
-script: ./configure && NO_INTERACTION=1 REPORT_EXIT_STATUS=1 make test
+script: make test
 
-after_failure: cat tests/*.diff
+after_failure: "cat tests/*.diff"
