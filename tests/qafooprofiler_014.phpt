@@ -1,6 +1,11 @@
 --TEST--
 XHProf: Test fatal error handling
-Author: beberlei
+--SKIPIF--
+<?php
+if (version_compare(PHP_VERSION, "5.4.0") < 0) {
+    die("Fatal error handling missing the trace on PHP 5.3");
+}
+?>
 --FILE--
 <?php
 

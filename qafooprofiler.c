@@ -3120,7 +3120,9 @@ void qafooprofiler_store_error(int type, const char *error_filename, const uint 
 		}
 	} else {
 		hp_globals.last_error->message = hp_create_string(buffer, buffer_len);
+#if PHP_VERSION_ID >= 50400
 		hp_globals.last_error->trace = qafooprofiler_backtrace(TSRMLS_C);
+#endif
 	}
 
 	efree(buffer);
