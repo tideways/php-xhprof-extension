@@ -1562,6 +1562,12 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 
 static void hp_detect_transaction_name(char *ret, zend_execute_data *data)
 {
+	if (!hp_globals.transaction_function ||
+		hp_globals.transaction_name ||
+		strcmp(ret, hp_globals.transaction_function->value) != 0) {
+		return;
+	}
+
 	void **p = hp_get_execute_arguments(data);
 	int arg_count = (int)(zend_uintptr_t) *p;
 	zval *argument_element;
@@ -1658,10 +1664,7 @@ static char *hp_get_function_name(zend_op_array *ops TSRMLS_DC)
 
 			hash_code  = hp_inline_hash(ret);
 
-			if (hp_globals.transaction_function &&
-				strcmp(ret, hp_globals.transaction_function->value) == 0) {
-				hp_detect_transaction_name(ret, data);
-			}
+			hp_detect_transaction_name(ret, data);
 
 			if (hp_argument_entry(hash_code, ret)) {
 				ret = hp_get_function_argument_summary(ret, len, data TSRMLS_CC);
