@@ -40,6 +40,7 @@ PHP_MINFO_FUNCTION(qafooprofiler);
 
 PHP_FUNCTION(qafooprofiler_enable);
 PHP_FUNCTION(qafooprofiler_disable);
+PHP_FUNCTION(qafooprofiler_transaction_name);
 PHP_FUNCTION(qafooprofiler_sample_enable);
 PHP_FUNCTION(qafooprofiler_layers_enable);
 PHP_FUNCTION(qafooprofiler_last_fatal_error);

@@ -28,6 +28,7 @@
 /Makefile.global
 /Makefile.objects
 /missing
+/memory:
 /mkinstalldirs
 /modules
 /scan_makefile_in.awk

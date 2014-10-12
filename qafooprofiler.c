@@ -229,7 +229,11 @@ typedef struct hp_global_t {
 	hp_entry_t      *entry_free_list;
 
 	/* Callbacks for various Qafoo Profiler modes */
-	hp_mode_cb       mode_cb;
+	hp_mode_cb      mode_cb;
+
+	/* Function that determines the transaction name and callback */
+	hp_string       *transaction_function;
+	hp_string		*transaction_name;
 
 	/*       ----------   Mode specific attributes:  -----------       */
 
@@ -366,6 +370,8 @@ static void hp_clean_profiler_options_state();
 
 static void hp_argument_functions_filter_clear();
 static void hp_argument_functions_filter_init();
+static void hp_transaction_function_clear();
+static void hp_transaction_name_clear();
 
 static inline zval  *hp_zval_at_key(char  *key, zval  *values);
 static inline char **hp_strings_in_zval(zval  *values);
@@ -374,6 +380,7 @@ static inline int  hp_argument_entry(uint8 hash_code, char *curr_func);
 static inline hp_string *hp_create_string(const char *value, size_t length);
 static inline long hp_zval_to_long(zval *z);
 static inline hp_string *hp_zval_to_string(zval *z);
+static inline zval *hp_string_to_zval(hp_string *str);
 static inline void hp_string_clean(hp_string *str);
 
 static hp_string *qafooprofiler_backtrace(TSRMLS_D);
@@ -388,6 +395,9 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_qafooprofiler_enable, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO(arginfo_qafooprofiler_disable, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO(arginfo_qafooprofiler_transaction_name, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO(arginfo_qafooprofiler_last_fatal_error, 0)
@@ -422,6 +432,7 @@ int bind_to_cpu(uint32 cpu_id);
 zend_function_entry qafooprofiler_functions[] = {
 	PHP_FE(qafooprofiler_enable, arginfo_qafooprofiler_enable)
 	PHP_FE(qafooprofiler_disable, arginfo_qafooprofiler_disable)
+	PHP_FE(qafooprofiler_transaction_name, arginfo_qafooprofiler_transaction_name)
 	PHP_FE(qafooprofiler_last_fatal_error, arginfo_qafooprofiler_last_fatal_error)
 	PHP_FE(qafooprofiler_last_exception_data, arginfo_qafooprofiler_last_exception_data)
 	PHP_FE(qafooprofiler_sample_enable, arginfo_qafooprofiler_sample_enable)
@@ -602,6 +613,14 @@ PHP_FUNCTION(qafooprofiler_disable)
 	}
 }
 
+PHP_FUNCTION(qafooprofiler_transaction_name)
+{
+	if (hp_globals.transaction_name) {
+		zval *ret = hp_string_to_zval(hp_globals.transaction_name);
+		RETURN_ZVAL(ret, 1, 1);
+	}
+}
+
 /**
  * Module init callback.
  *
@@ -646,6 +665,7 @@ PHP_MINIT_FUNCTION(qafooprofiler)
 
 	hp_filtered_functions_filter_clear();
 	hp_argument_functions_filter_clear();
+	hp_transaction_function_clear();
 
 #if defined(DEBUG)
 	/* To make it random number generator repeatable to ease testing. */
@@ -772,7 +792,7 @@ static inline uint8 hp_inline_hash(char * str)
 	return res;
 }
 
-static void hp_parse_layers_options_from_arg(zval *layers) 
+static void hp_parse_layers_options_from_arg(zval *layers)
 {
 	if (layers == NULL || Z_TYPE_P(layers) != IS_ARRAY) {
 		return;
@@ -825,6 +845,20 @@ static void hp_parse_options_from_arg(zval *args)
 
 	zresult = hp_zval_at_key("layers", args);
 	hp_parse_layers_options_from_arg(zresult);
+
+	zresult = hp_zval_at_key("transaction_function", args);
+
+	if (zresult != NULL) {
+		hp_globals.transaction_function = hp_zval_to_string(zresult);
+	}
+}
+
+static void hp_transaction_function_clear() {
+	if (hp_globals.transaction_function) {
+		hp_string_clean(hp_globals.transaction_function);
+		efree(hp_globals.transaction_function);
+		hp_globals.transaction_function = NULL;
+	}
 }
 
 /**
@@ -928,6 +962,7 @@ void hp_init_profiler_state(int level TSRMLS_DC)
 	/* Set up filter of functions which may be ignored during profiling */
 	hp_filtered_functions_filter_init();
 	hp_argument_functions_filter_init();
+	hp_transaction_name_clear();
 }
 
 /**
@@ -968,6 +1003,17 @@ void hp_clean_profiler_state(TSRMLS_D)
 	hp_globals.ever_enabled = 0;
 
 	hp_clean_profiler_options_state();
+	hp_transaction_function_clear();
+	hp_transaction_name_clear();
+}
+
+static void hp_transaction_name_clear()
+{
+	if (hp_globals.transaction_name) {
+		hp_string_clean(hp_globals.transaction_name);
+		efree(hp_globals.transaction_name);
+		hp_globals.transaction_name = NULL;
+	}
 }
 
 static void hp_clean_profiler_options_state()
@@ -1330,15 +1376,9 @@ static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC)
 	return ret;
 }
 
-static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_data *data TSRMLS_DC)
+static inline void **hp_get_execute_arguments(zend_execute_data *data)
 {
 	void **p;
-	int arg_count = 0;
-	int i;
-	zval *argument_element;
-	/* oldret holding function name or class::function. We will reuse the string and free it after */
-	char *oldret = ret;
-	char *summary;
 
 	p = data->function_state.arguments;
 
@@ -1355,6 +1395,20 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 	}
 #endif
 
+	return p;
+}
+
+static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_data *data TSRMLS_DC)
+{
+	void **p;
+	int arg_count = 0;
+	int i;
+	zval *argument_element;
+	/* oldret holding function name or class::function. We will reuse the string and free it after */
+	char *oldret = ret;
+	char *summary;
+
+	p = hp_get_execute_arguments(data);
 	arg_count = (int)(zend_uintptr_t) *p;       /* this is the amount of arguments passed to function */
 
 	len = QAFOOPROFILER_MAX_ARGUMENT_LEN;
@@ -1549,6 +1603,55 @@ static char *hp_get_function_name(zend_op_array *ops TSRMLS_DC)
 			}
 
 			hash_code  = hp_inline_hash(ret);
+
+			if (hp_globals.transaction_function &&
+				strcmp(ret, hp_globals.transaction_function->value) == 0) {
+				void **p = hp_get_execute_arguments(data);
+				int arg_count = (int)(zend_uintptr_t) *p;
+				zval *argument_element;
+
+				if (strcmp(ret, "Zend_Controller_Action::dispatch") == 0 ||
+						   strcmp(ret, "Enlight_Controller_Action::dispatch") == 0 ||
+						   strcmp(ret, "Mage_Core_Controller_Varien_Action::dispatch") == 0) {
+					zval *obj;
+					argument_element = *(p-arg_count);
+					const char *class_name;
+					zend_uint class_name_len;
+					const char *free_class_name = NULL;
+
+#if PHP_VERSION_ID >= 50500
+					obj = (*((*data).prev_execute_data)).object;
+#else
+					obj = data->object;
+#endif
+
+					if (!zend_get_object_classname(obj, &class_name, &class_name_len TSRMLS_CC)) {
+						free_class_name = class_name;
+					}
+
+					if (Z_TYPE_P(argument_element) == IS_STRING) {
+						int len = class_name_len + Z_STRLEN_P(argument_element) + 3;
+						char *ret = NULL;
+						ret = (char*)emalloc(len);
+						snprintf(ret, len, "%s::%s", class_name, Z_STRVAL_P(argument_element));
+
+						hp_globals.transaction_name = hp_create_string(ret, len);
+						efree(ret);
+					}
+
+					if (free_class_name) {
+						efree((char*)free_class_name);
+					}
+				} else {
+					argument_element = *(p-arg_count);
+
+					if (Z_TYPE_P(argument_element) == IS_STRING) {
+						hp_globals.transaction_name = hp_zval_to_string(argument_element);
+					}
+				}
+
+				hp_transaction_function_clear();
+			}
 
 			if (hp_argument_entry(hash_code, ret)) {
 				ret = hp_get_function_argument_summary(ret, len, data TSRMLS_CC);
