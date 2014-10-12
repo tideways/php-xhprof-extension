@@ -17,7 +17,8 @@ env:
 before_script:
   - phpize
   - ./configure 
+  - make
 
-script: make test
+script: REPORT_EXIT_STATUS=1 php run-tests.php -p `which php` --show-diff -d extension=`pwd`/.libs/qafooprofiler.so -q
 
 after_failure: "cat tests/*.diff"
