@@ -1621,17 +1621,14 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
  *
  * @author kannan, hzhao
  */
-static char *hp_get_function_name(zend_op_array *ops TSRMLS_DC)
+static char *hp_get_function_name(zend_op_array *ops, zend_execute_data *data TSRMLS_DC)
 {
-	zend_execute_data *data;
 	const char        *func = NULL;
 	const char        *cls = NULL;
 	char              *ret = NULL;
 	int                len;
 	zend_function      *curr_func;
 	uint8 hash_code;
-
-	data = EG(current_execute_data);
 
 	if (data) {
 		/* shared meta data for function on the call stack */
@@ -2468,7 +2465,7 @@ ZEND_DLEXPORT void hp_detect_tx_execute_ex (zend_execute_data *execute_data TSRM
 #endif
 	char          *func = NULL;
 
-	func = hp_get_function_name(ops TSRMLS_CC);
+	func = hp_get_function_name(ops, execute_data TSRMLS_CC);
 	if (func) {
 		hp_detect_transaction_name(func, execute_data TSRMLS_CC);
 	}
@@ -2506,7 +2503,7 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 	char          *func = NULL;
 	int hp_profile_flag = 1;
 
-	func = hp_get_function_name(ops TSRMLS_CC);
+	func = hp_get_function_name(ops, execute_data TSRMLS_CC);
 	if (!func) {
 #if PHP_VERSION_ID < 50500
 		_zend_execute(ops TSRMLS_CC);
@@ -2556,7 +2553,7 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
 	int    hp_profile_flag = 1;
 
 	current_data = EG(current_execute_data);
-	func = hp_get_function_name(current_data->op_array TSRMLS_CC);
+	func = hp_get_function_name(current_data->op_array, current_data TSRMLS_CC);
 
 	if (func) {
 		BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag);
