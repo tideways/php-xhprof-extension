@@ -1555,6 +1555,55 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 	return ret;
 }
 
+static void hp_detect_transaction_name(char *ret, zend_execute_data *data)
+{
+	void **p = hp_get_execute_arguments(data);
+	int arg_count = (int)(zend_uintptr_t) *p;
+	zval *argument_element;
+
+	if (strcmp(ret, "Zend_Controller_Action::dispatch") == 0 ||
+			   strcmp(ret, "Enlight_Controller_Action::dispatch") == 0 ||
+			   strcmp(ret, "Mage_Core_Controller_Varien_Action::dispatch") == 0) {
+		zval *obj;
+		argument_element = *(p-arg_count);
+		const char *class_name;
+		zend_uint class_name_len;
+		const char *free_class_name = NULL;
+
+#if PHP_VERSION_ID >= 50500
+		obj = (*((*data).prev_execute_data)).object;
+#else
+		obj = data->object;
+#endif
+
+		if (!zend_get_object_classname(obj, &class_name, &class_name_len TSRMLS_CC)) {
+			free_class_name = class_name;
+		}
+
+		if (Z_TYPE_P(argument_element) == IS_STRING) {
+			int len = class_name_len + Z_STRLEN_P(argument_element) + 3;
+			char *ret = NULL;
+			ret = (char*)emalloc(len);
+			snprintf(ret, len, "%s::%s", class_name, Z_STRVAL_P(argument_element));
+
+			hp_globals.transaction_name = hp_create_string(ret, len);
+			efree(ret);
+		}
+
+		if (free_class_name) {
+			efree((char*)free_class_name);
+		}
+	} else {
+		argument_element = *(p-arg_count);
+
+		if (Z_TYPE_P(argument_element) == IS_STRING) {
+			hp_globals.transaction_name = hp_zval_to_string(argument_element);
+		}
+	}
+
+	hp_transaction_function_clear();
+}
+
 /**
  * Get the name of the current function. The name is qualified with
  * the class name if the function is in a class.
@@ -1606,51 +1655,7 @@ static char *hp_get_function_name(zend_op_array *ops TSRMLS_DC)
 
 			if (hp_globals.transaction_function &&
 				strcmp(ret, hp_globals.transaction_function->value) == 0) {
-				void **p = hp_get_execute_arguments(data);
-				int arg_count = (int)(zend_uintptr_t) *p;
-				zval *argument_element;
-
-				if (strcmp(ret, "Zend_Controller_Action::dispatch") == 0 ||
-						   strcmp(ret, "Enlight_Controller_Action::dispatch") == 0 ||
-						   strcmp(ret, "Mage_Core_Controller_Varien_Action::dispatch") == 0) {
-					zval *obj;
-					argument_element = *(p-arg_count);
-					const char *class_name;
-					zend_uint class_name_len;
-					const char *free_class_name = NULL;
-
-#if PHP_VERSION_ID >= 50500
-					obj = (*((*data).prev_execute_data)).object;
-#else
-					obj = data->object;
-#endif
-
-					if (!zend_get_object_classname(obj, &class_name, &class_name_len TSRMLS_CC)) {
-						free_class_name = class_name;
-					}
-
-					if (Z_TYPE_P(argument_element) == IS_STRING) {
-						int len = class_name_len + Z_STRLEN_P(argument_element) + 3;
-						char *ret = NULL;
-						ret = (char*)emalloc(len);
-						snprintf(ret, len, "%s::%s", class_name, Z_STRVAL_P(argument_element));
-
-						hp_globals.transaction_name = hp_create_string(ret, len);
-						efree(ret);
-					}
-
-					if (free_class_name) {
-						efree((char*)free_class_name);
-					}
-				} else {
-					argument_element = *(p-arg_count);
-
-					if (Z_TYPE_P(argument_element) == IS_STRING) {
-						hp_globals.transaction_name = hp_zval_to_string(argument_element);
-					}
-				}
-
-				hp_transaction_function_clear();
+				hp_detect_transaction_name(ret, data);
 			}
 
 			if (hp_argument_entry(hash_code, ret)) {
