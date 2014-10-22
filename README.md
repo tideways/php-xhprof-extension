@@ -27,7 +27,7 @@ Building from source is straightforward:
 
 Afterwards you need to enable the extension in your php.ini:
 
-    extension=qafooprofiler.ini
+    extension=qafooprofiler.so
 
 ## Documentation
 
