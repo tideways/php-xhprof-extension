@@ -2677,20 +2677,22 @@ static void hp_begin(long level, long qafooprofiler_flags TSRMLS_DC)
 		zend_compile_string = hp_compile_string;
 
 		/* Replace zend_execute with our proxy */
+#if PHP_VERSION_ID < 50500
+		_zend_execute = zend_execute;
+#else
+		_zend_execute_ex = zend_execute_ex;
+#endif
+
 		if (!(hp_globals.qafooprofiler_flags & QAFOOPROFILER_FLAGS_NO_USERLAND)) {
 #if PHP_VERSION_ID < 50500
-			_zend_execute = zend_execute;
 			zend_execute  = hp_execute;
 #else
-			_zend_execute_ex = zend_execute_ex;
 			zend_execute_ex  = hp_execute_ex;
 #endif
 		} else if (hp_globals.transaction_function) {
 #if PHP_VERSION_ID < 50500
-			_zend_execute = zend_execute;
 			zend_execute  = hp_detect_tx_execute;
 #else
-			_zend_execute_ex = zend_execute_ex;
 			zend_execute_ex  = hp_detect_tx_execute_ex;
 #endif
 		}
@@ -2777,13 +2779,11 @@ static void hp_stop(TSRMLS_D)
 	}
 
 	/* Remove proxies, restore the originals */
-	if (!(hp_globals.qafooprofiler_flags & QAFOOPROFILER_FLAGS_NO_USERLAND)) {
 #if PHP_VERSION_ID < 50500
-		zend_execute          = _zend_execute;
+	zend_execute = _zend_execute;
 #else
-		zend_execute_ex       = _zend_execute_ex;
+	zend_execute_ex = _zend_execute_ex;
 #endif
-	}
 
 	zend_execute_internal = _zend_execute_internal;
 	zend_compile_file     = _zend_compile_file;
