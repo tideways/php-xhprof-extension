@@ -279,10 +279,6 @@ typedef struct hp_global_t {
 	hp_function_map *argument_functions;
 	hp_function_map *trace_functions;
 
-	/* Table of function which get extended with their arguments */
-	char  **argument_function_names;
-	uint8   argument_function_filter[QAFOOPROFILER_FILTERED_FUNCTION_SIZE];
-
 	/* Table of functions which allow custom tracing */
 	char **trace_function_names;
 	uint8   trace_function_filter[QAFOOPROFILER_FILTERED_FUNCTION_SIZE];
@@ -377,8 +373,6 @@ static void hp_parse_options_from_arg(zval *args);
 static void hp_parse_layers_options_from_arg(zval *layers);
 static void hp_clean_profiler_options_state();
 
-static void hp_argument_functions_filter_clear();
-static void hp_argument_functions_filter_init();
 static void hp_transaction_function_clear();
 static void hp_transaction_name_clear();
 
@@ -686,7 +680,6 @@ PHP_MINIT_FUNCTION(qafooprofiler)
 		hp_globals.func_hash_counters[i] = 0;
 	}
 
-	hp_argument_functions_filter_clear();
 	hp_transaction_function_clear();
 
 	/* Store original zend execute functions in old callbacks */
@@ -874,7 +867,7 @@ static void hp_parse_options_from_arg(zval *args)
 	hp_globals.filtered_functions = hp_function_map_create(hp_strings_in_zval(zresult));
 
 	zresult = hp_zval_at_key("argument_functions", args);
-	hp_globals.argument_function_names = hp_strings_in_zval(zresult);
+	hp_globals.argument_functions = hp_function_map_create(hp_strings_in_zval(zresult));
 
 	zresult = hp_zval_at_key("layers", args);
 	hp_parse_layers_options_from_arg(zresult);
@@ -1011,7 +1004,6 @@ void hp_init_profiler_state(int level TSRMLS_DC)
 	hp_globals.mode_cb.init_cb(TSRMLS_C);
 
 	/* Set up filter of functions which may be ignored during profiling */
-	hp_argument_functions_filter_init();
 	hp_transaction_name_clear();
 }
 
@@ -1058,6 +1050,8 @@ void hp_clean_profiler_state(TSRMLS_D)
 
 	hp_function_map_clear(hp_globals.filtered_functions);
 	hp_globals.filtered_functions = NULL;
+	hp_function_map_clear(hp_globals.argument_functions);
+	hp_globals.argument_functions = NULL;
 }
 
 static void hp_transaction_name_clear()
@@ -1071,10 +1065,6 @@ static void hp_transaction_name_clear()
 
 static void hp_clean_profiler_options_state()
 {
-	/* Delete the array storing ignored function names */
-	hp_array_del(hp_globals.argument_function_names);
-	hp_globals.argument_function_names = NULL;
-
 	if (hp_globals.layers_definition) {
 		zend_hash_destroy(hp_globals.layers_definition);
 		FREE_HASHTABLE(hp_globals.layers_definition);
@@ -1083,6 +1073,8 @@ static void hp_clean_profiler_options_state()
 
 	hp_function_map_clear(hp_globals.filtered_functions);
 	hp_globals.filtered_functions = NULL;
+	hp_function_map_clear(hp_globals.argument_functions);
+	hp_globals.argument_functions = NULL;
 }
 
 /*
@@ -2918,75 +2910,11 @@ static inline void hp_array_del(char **name_array)
 	}
 }
 
-/* for simpler maintainance of the code just copied these from ignored_functions */
-
-/**
- * Clear filter for functions which may be ignored during profiling.
- *
- * @author mpal
- */
-static void hp_argument_functions_filter_clear()
-{
-	memset(hp_globals.argument_function_filter, 0, QAFOOPROFILER_FILTERED_FUNCTION_SIZE);
-}
-
-/**
- * Initialize filter for ignored functions using bit vector.
- *
- * @author mpal
- */
-static void hp_argument_functions_filter_init()
-{
-	if (hp_globals.argument_function_names != NULL) {
-		int i = 0;
-		for(; hp_globals.argument_function_names[i] != NULL; i++) {
-			char *str  = hp_globals.argument_function_names[i];
-			uint8 hash = hp_inline_hash(str);
-			int   idx  = INDEX_2_BYTE(hash);
-			hp_globals.argument_function_filter[idx] |= INDEX_2_BIT(hash);
-		}
-	}
-}
-
-/**
- * Check if function collides in filter of functions to be ignored.
- *
- * @author mpal
- */
-static int hp_argument_functions_filter_collision(uint8 hash)
-{
-	uint8 mask = INDEX_2_BIT(hash);
-	return hp_globals.argument_function_filter[INDEX_2_BYTE(hash)] & mask;
-}
-
-/**
- * Check if this entry should be ignored, first with a conservative Bloomish
- * filter then with an exact check against the function names.
- *
- * @author mpal
- */
-static int  hp_argument_entry_work(uint8 hash_code, char *curr_func)
-{
-	int ignore = 0;
-	if (hp_argument_functions_filter_collision(hash_code)) {
-		int i = 0;
-		for (; hp_globals.argument_function_names[i] != NULL; i++) {
-			char *name = hp_globals.argument_function_names[i];
-			if ( !strcmp(curr_func, name)) {
-				ignore++;
-				break;
-			}
-		}
-	}
-
-	return ignore;
-}
-
-static inline int  hp_argument_entry(uint8 hash_code, char *curr_func)
+static inline int hp_argument_entry(uint8 hash_code, char *curr_func)
 {
 	/* First check if argument functions is enabled */
-	return hp_globals.argument_function_names != NULL &&
-		hp_argument_entry_work(hash_code, curr_func);
+	return hp_globals.argument_functions != NULL &&
+		hp_function_map_exists(hp_globals.argument_functions, hash_code, curr_func);
 }
 
 /* {{{ gettraceasstring() macros */
