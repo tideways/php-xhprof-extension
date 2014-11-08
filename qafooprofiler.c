@@ -336,7 +336,7 @@ static zend_op_array * (*_zend_compile_file) (zend_file_handle *file_handle,
 static zend_op_array * (*_zend_compile_string) (zval *source_string, char *filename TSRMLS_DC);
 
 /* error callback replacement functions */
-void (*_zend_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
+void (*qafooprofiler_original_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
 void qafooprofiler_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
 static void qafooprofiler_throw_exception_hook(zval *exception TSRMLS_DC);
 
@@ -681,17 +681,6 @@ PHP_MINIT_FUNCTION(qafooprofiler)
 	}
 
 	hp_transaction_function_clear();
-
-	/* Store original zend execute functions in old callbacks */
-#if PHP_VERSION_ID < 50500
-	_zend_execute = zend_execute;
-#else
-	_zend_execute_ex = zend_execute_ex;
-#endif
-	_zend_execute_internal = zend_execute_internal;
-	_zend_compile_file = zend_compile_file;
-	_zend_compile_string = zend_compile_string;
-	_zend_error_cb = zend_error_cb;
 
 #if defined(DEBUG)
 	/* To make it random number generator repeatable to ease testing. */
@@ -2680,31 +2669,39 @@ static void hp_begin(long level, long qafooprofiler_flags TSRMLS_DC)
 		hp_globals.qafooprofiler_flags = (uint32)qafooprofiler_flags;
 
 		/* Replace zend_compile with our proxy */
+		_zend_compile_file = zend_compile_file;
 		zend_compile_file  = hp_compile_file;
 
 		/* Replace zend_compile_string with our proxy */
+		_zend_compile_string = zend_compile_string;
 		zend_compile_string = hp_compile_string;
 
 		/* Replace zend_execute with our proxy */
 		if (!(hp_globals.qafooprofiler_flags & QAFOOPROFILER_FLAGS_NO_USERLAND)) {
 #if PHP_VERSION_ID < 50500
+			_zend_execute = zend_execute;
 			zend_execute  = hp_execute;
 #else
+			_zend_execute_ex = zend_execute_ex;
 			zend_execute_ex  = hp_execute_ex;
 #endif
 		} else if (hp_globals.transaction_function) {
 #if PHP_VERSION_ID < 50500
+			_zend_execute = zend_execute;
 			zend_execute  = hp_detect_tx_execute;
 #else
+			_zend_execute_ex = zend_execute_ex;
 			zend_execute_ex  = hp_detect_tx_execute_ex;
 #endif
 		}
 
+		qafooprofiler_original_error_cb = zend_error_cb;
 		zend_error_cb = qafooprofiler_error_cb;
 
 		zend_throw_exception_hook = qafooprofiler_throw_exception_hook;
 
 		/* Replace zend_execute_internal with our proxy */
+		_zend_execute_internal = zend_execute_internal;
 		if (!(hp_globals.qafooprofiler_flags & QAFOOPROFILER_FLAGS_NO_BUILTINS)) {
 			/* if NO_BUILTINS is not set (i.e. user wants to profile builtins),
 			 * then we intercept internal (builtin) function calls.
@@ -2780,17 +2777,19 @@ static void hp_stop(TSRMLS_D)
 	}
 
 	/* Remove proxies, restore the originals */
+	if (!(hp_globals.qafooprofiler_flags & QAFOOPROFILER_FLAGS_NO_USERLAND)) {
 #if PHP_VERSION_ID < 50500
-	zend_execute          = _zend_execute;
+		zend_execute          = _zend_execute;
 #else
-	zend_execute_ex       = _zend_execute_ex;
+		zend_execute_ex       = _zend_execute_ex;
 #endif
+	}
 
 	zend_execute_internal = _zend_execute_internal;
 	zend_compile_file     = _zend_compile_file;
 	zend_compile_string   = _zend_compile_string;
 
-	zend_error_cb = _zend_error_cb;
+	zend_error_cb = qafooprofiler_original_error_cb;
 	zend_throw_exception_hook = NULL;
 
 	/* Resore cpu affinity. */
@@ -3103,7 +3102,7 @@ void qafooprofiler_error_cb(int type, const char *error_filename, const uint err
 		}
 	}
 
-	_zend_error_cb(type, error_filename, error_lineno, format, args);
+	qafooprofiler_original_error_cb(type, error_filename, error_lineno, format, args);
 }
 
 static void qafooprofiler_throw_exception_hook(zval *exception TSRMLS_DC)
