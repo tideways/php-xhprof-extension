@@ -274,8 +274,6 @@ typedef struct hp_global_t {
 
 	/* Table of filtered function names and their filter */
 	int     filtered_type; // 1 = blacklist, 2 = whitelist, 0 = nothing
-	char  **filtered_function_names;
-	uint8   filtered_function_filter[QAFOOPROFILER_FILTERED_FUNCTION_SIZE];
 
 	hp_function_map *filtered_functions;
 	hp_function_map *argument_functions;
@@ -377,8 +375,6 @@ static void incr_us_interval(struct timeval *start, uint64 incr);
 
 static void hp_parse_options_from_arg(zval *args);
 static void hp_parse_layers_options_from_arg(zval *layers);
-static void hp_filtered_functions_filter_clear();
-static void hp_filtered_functions_filter_init();
 static void hp_clean_profiler_options_state();
 
 static void hp_argument_functions_filter_clear();
@@ -398,7 +394,6 @@ static inline void hp_string_clean(hp_string *str);
 
 static inline hp_function_map *hp_function_map_create(char **names);
 static inline void hp_function_map_clear(hp_function_map *map);
-static inline void hp_function_map_init_filter(hp_function_map *map);
 static inline int hp_function_map_exists(hp_function_map *map, uint8 hash_code, char *curr_func);
 static inline int hp_function_map_filter_collision(hp_function_map *map, uint8 hash);
 
@@ -589,7 +584,7 @@ PHP_FUNCTION(qafooprofiler_layers_enable)
 	hp_parse_layers_options_from_arg(layers);
 
 	hp_globals.filtered_type = 2;
-	hp_globals.filtered_function_names = hp_strings_in_zval(layers);
+	hp_globals.filtered_functions = hp_function_map_create(hp_strings_in_zval(layers));
 
 	hp_begin(QAFOOPROFILER_MODE_LAYER, qafooprofiler_flags TSRMLS_CC);
 }
@@ -691,7 +686,6 @@ PHP_MINIT_FUNCTION(qafooprofiler)
 		hp_globals.func_hash_counters[i] = 0;
 	}
 
-	hp_filtered_functions_filter_clear();
 	hp_argument_functions_filter_clear();
 	hp_transaction_function_clear();
 
@@ -878,7 +872,6 @@ static void hp_parse_options_from_arg(zval *args)
 	}
 
 	hp_globals.filtered_functions = hp_function_map_create(hp_strings_in_zval(zresult));
-	hp_globals.filtered_function_names = hp_strings_in_zval(zresult);
 
 	zresult = hp_zval_at_key("argument_functions", args);
 	hp_globals.argument_function_names = hp_strings_in_zval(zresult);
@@ -912,7 +905,15 @@ static inline hp_function_map *hp_function_map_create(char **names)
 	map = emalloc(sizeof(hp_function_map));
 	map->names = names;
 
-	hp_function_map_init_filter(map);
+	memset(map->filter, 0, QAFOOPROFILER_FILTERED_FUNCTION_SIZE);
+
+	int i = 0;
+	for(; names[i] != NULL; i++) {
+		char *str  = names[i];
+		uint8 hash = hp_inline_hash(str);
+		int   idx  = INDEX_2_BYTE(hash);
+		map->filter[idx] |= INDEX_2_BIT(hash);
+	}
 
 	return map;
 }
@@ -927,21 +928,6 @@ static inline void hp_function_map_clear(hp_function_map *map) {
 
 	memset(map->filter, 0, QAFOOPROFILER_FILTERED_FUNCTION_SIZE);
 	efree(map);
-	map = NULL;
-}
-
-static inline void hp_function_map_init_filter(hp_function_map *map) {
-	if (map == NULL) {
-		return;
-	}
-
-	int i = 0;
-	for(; map->names[i] != NULL; i++) {
-		char *str  = map->names[i];
-		uint8 hash = hp_inline_hash(str);
-		int   idx  = INDEX_2_BYTE(hash);
-		map->filter[idx] |= INDEX_2_BIT(hash);
-	}
 }
 
 static inline int hp_function_map_exists(hp_function_map *map, uint8 hash_code, char *curr_func)
@@ -966,46 +952,6 @@ static inline int hp_function_map_filter_collision(hp_function_map *map, uint8 h
 	return map->filter[INDEX_2_BYTE(hash)] & mask;
 }
 
-/**
- * Clear filter for functions which may be ignored during profiling.
- *
- * @author mpal
- */
-static void hp_filtered_functions_filter_clear()
-{
-	hp_globals.filtered_type = 0;
-	memset(hp_globals.filtered_function_filter, 0,
-			QAFOOPROFILER_FILTERED_FUNCTION_SIZE);
-}
-
-/**
- * Initialize filter for ignored functions using bit vector.
- *
- * @author mpal
- */
-static void hp_filtered_functions_filter_init()
-{
-	if (hp_globals.filtered_function_names != NULL) {
-		int i = 0;
-		for(; hp_globals.filtered_function_names[i] != NULL; i++) {
-			char *str  = hp_globals.filtered_function_names[i];
-			uint8 hash = hp_inline_hash(str);
-			int   idx  = INDEX_2_BYTE(hash);
-			hp_globals.filtered_function_filter[idx] |= INDEX_2_BIT(hash);
-		}
-	}
-}
-
-/**
- * Check if function collides in filter of functions to be ignored.
- *
- * @author mpal
- */
-int hp_filtered_functions_filter_collision(uint8 hash)
-{
-	uint8 mask = INDEX_2_BIT(hash);
-	return hp_globals.filtered_function_filter[INDEX_2_BYTE(hash)] & mask;
-}
 
 /**
  * Initialize profiler state
@@ -1065,7 +1011,6 @@ void hp_init_profiler_state(int level TSRMLS_DC)
 	hp_globals.mode_cb.init_cb(TSRMLS_C);
 
 	/* Set up filter of functions which may be ignored during profiling */
-	hp_filtered_functions_filter_init();
 	hp_argument_functions_filter_init();
 	hp_transaction_name_clear();
 }
@@ -1112,6 +1057,7 @@ void hp_clean_profiler_state(TSRMLS_D)
 	hp_transaction_name_clear();
 
 	hp_function_map_clear(hp_globals.filtered_functions);
+	hp_globals.filtered_functions = NULL;
 }
 
 static void hp_transaction_name_clear()
@@ -1126,9 +1072,6 @@ static void hp_transaction_name_clear()
 static void hp_clean_profiler_options_state()
 {
 	/* Delete the array storing ignored function names */
-	hp_array_del(hp_globals.filtered_function_names);
-	hp_globals.filtered_function_names = NULL;
-
 	hp_array_del(hp_globals.argument_function_names);
 	hp_globals.argument_function_names = NULL;
 
@@ -1137,6 +1080,9 @@ static void hp_clean_profiler_options_state()
 		FREE_HASHTABLE(hp_globals.layers_definition);
 		hp_globals.layers_definition = NULL;
 	}
+
+	hp_function_map_clear(hp_globals.filtered_functions);
+	hp_globals.filtered_functions = NULL;
 }
 
 /*
@@ -1244,37 +1190,25 @@ size_t hp_get_entry_name(hp_entry_t  *entry,
  *
  * @author mpal
  */
-int  hp_filter_entry_work(uint8 hash_code, char *curr_func)
+static inline int hp_filter_entry(uint8 hash_code, char *curr_func)
 {
-	int filter = 0;
-	if (hp_filtered_functions_filter_collision(hash_code)) {
-		int i = 0;
-		for (; hp_globals.filtered_function_names[i] != NULL; i++) {
-			char *name = hp_globals.filtered_function_names[i];
-			if (strcmp(curr_func, name) == 0) {
-				filter++;
-				break;
-			}
-		}
+	int exists;
+
+	/* First check if ignoring functions is enabled */
+	if (hp_globals.filtered_functions == NULL || hp_globals.filtered_type == 0) {
+		return 0;
 	}
+
+	exists = hp_function_map_exists(hp_globals.filtered_functions, hash_code, curr_func);
 
 	if (hp_globals.filtered_type == 2) {
 		// always include main() in profiling result.
-		if (strcmp(curr_func, ROOT_SYMBOL) == 0) {
-			filter = 0;
-		} else {
-			filter = abs(filter - 1);
-		}
+		return (strcmp(curr_func, ROOT_SYMBOL) == 0)
+			? 0
+			: abs(1 - exists);
 	}
 
-	return filter;
-}
-
-static inline int  hp_filter_entry(uint8 hash_code, char *curr_func)
-{
-	/* First check if ignoring functions is enabled */
-	return hp_globals.filtered_function_names != NULL &&
-			hp_filter_entry_work(hash_code, curr_func);
+	return exists;
 }
 
 /**
