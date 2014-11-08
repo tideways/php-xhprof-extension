@@ -189,6 +189,11 @@ typedef struct hp_error {
 	hp_string *class;
 } hp_error;
 
+typedef struct hp_function_map {
+	char **names;
+	uint8 filter[QAFOOPROFILER_FILTERED_FUNCTION_SIZE];
+} hp_function_map;
+
 /* Qafoo Profiler's global state.
  *
  * This structure is instantiated once.  Initialize defaults for attributes in
@@ -272,9 +277,17 @@ typedef struct hp_global_t {
 	char  **filtered_function_names;
 	uint8   filtered_function_filter[QAFOOPROFILER_FILTERED_FUNCTION_SIZE];
 
+	hp_function_map *filtered_functions;
+	hp_function_map *argument_functions;
+	hp_function_map *trace_functions;
+
 	/* Table of function which get extended with their arguments */
 	char  **argument_function_names;
 	uint8   argument_function_filter[QAFOOPROFILER_FILTERED_FUNCTION_SIZE];
+
+	/* Table of functions which allow custom tracing */
+	char **trace_function_names;
+	uint8   trace_function_filter[QAFOOPROFILER_FILTERED_FUNCTION_SIZE];
 
 } hp_global_t;
 
@@ -382,6 +395,12 @@ static inline long hp_zval_to_long(zval *z);
 static inline hp_string *hp_zval_to_string(zval *z);
 static inline zval *hp_string_to_zval(hp_string *str);
 static inline void hp_string_clean(hp_string *str);
+
+static inline hp_function_map *hp_function_map_create(char **names);
+static inline void hp_function_map_clear(hp_function_map *map);
+static inline void hp_function_map_init_filter(hp_function_map *map);
+static inline int hp_function_map_exists(hp_function_map *map, uint8 hash_code, char *curr_func);
+static inline int hp_function_map_filter_collision(hp_function_map *map, uint8 hash);
 
 static hp_string *qafooprofiler_backtrace(TSRMLS_D);
 static void hp_error_clean(hp_error *error);
@@ -858,6 +877,7 @@ static void hp_parse_options_from_arg(zval *args)
 		hp_globals.filtered_type = 1;
 	}
 
+	hp_globals.filtered_functions = hp_function_map_create(hp_strings_in_zval(zresult));
 	hp_globals.filtered_function_names = hp_strings_in_zval(zresult);
 
 	zresult = hp_zval_at_key("argument_functions", args);
@@ -879,6 +899,71 @@ static void hp_transaction_function_clear() {
 		efree(hp_globals.transaction_function);
 		hp_globals.transaction_function = NULL;
 	}
+}
+
+static inline hp_function_map *hp_function_map_create(char **names)
+{
+	if (names == NULL) {
+		return NULL;
+	}
+
+	hp_function_map *map;
+
+	map = emalloc(sizeof(hp_function_map));
+	map->names = names;
+
+	hp_function_map_init_filter(map);
+
+	return map;
+}
+
+static inline void hp_function_map_clear(hp_function_map *map) {
+	if (map == NULL) {
+		return;
+	}
+
+	hp_array_del(map->names);
+	map->names = NULL;
+
+	memset(map->filter, 0, QAFOOPROFILER_FILTERED_FUNCTION_SIZE);
+	efree(map);
+	map = NULL;
+}
+
+static inline void hp_function_map_init_filter(hp_function_map *map) {
+	if (map == NULL) {
+		return;
+	}
+
+	int i = 0;
+	for(; map->names[i] != NULL; i++) {
+		char *str  = map->names[i];
+		uint8 hash = hp_inline_hash(str);
+		int   idx  = INDEX_2_BYTE(hash);
+		map->filter[idx] |= INDEX_2_BIT(hash);
+	}
+}
+
+static inline int hp_function_map_exists(hp_function_map *map, uint8 hash_code, char *curr_func)
+{
+	if (hp_function_map_filter_collision(map, hash_code)) {
+		int i = 0;
+		for (; map->names[i] != NULL; i++) {
+			char *name = map->names[i];
+			if (strcmp(curr_func, name) == 0) {
+				return 1;
+			}
+		}
+	}
+
+	return 0;
+}
+
+
+static inline int hp_function_map_filter_collision(hp_function_map *map, uint8 hash)
+{
+	uint8 mask = INDEX_2_BIT(hash);
+	return map->filter[INDEX_2_BYTE(hash)] & mask;
 }
 
 /**
@@ -1025,6 +1110,8 @@ void hp_clean_profiler_state(TSRMLS_D)
 	hp_clean_profiler_options_state();
 	hp_transaction_function_clear();
 	hp_transaction_name_clear();
+
+	hp_function_map_clear(hp_globals.filtered_functions);
 }
 
 static void hp_transaction_name_clear()
