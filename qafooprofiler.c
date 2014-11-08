@@ -561,6 +561,10 @@ PHP_FUNCTION(qafooprofiler_layers_enable)
 		hp_globals.transaction_function = hp_zval_to_string(transaction_function);
 	}
 
+	if (zend_hash_num_elements(Z_ARRVAL_P(layers)) == 0) {
+		qafooprofiler_flags = QAFOOPROFILER_FLAGS_NO_USERLAND | QAFOOPROFILER_FLAGS_NO_BUILTINS;
+	}
+
 	hp_clean_profiler_options_state();
 
 	hp_parse_layers_options_from_arg(layers);
