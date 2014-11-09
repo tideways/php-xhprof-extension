@@ -1701,7 +1701,7 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 			 * you'll see something like "run_init::foo.php" in your reports.
 			 */
 			if (curr_op == ZEND_EVAL){
-				ret = estrdup(func);
+				return NULL;
 			} else {
 				const char *filename;
 				int   len;
@@ -2488,8 +2488,8 @@ ZEND_DLEXPORT void hp_detect_tx_execute_ex (zend_execute_data *execute_data TSRM
 	func = hp_get_function_name(real_execute_data TSRMLS_CC);
 	if (func) {
 		hp_detect_transaction_name(func, real_execute_data TSRMLS_CC);
+		efree(func);
 	}
-	efree(func);
 
 #if PHP_VERSION_ID < 50500
 	_zend_execute(ops TSRMLS_CC);
@@ -2640,6 +2640,7 @@ ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filena
 	zend_op_array *ret;
 	int            hp_profile_flag = 1;
 
+	filename = hp_get_base_filename(filename);
 	len  = strlen("eval") + strlen(filename) + 3;
 	func = (char *)emalloc(len);
 	snprintf(func, len, "eval::%s", filename);
