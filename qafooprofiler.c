@@ -1532,10 +1532,16 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 
 			FREE_ZVAL(retval_ptr);
 		}
-	} else if (strcmp(ret, "Smarty::fetch#") == 0 || strcmp(ret, "Smarty_Internal_TemplateBase::fetch#") == 0) {
+	} else if (strcmp(ret, "Smarty::fetch#") == 0) {
 		argument_element = *(p-arg_count);
 
-		if (Z_TYPE_P(argument_element) == IS_STRING) {
+		if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
+			snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(argument_element));
+		}
+	} else if (strcmp(ret, "Smarty_Internal_TemplateBase::fetch#") == 0) {
+		argument_element = *(p-arg_count);
+
+		if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
 			snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(argument_element));
 		} else {
 #if PHP_VERSION_ID >= 50500

@@ -6,6 +6,13 @@ Author: beberlei
 
 include_once dirname(__FILE__).'/common.php';
 
+class Smarty
+{
+    public function fetch($template)
+    {
+    }
+}
+
 class Smarty_Internal_TemplateBase
 {
     public function fetch($template)
@@ -34,7 +41,8 @@ qafooprofiler_enable(
     0,
     array('argument_functions' => array(
         'Twig_Template::display',
-        'Smarty_Internal_TemplateBase::fetch'
+        'Smarty::fetch',
+        'Smarty_Internal_TemplateBase::fetch',
     ))
 );
 
@@ -45,10 +53,16 @@ $smarty3 = new Smarty_Internal_Template();
 $smarty3->fetch("bar.tpl");
 $smarty3->fetch(NULL);
 
+$smarty2 = new Smarty();
+$smarty2->fetch("foo.tpl");
+$smarty2->fetch(NULL);
+
 print_canonical(qafooprofiler_disable());
 ?>
 --EXPECT--
 main()                                  : ct=       1; wt=*;
+main()==>Smarty::fetch#                 : ct=       1; wt=*;
+main()==>Smarty::fetch#foo.tpl          : ct=       1; wt=*;
 main()==>Smarty_Internal_TemplateBase::fetch#bar.tpl: ct=       1; wt=*;
 main()==>Smarty_Internal_TemplateBase::fetch#foo.tpl: ct=       1; wt=*;
 main()==>Twig_Template::display#test.twig: ct=       1; wt=*;
