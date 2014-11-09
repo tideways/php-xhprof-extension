@@ -1537,6 +1537,16 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 
 		if (Z_TYPE_P(argument_element) == IS_STRING) {
 			snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(argument_element));
+		} else {
+#if PHP_VERSION_ID >= 50500
+			zval *obj = (*((*data).prev_execute_data)).object;
+			zend_class_entry *smarty_ce = (*((*data).prev_execute_data)).function_state.function->common.scope;
+#else
+			zval *obj = data->object;
+			zend_class_entry *smarty_ce = data.function_state.function->common.scope;
+#endif
+			argument_element = zend_read_property(smarty_ce, obj, "template_resource", sizeof("template_resource") - 1, 1 TSRMLS_CC);
+			snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(argument_element));
 		}
 	} else {
 		for (i=0; i < arg_count; i++) {
