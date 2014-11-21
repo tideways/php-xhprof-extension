@@ -26,6 +26,13 @@ class Enlight_Event_EventManager
     public function notifyUntil($event, $args) {}
 }
 
+function do_action($name, $params) {
+}
+function apply_filters($name, $params) {
+}
+function drupal_alter($name, $args) {
+}
+
 qafooprofiler_enable(0, array('argument_functions' => array(
     'Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch',
     'Zend\\EventManager\\EventManager::trigger',
@@ -34,6 +41,9 @@ qafooprofiler_enable(0, array('argument_functions' => array(
     'Enlight_Event_EventManager::notify',
     'Enlight_Event_EventManager::notifyUntil',
     'Mage::dispatchEvent',
+    'do_action',
+    'apply_filters',
+    'drupal_alter',
 )));
 
 $dispatcher = new EventDispatcher();
@@ -53,6 +63,10 @@ $enlight->notifyUntil("baz", new Event());
 
 Mage::dispatchEvent('zoomzoom', array());
 
+do_action("foo", array("foo" => "bar"));
+apply_filters("foo", array("foo" => "bar"));
+drupal_alter("foo", 1, 2, 3, 4);
+
 print_canonical(qafooprofiler_disable());
 --EXPECT--
 main()                                  : ct=       1; wt=*;
@@ -64,4 +78,7 @@ main()==>Mage::dispatchEvent#zoomzoom   : ct=       1; wt=*;
 main()==>Symfony\Component\EventDispatcher\EventDispatcher::dispatch#bar: ct=       1; wt=*;
 main()==>Symfony\Component\EventDispatcher\EventDispatcher::dispatch#foo: ct=       1; wt=*;
 main()==>Zend\EventManager\EventManager::trigger#baz: ct=       1; wt=*;
+main()==>apply_filters#foo              : ct=       1; wt=*;
+main()==>do_action#foo                  : ct=       1; wt=*;
+main()==>drupal_alter#foo               : ct=       1; wt=*;
 main()==>qafooprofiler_disable          : ct=       1; wt=*;

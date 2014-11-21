@@ -1592,6 +1592,9 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 			strcmp(ret, "Enlight_Event_EventManager::notify#") == 0 ||
 			strcmp(ret, "Enlight_Event_EventManager::notifyUntil#") == 0 ||
 			strcmp(ret, "Zend\\EventManager\\EventManager::trigger#") == 0 ||
+			strcmp(ret, "do_action#") == 0 ||
+			strcmp(ret, "apply_filters#") == 0 ||
+			strcmp(ret, "drupal_alter#") == 0 ||
 			strcmp(ret, "Mage::dispatchEvent#") == 0) {
 		argument_element = *(p-arg_count);
 
