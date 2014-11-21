@@ -45,6 +45,7 @@
 #include "ext/standard/url.h"
 #include "ext/pdo/php_pdo_driver.h"
 #include "zend_exceptions.h"
+#include "zend_stream.h"
 
 #ifdef __FreeBSD__
 # if __FreeBSD_version >= 700110
@@ -473,10 +474,10 @@ PHP_INI_BEGIN()
  * INI-Settings are not yet used by the extension, but by the PHP library.
  */
 PHP_INI_ENTRY("qafooprofiler.socket", "/tmp/qprofd.sock", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("qafooprofiler.api_key", "", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("qafooprofiler.transaction_function", "", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("qafooprofiler.sample_rate", "10", PHP_INI_ALL, NULL)
-PHP_INI_ENTRY("qafooprofiler.enable_layers", "0", PHP_INI_ALL, NULL)
-PHP_INI_ENTRY("qafooprofiler.enable_arguments", "0", PHP_INI_ALL, NULL)
-PHP_INI_ENTRY("qafooprofiler.enabled", "1", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("qafooprofiler.load_library", "1", PHP_INI_ALL, NULL)
 
 PHP_INI_END()
 
@@ -706,10 +707,68 @@ PHP_MSHUTDOWN_FUNCTION(qafooprofiler)
 }
 
 /**
- * Request init callback. Nothing to do yet!
+ * Request init callback.
+ *
+ * Check if QafooProfiler.php exists in extension_dir and load it
+ * in request init. This makes class \QafooLabs\Profiler available
+ * for usage.
  */
 PHP_RINIT_FUNCTION(qafooprofiler)
 {
+	if (INI_INT("qafooprofiler.load_library") == 0) {
+		return SUCCESS;
+	}
+
+	zend_file_handle file_handle;
+	zend_op_array *new_op_array;
+	zval *result = NULL;
+	int ret;
+	int dummy = 1;
+	char *extension_dir = INI_STR("extension_dir");
+	char *profiler_file;
+	int profiler_file_len;
+
+	profiler_file_len = strlen(extension_dir) + strlen("QafooProfiler.php") + 2;
+	profiler_file = emalloc(profiler_file_len);
+	snprintf(profiler_file, profiler_file_len, "%s/%s", extension_dir, "QafooProfiler.php");
+
+	ret = php_stream_open_for_zend_ex(profiler_file, &file_handle, STREAM_OPEN_FOR_INCLUDE TSRMLS_CC);
+
+	// This code is copied from spl_autoload function in ext/spl/php_spl.c - there was no way to trigger
+	// it, because it would rely on the include path and we can't know where that is during
+	// installation. Putting the file into the extension_dir makes it much easier.
+	if (ret == SUCCESS) {
+		if (!file_handle.opened_path) {
+			file_handle.opened_path = profiler_file;
+		}
+		if (zend_hash_add(&EG(included_files), file_handle.opened_path, strlen(file_handle.opened_path)+1, (void *)&dummy, sizeof(int), NULL)==SUCCESS) {
+			new_op_array = zend_compile_file(&file_handle, ZEND_REQUIRE TSRMLS_CC);
+			zend_destroy_file_handle(&file_handle TSRMLS_CC);
+		} else {
+			new_op_array = NULL;
+			zend_file_handle_dtor(&file_handle TSRMLS_CC);
+		}
+		if (new_op_array) {
+			EG(return_value_ptr_ptr) = &result;
+			EG(active_op_array) = new_op_array;
+			if (!EG(active_symbol_table)) {
+				zend_rebuild_symbol_table(TSRMLS_C);
+			}
+
+			zend_execute(new_op_array TSRMLS_CC);
+
+			destroy_op_array(new_op_array TSRMLS_CC);
+			efree(new_op_array);
+			if (!EG(exception)) {
+				if (EG(return_value_ptr_ptr)) {
+					zval_ptr_dtor(EG(return_value_ptr_ptr));
+				}
+			}
+		}
+	}
+
+	efree(profiler_file);
+
 	return SUCCESS;
 }
 
