@@ -1588,10 +1588,11 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 		}
 	} else if (strcmp(ret, "Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch#") == 0 ||
 			strcmp(ret, "Doctrine\\Common\\EventManager::dispatchEvent#") == 0 ||
-			strcmp(ret, "Enlight\\Event\\EventManager::filter#") == 0 ||
-			strcmp(ret, "Enlight\\Event\\EventManager::notify#") == 0 ||
-			strcmp(ret, "Enlight\\Event\\EventManager::notifyUntil#") == 0 ||
-			strcmp(ret, "Zend\\EventManager\\EventManager::trigger#") == 0) {
+			strcmp(ret, "Enlight_Event_EventManager::filter#") == 0 ||
+			strcmp(ret, "Enlight_Event_EventManager::notify#") == 0 ||
+			strcmp(ret, "Enlight_Event_EventManager::notifyUntil#") == 0 ||
+			strcmp(ret, "Zend\\EventManager\\EventManager::trigger#") == 0 ||
+			strcmp(ret, "Mage::dispatchEvent#") == 0) {
 		argument_element = *(p-arg_count);
 
 		if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {

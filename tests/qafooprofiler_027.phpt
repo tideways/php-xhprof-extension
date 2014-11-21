@@ -12,6 +12,13 @@ use Doctrine\Common\EventManager as DoctrineEventManager;
 include_once dirname(__FILE__).'/common.php';
 include_once dirname(__FILE__).'/qafooprofiler_027_classes.php';
 
+class Mage
+{
+    static public function dispatchEvent($eventName, $params)
+    {
+    }
+}
+
 class Enlight_Event_EventManager
 {
     public function filter($event, $value, $args) {}
@@ -26,6 +33,7 @@ qafooprofiler_enable(0, array('argument_functions' => array(
     'Enlight_Event_EventManager::filter',
     'Enlight_Event_EventManager::notify',
     'Enlight_Event_EventManager::notifyUntil',
+    'Mage::dispatchEvent',
 )));
 
 $dispatcher = new EventDispatcher();
@@ -43,13 +51,16 @@ $enlight->filter("foo", 1234, new Event());
 $enlight->notify("bar", new Event());
 $enlight->notifyUntil("baz", new Event());
 
+Mage::dispatchEvent('zoomzoom', array());
+
 print_canonical(qafooprofiler_disable());
 --EXPECT--
 main()                                  : ct=       1; wt=*;
 main()==>Doctrine\Common\EventManager::dispatchEvent#event: ct=       1; wt=*;
-main()==>Enlight_Event_EventManager::filter#foo, 1234, object: ct=       1; wt=*;
-main()==>Enlight_Event_EventManager::notify#bar, object: ct=       1; wt=*;
-main()==>Enlight_Event_EventManager::notifyUntil#baz, object: ct=       1; wt=*;
+main()==>Enlight_Event_EventManager::filter#foo: ct=       1; wt=*;
+main()==>Enlight_Event_EventManager::notify#bar: ct=       1; wt=*;
+main()==>Enlight_Event_EventManager::notifyUntil#baz: ct=       1; wt=*;
+main()==>Mage::dispatchEvent#zoomzoom   : ct=       1; wt=*;
 main()==>Symfony\Component\EventDispatcher\EventDispatcher::dispatch#bar: ct=       1; wt=*;
 main()==>Symfony\Component\EventDispatcher\EventDispatcher::dispatch#foo: ct=       1; wt=*;
 main()==>Zend\EventManager\EventManager::trigger#baz: ct=       1; wt=*;
