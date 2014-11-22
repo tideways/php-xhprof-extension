@@ -474,6 +474,7 @@ PHP_INI_BEGIN()
  * INI-Settings are not yet used by the extension, but by the PHP library.
  */
 PHP_INI_ENTRY("qafooprofiler.socket", "/tmp/qprofd.sock", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("qafooprofiler.auto_start", "1", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("qafooprofiler.api_key", "", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("qafooprofiler.transaction_function", "", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("qafooprofiler.sample_rate", "10", PHP_INI_ALL, NULL)
