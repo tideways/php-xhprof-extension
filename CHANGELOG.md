@@ -1,3 +1,36 @@
+# Version 1.3.0
+
+- Add support for profiling Event-based frameworks/applications
+  Optionally collect the name of the event triggered as part
+  of the function call for the following libraries:
+
+    - Doctrine 2
+    - Zend Framework 2
+    - Symfony 2
+    - Drupal
+    - Wordpress
+    - Magento
+    - Enlight/Shopware
+
+- Add optional support to auto start profiling and transmitting
+  to [Qafoo Profiler platform](https://qafoolabs.com) by copying
+  `QafooProfiler.php` next to the `qafooprofiler.so`.
+
+# Version 1.2.2
+
+- Fix bug in `eval()` support
+
+# Version 1.2.0
+
+- Fix bug in Smarty support
+- Fix bug in overwrite mechanism of `zend_execute` for transacation name detection.
+- Improve performance for transaction name detection when no layer data is requested.
+
+# Version 1.0
+
+- Rename extension to `qafooprofiler`
+- Add support for transaction name detection when not fully profiling (layer-mode)
+
 # Version 0.9.11
 
 - Fix segfault in Twig_Template#getTemplateName instrumentation
