@@ -1,3 +1,8 @@
+# Version 1.3.2
+
+- Add protection against segfault in combination with XDebug < 2.2.7
+  See https://github.com/xdebug/xdebug/pull/131
+
 # Version 1.3.1
 
 - Improve auto loading/start functionality by using better
