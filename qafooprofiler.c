@@ -1347,10 +1347,11 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 	HashTable *arrayParts;
 	pcre_cache_entry	*pce;			/* Compiled regular expression */
 	HashPosition pointer;
-	int array_count, result_len, found;
+	int array_count, result_len, found, found_select;
 	char *result, *token;
 
 	found = 0;
+	found_select = 0;
 	result = "";
 	MAKE_STD_ZVAL(parts);
 
@@ -1397,7 +1398,8 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 			break;
 		} else if (strcmp(token, "select") == 0) {
 			snprintf(result, result_len, "%s", token);
-		} else if (strcmp(token, "from") == 0) {
+			found_select = 1;
+		} else if (found_select == 1 && strcmp(token, "from") == 0) {
 			zend_hash_index_find(arrayParts, index+1, (void**) &data);
 			snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
 			found = 1;
