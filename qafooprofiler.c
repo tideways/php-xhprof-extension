@@ -747,7 +747,7 @@ PHP_RINIT_FUNCTION(qafooprofiler)
 		zend_try {
 			zend_execute_scripts(ZEND_REQUIRE TSRMLS_CC, NULL, 1, &file_handle);
 		} zend_catch {
-			php_log_err("qafooprofiler.so: Error during execution of auto start script QafooProfiler.php - Skipping");
+			php_log_err("qafooprofiler.so: Error during execution of auto start script QafooProfiler.php - Skipping" TSRMLS_CC);
 		} zend_end_try();
 	}
 
