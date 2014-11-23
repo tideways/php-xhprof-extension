@@ -1,3 +1,12 @@
+# Version 1.3.1
+
+- Improve auto loading/start functionality by using better
+  abstractions from Zend Engine. Replaced copied code from `spl_autoload`
+  with call to `zend_execute_scripts`.
+
+- Bugfix in sql argument summary when FROM keyword was found, but
+  it was not a SELECT/INSERT/UPDATE/DELETE statement.
+
 # Version 1.3.0
 
 - Add support for profiling Event-based frameworks/applications
