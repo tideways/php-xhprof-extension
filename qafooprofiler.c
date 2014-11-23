@@ -735,37 +735,20 @@ PHP_RINIT_FUNCTION(qafooprofiler)
 
 	ret = php_stream_open_for_zend_ex(profiler_file, &file_handle, STREAM_OPEN_FOR_INCLUDE TSRMLS_CC);
 
-	// This code is copied from spl_autoload function in ext/spl/php_spl.c - there was no way to trigger
-	// it, because it would rely on the include path and we can't know where that is during
-	// installation. Putting the file into the extension_dir makes it much easier.
 	if (ret == SUCCESS) {
-		if (!file_handle.opened_path) {
-			file_handle.opened_path = profiler_file;
+		// This code is partially copied from php_execute_script
+		if (PG(max_input_time) != -1) {
+#ifdef PHP_WIN32
+			zend_unset_timeout(TSRMLS_C);
+#endif
+			zend_set_timeout(INI_INT("max_execution_time"), 0);
 		}
-		if (zend_hash_add(&EG(included_files), file_handle.opened_path, strlen(file_handle.opened_path)+1, (void *)&dummy, sizeof(int), NULL)==SUCCESS) {
-			new_op_array = zend_compile_file(&file_handle, ZEND_REQUIRE TSRMLS_CC);
-			zend_destroy_file_handle(&file_handle TSRMLS_CC);
-		} else {
-			new_op_array = NULL;
-			zend_file_handle_dtor(&file_handle TSRMLS_CC);
-		}
-		if (new_op_array) {
-			EG(return_value_ptr_ptr) = &result;
-			EG(active_op_array) = new_op_array;
-			if (!EG(active_symbol_table)) {
-				zend_rebuild_symbol_table(TSRMLS_C);
-			}
 
-			zend_execute(new_op_array TSRMLS_CC);
-
-			destroy_op_array(new_op_array TSRMLS_CC);
-			efree(new_op_array);
-			if (!EG(exception)) {
-				if (EG(return_value_ptr_ptr)) {
-					zval_ptr_dtor(EG(return_value_ptr_ptr));
-				}
-			}
-		}
+		zend_try {
+			zend_execute_scripts(ZEND_REQUIRE TSRMLS_CC, NULL, 1, &file_handle);
+		} zend_catch {
+			php_log_err("qafooprofiler.so: Error during execution of auto start script QafooProfiler.php - Skipping");
+		} zend_end_try();
 	}
 
 	efree(profiler_file);
