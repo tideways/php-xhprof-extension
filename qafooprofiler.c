@@ -720,6 +720,12 @@ PHP_RINIT_FUNCTION(qafooprofiler)
 		return SUCCESS;
 	}
 
+	// See https://github.com/xdebug/xdebug/pull/131
+	char *version = zend_get_module_version("xdebug");
+	if (version != NULL && php_version_compare(version, "2.2.7") < 0) {
+		return SUCCESS;
+	}
+
 	zend_file_handle file_handle;
 	zend_op_array *new_op_array;
 	zval *result = NULL;
