@@ -2426,11 +2426,6 @@ zval * hp_mode_shared_endfn_cb(hp_entry_t *top, char *symbol TSRMLS_DC)
 	hp_inc_count(counts, "ct", 1  TSRMLS_CC);
 	hp_inc_count(counts, "wt", wt TSRMLS_CC);
 
-	if ((GC_G(gc_runs) - top->gc_runs) > 0) {
-		hp_inc_count(counts, "gc", GC_G(gc_runs) - top->gc_runs TSRMLS_CC);
-		hp_inc_count(counts, "gcc", GC_G(collected) - top->gc_collected TSRMLS_CC);
-	}
-
 	if (hp_globals.layers_definition) {
 		void **data;
 		zval *layer, *layer_counts;
@@ -2470,6 +2465,11 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 	if (!(counts = hp_mode_shared_endfn_cb(top,
 					symbol  TSRMLS_CC))) {
 		return;
+	}
+
+	if ((GC_G(gc_runs) - top->gc_runs) > 0) {
+		hp_inc_count(counts, "gc", GC_G(gc_runs) - top->gc_runs TSRMLS_CC);
+		hp_inc_count(counts, "gcc", GC_G(collected) - top->gc_collected TSRMLS_CC);
 	}
 
 	if (hp_globals.qafooprofiler_flags & QAFOOPROFILER_FLAGS_CPU) {
