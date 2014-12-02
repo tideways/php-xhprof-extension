@@ -40,6 +40,7 @@
 #include "ext/standard/file.h"
 #include "php_qafooprofiler.h"
 #include "zend_extensions.h"
+#include "zend_gc.h"
 
 #include "ext/pcre/php_pcre.h"
 #include "ext/standard/url.h"
@@ -157,6 +158,8 @@ typedef struct hp_entry_t {
 	struct rusage           ru_start_hprof;             /* user/sys time start */
 	struct hp_entry_t      *prev_hprof;    /* ptr to prev entry being profiled */
 	uint8                   hash_code;     /* hash_code for the function name  */
+	zend_uint				gc_runs; /* number of garbage collection runs */
+	zend_uint				gc_collected; /* number of collected items in garbage run */
 } hp_entry_t;
 
 /* Various types for QAFOOPROFILER callbacks       */
@@ -2364,6 +2367,8 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC
 {
 	/* Get start tsc counter */
 	current->tsc_start = cycle_timer();
+	current->gc_runs = GC_G(gc_runs);
+	current->gc_collected = GC_G(collected);
 
 	/* Get CPU usage */
 	if (hp_globals.qafooprofiler_flags & QAFOOPROFILER_FLAGS_CPU) {
@@ -2420,6 +2425,11 @@ zval * hp_mode_shared_endfn_cb(hp_entry_t *top, char *symbol TSRMLS_DC)
 	/* Bump stats in the counts hashtable */
 	hp_inc_count(counts, "ct", 1  TSRMLS_CC);
 	hp_inc_count(counts, "wt", wt TSRMLS_CC);
+
+	if ((GC_G(gc_runs) - top->gc_runs) > 0) {
+		hp_inc_count(counts, "gc", GC_G(gc_runs) - top->gc_runs);
+		hp_inc_count(counts, "gcc", GC_G(collected) - top->gc_collected);
+	}
 
 	if (hp_globals.layers_definition) {
 		void **data;
