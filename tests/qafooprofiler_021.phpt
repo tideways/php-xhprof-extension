@@ -3,7 +3,7 @@ XHProf: Curl Summary
 --SKIPIF--
 <?php
 if (!extension_loaded('curl')) {
-    die("Requires curl extension");
+    print "skip: Requires curl extension";
 }
 ?>
 --FILE--
