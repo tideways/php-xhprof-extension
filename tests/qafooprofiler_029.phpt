@@ -6,16 +6,20 @@ Author: beberlei
 
 function create_garbage()
 {
-    $foo = array();
     for ($i = 0; $i < 11000; $i++) {
-        $foo[] = str_repeat("x", $i);
+        $a = new stdClass;
+        $a->self = $a;
     }
     gc_collect_cycles();
-    return $foo;
 }
 
 qafooprofiler_enable();
 create_garbage();
-var_dump(qafooprofiler_disable());
+$data = qafooprofiler_disable();
+
+echo "Garbage Collection runs: " . $data['main()']['gc'] . "\n";
+echo "Garbage Collection Cycles Collected: " . $data['main()']['gcc'] . "\n";
 
 --EXPECTF--
+Garbage Collection runs: 2
+Garbage Collection Cycles Collected: 10999
