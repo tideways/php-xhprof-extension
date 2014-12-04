@@ -20,7 +20,8 @@ Profiler](https://qafoolabs.com/profiler/downloads) website.
 
 Building from source is straightforward:
 
-    cd profiler-extension
+    git clone https://github.com/QafooLabs/php-profiler-extension.git
+    cd php-profiler-extension
     phpize
     ./configure
     make
