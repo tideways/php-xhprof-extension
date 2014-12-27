@@ -799,7 +799,20 @@ PHP_MINFO_FUNCTION(qafooprofiler)
 			php_info_print_table_row(2, buf, tmp);
 		}
 	}
+	php_info_print_table_row(2, "Socket/TCPIP", INI_STR("qafooprofiler.socket"));
+	php_info_print_table_row(2, "Default API Key", INI_STR("qafooprofiler.api_key"));
+	php_info_print_table_row(2, "Default Sample-Rate", INI_STR("qafooprofiler.sample_rate"));
+	php_info_print_table_row(2, "Default Transaction Function", INI_STR("qafooprofiler.transaction_function"));
+	php_info_print_table_row(2, "Automatically Start", INI_INT("qafooprofiler.auto_start") ? "Yes": "No");
+	php_info_print_table_row(2, "Load PHP Library", INI_INT("qafooprofiler.load_library") ? "Yes": "No");
 
+	zend_class_entry **ce;
+	int found = zend_hash_find(EG(class_table), "QafooLabs\\Profiler", 19, (void **) &ce);
+	php_info_print_table_row(
+		2,
+		"QafooLabs\\Profiler automatically loaded",
+		(found == SUCCESS) ? "Yes" : (INI_INT("qafooprofiler.load_library") ? "Not Found" : "No")
+	);
 
 	php_info_print_table_end();
 }
@@ -839,21 +852,34 @@ static void hp_register_constants(INIT_FUNC_ARGS)
  *
  * @author cjiang
  */
-static inline uint8 hp_inline_hash(char * str)
+static inline uint8 hp_inline_hash(char * arKey)
 {
-	ulong h = 5381;
-	uint i = 0;
-	uint8 res = 0;
+	size_t nKeyLength = strlen(arKey);
+	register uint8 hash = 5381;
 
-	while (*str) {
-		h += (h << 5);
-		h ^= (ulong) *str++;
+	/* variant with the hash unrolled eight times */
+	for (; nKeyLength >= 8; nKeyLength -= 8) {
+		hash = ((hash << 5) + hash) + *arKey++;
+		hash = ((hash << 5) + hash) + *arKey++;
+		hash = ((hash << 5) + hash) + *arKey++;
+		hash = ((hash << 5) + hash) + *arKey++;
+		hash = ((hash << 5) + hash) + *arKey++;
+		hash = ((hash << 5) + hash) + *arKey++;
+		hash = ((hash << 5) + hash) + *arKey++;
+		hash = ((hash << 5) + hash) + *arKey++;
 	}
-
-	for (i = 0; i < sizeof(ulong); i++) {
-		res += ((uint8 *)&h)[i];
+	switch (nKeyLength) {
+		case 7: hash = ((hash << 5) + hash) + *arKey++; /* fallthrough... */
+		case 6: hash = ((hash << 5) + hash) + *arKey++; /* fallthrough... */
+		case 5: hash = ((hash << 5) + hash) + *arKey++; /* fallthrough... */
+		case 4: hash = ((hash << 5) + hash) + *arKey++; /* fallthrough... */
+		case 3: hash = ((hash << 5) + hash) + *arKey++; /* fallthrough... */
+		case 2: hash = ((hash << 5) + hash) + *arKey++; /* fallthrough... */
+		case 1: hash = ((hash << 5) + hash) + *arKey++; break;
+		case 0: break;
+EMPTY_SWITCH_DEFAULT_CASE()
 	}
-	return res;
+	return hash;
 }
 
 static void hp_parse_layers_options_from_arg(zval *layers)
@@ -1177,10 +1203,8 @@ static void hp_clean_profiler_options_state()
  * @return total size of the function name returned in result_buf
  * @author veeve
  */
-size_t hp_get_entry_name(hp_entry_t  *entry,
-		char           *result_buf,
-		size_t          result_len) {
-
+size_t hp_get_entry_name(hp_entry_t  *entry, char *result_buf, size_t result_len)
+{
 	/* Validate result_len */
 	if (result_len <= 1) {
 		/* Insufficient result_bug. Bail! */
@@ -1197,13 +1221,11 @@ size_t hp_get_entry_name(hp_entry_t  *entry,
 			entry->name_hprof,
 			entry->rlvl_hprof
 		);
-	}
-	else {
-		snprintf(
+	} else {
+		strncat(
 			result_buf,
-			result_len,
-			"%s",
-			entry->name_hprof
+			entry->name_hprof,
+			result_len
 		);
 	}
 
@@ -1255,49 +1277,33 @@ static inline int hp_filter_entry(uint8 hash_code, char *curr_func)
  *
  * @author kannan, veeve
  */
-size_t hp_get_function_stack(hp_entry_t *entry,
-		int            level,
-		char          *result_buf,
-		size_t         result_len) {
-
+size_t hp_get_function_stack(hp_entry_t *entry, int level, char *result_buf, size_t result_len)
+{
 	size_t         len = 0;
 
-	/* End recursion if we dont need deeper levels or we dont have any deeper
-	 * levels */
 	if (!entry->prev_hprof || (level <= 1)) {
 		return hp_get_entry_name(entry, result_buf, result_len);
 	}
 
-	/* Take care of all ancestors first */
-	len = hp_get_function_stack(entry->prev_hprof,
-			level - 1,
-			result_buf,
-			result_len);
+	len = hp_get_function_stack(entry->prev_hprof, level - 1, result_buf, result_len);
 
 	/* Append the delimiter */
 # define    HP_STACK_DELIM        "==>"
 # define    HP_STACK_DELIM_LEN    (sizeof(HP_STACK_DELIM) - 1)
 
 	if (result_len < (len + HP_STACK_DELIM_LEN)) {
-		/* Insufficient result_buf. Bail out! */
 		return len;
 	}
 
-	/* Add delimiter only if entry had ancestors */
 	if (len) {
-		strncat(result_buf + len,
-				HP_STACK_DELIM,
-				result_len - len);
+		strncat(result_buf + len, HP_STACK_DELIM, result_len - len);
 		len += HP_STACK_DELIM_LEN;
 	}
 
 # undef     HP_STACK_DELIM_LEN
 # undef     HP_STACK_DELIM
 
-	/* Append the current function name */
-	return len + hp_get_entry_name(entry,
-			result_buf + len,
-			result_len - len);
+	return len + hp_get_entry_name(entry, result_buf + len, result_len - len);
 }
 
 /**
@@ -1471,7 +1477,28 @@ static inline void **hp_get_execute_arguments(zend_execute_data *data)
 	return p;
 }
 
-static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_data *data TSRMLS_DC)
+static char *hp_concat_char(char *s1, size_t len1, char *s2, size_t len2, const char *seperator, size_t sep_len)
+{
+    char *result = emalloc(len1+len2+sep_len+1);
+
+    strcpy(result, s1);
+	strcat(result, seperator);
+    strcat(result, s2);
+
+    return result;
+}
+
+static void hp_append_char(char *result, size_t result_len, char *append, size_t append_len, const char *seperator, size_t sep_len)
+{
+	if ((append_len+sep_len) > result_len) {
+		return;
+	}
+
+	strcat(result, seperator);
+	strcat(result, append);
+}
+
+static char *hp_get_function_argument_summary(char *ret, zend_execute_data *data TSRMLS_DC)
 {
 	void **p;
 	int arg_count = 0;
@@ -1480,11 +1507,11 @@ static char *hp_get_function_argument_summary(char *ret, int len, zend_execute_d
 	/* oldret holding function name or class::function. We will reuse the string and free it after */
 	char *oldret = ret;
 	char *summary;
+	int len = QAFOOPROFILER_MAX_ARGUMENT_LEN;
 
 	p = hp_get_execute_arguments(data);
 	arg_count = (int)(zend_uintptr_t) *p;       /* this is the amount of arguments passed to function */
 
-	len = QAFOOPROFILER_MAX_ARGUMENT_LEN;
 	ret = emalloc(len);
 	snprintf(ret, len, "%s#", oldret);
 	efree(oldret);
@@ -1736,9 +1763,8 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 			}
 
 			if (cls) {
-				len = strlen(cls) + strlen(func) + 10;
-				ret = (char*)emalloc(len);
-				snprintf(ret, len, "%s::%s", cls, func);
+				char* sep = "::";
+				ret = hp_concat_char(cls, strlen(cls), func, strlen(func), sep, 2);
 			} else {
 				ret = estrdup(func);
 			}
@@ -1746,7 +1772,7 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 			hash_code  = hp_inline_hash(ret);
 
 			if (hp_argument_entry(hash_code, ret)) {
-				ret = hp_get_function_argument_summary(ret, len, data TSRMLS_CC);
+				ret = hp_get_function_argument_summary(ret, data TSRMLS_CC);
 			}
 
 		} else {
@@ -1925,7 +1951,7 @@ void hp_trunc_time(struct timeval *tv, uint64 intr)
 void hp_sample_stack(hp_entry_t  **entries  TSRMLS_DC)
 {
 	char key[SCRATCH_BUF_LEN];
-	char symbol[SCRATCH_BUF_LEN * 1000];
+	char symbol[SCRATCH_BUF_LEN * 1000] = "";
 
 	/* Build key */
 	snprintf(
@@ -2424,7 +2450,7 @@ zval * hp_mode_shared_endfn_cb(hp_entry_t *top, char *symbol TSRMLS_DC)
 	if (hp_globals.layers_definition) {
 		void **data;
 		zval *layer, *layer_counts;
-		char function_name[SCRATCH_BUF_LEN];
+		char function_name[SCRATCH_BUF_LEN] = "";
 
 		hp_get_function_stack(top, 1, function_name, sizeof(function_name));
 
@@ -2451,7 +2477,7 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 	hp_entry_t   *top = (*entries);
 	zval            *counts;
 	struct rusage    ru_end;
-	char             symbol[SCRATCH_BUF_LEN];
+	char             symbol[SCRATCH_BUF_LEN] = "";
 	long int         mu_end;
 	long int         pmu_end;
 
@@ -2493,7 +2519,7 @@ void hp_mode_layer_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 	hp_entry_t   *top = (*entries);
 	void **data;
 	zval *layer, *layer_counts;
-	char function_name[SCRATCH_BUF_LEN];
+	char function_name[SCRATCH_BUF_LEN] = "";
 	uint64   tsc_end;
 	double   wt;
 
