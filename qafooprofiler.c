@@ -243,6 +243,7 @@ typedef struct hp_global_t {
 	/* Function that determines the transaction name and callback */
 	hp_string       *transaction_function;
 	hp_string		*transaction_name;
+	char			*root;
 
 	/*       ----------   Mode specific attributes:  -----------       */
 
@@ -858,7 +859,7 @@ static void hp_register_constants(INIT_FUNC_ARGS)
 static inline uint8 hp_inline_hash(char * arKey)
 {
 	size_t nKeyLength = strlen(arKey);
-	register uint8 hash = 5381;
+	register uint8 hash = 0;
 
 	/* variant with the hash unrolled eight times */
 	for (; nKeyLength >= 8; nKeyLength -= 8) {
@@ -1152,12 +1153,15 @@ static void hp_clean_profiler_options_state()
  *        CALLING FUNCTION OR BY CALLING TSRMLS_FETCH()
  *        TSRMLS_FETCH() IS RELATIVELY EXPENSIVE.
  */
-#define BEGIN_PROFILING(entries, symbol, profile_curr)							\
+#define BEGIN_PROFILING(entries, symbol, profile_curr, execute_data)			\
 	do {																		\
 		/* Use a hash code to filter most of the string comparisons. */			\
 		uint8 hash_code  = hp_inline_hash(symbol);								\
 		profile_curr = !hp_filter_entry(hash_code, symbol);						\
 		if (profile_curr) {														\
+			if (execute_data != NULL && hp_argument_entry(hash_code, symbol)) {	\
+				symbol = hp_get_function_argument_summary(symbol, execute_data TSRMLS_CC); \
+			}																	\
 			hp_entry_t *cur_entry = hp_fast_alloc_hprof_entry();				\
 			(cur_entry)->hash_code = hash_code;									\
 			(cur_entry)->name_hprof = symbol;									\
@@ -1742,7 +1746,6 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 	char              *ret = NULL;
 	int                len;
 	zend_function      *curr_func;
-	uint8 hash_code;
 
 	if (data) {
 		/* shared meta data for function on the call stack */
@@ -1770,12 +1773,6 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 				ret = hp_concat_char(cls, strlen(cls), func, strlen(func), sep, 2);
 			} else {
 				ret = estrdup(func);
-			}
-
-			hash_code  = hp_inline_hash(ret);
-
-			if (hp_argument_entry(hash_code, ret)) {
-				ret = hp_get_function_argument_summary(ret, data TSRMLS_CC);
 			}
 
 		} else {
@@ -2639,7 +2636,7 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 
 	hp_detect_transaction_name(func, real_execute_data TSRMLS_CC);
 
-	BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag);
+	BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag, real_execute_data);
 #if PHP_VERSION_ID < 50500
 	_zend_execute(ops TSRMLS_CC);
 #else
@@ -2678,7 +2675,7 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
 	func = hp_get_function_name(execute_data TSRMLS_CC);
 
 	if (func) {
-		BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag);
+		BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag, execute_data);
 	}
 
 	if (!_zend_execute_internal) {
@@ -2722,7 +2719,7 @@ ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int 
 	func      = (char *)emalloc(len);
 	snprintf(func, len, "load::%s", filename);
 
-	BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag);
+	BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag, NULL);
 	ret = _zend_compile_file(file_handle, type TSRMLS_CC);
 	if (hp_globals.entries) {
 		END_PROFILING(&hp_globals.entries, hp_profile_flag);
@@ -2747,7 +2744,7 @@ ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filena
 	func = (char *)emalloc(len);
 	snprintf(func, len, "eval::%s", filename);
 
-	BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag);
+	BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag, NULL);
 	ret = _zend_compile_string(source_string, filename TSRMLS_CC);
 	if (hp_globals.entries) {
 		END_PROFILING(&hp_globals.entries, hp_profile_flag);
@@ -2850,7 +2847,8 @@ static void hp_begin(long level, long qafooprofiler_flags TSRMLS_DC)
 		hp_init_profiler_state(level TSRMLS_CC);
 
 		/* start profiling from fictitious main() */
-		BEGIN_PROFILING(&hp_globals.entries, ROOT_SYMBOL, hp_profile_flag);
+		hp_globals.root = estrdup(ROOT_SYMBOL);
+		BEGIN_PROFILING(&hp_globals.entries, hp_globals.root, hp_profile_flag, NULL);
 	}
 }
 
@@ -2884,6 +2882,11 @@ static void hp_stop(TSRMLS_D)
 	/* End any unfinished calls */
 	while (hp_globals.entries) {
 		END_PROFILING(&hp_globals.entries, hp_profile_flag);
+	}
+
+	if (hp_globals.root) {
+		efree(hp_globals.root);
+		hp_globals.root = NULL;
 	}
 
 	/* Remove proxies, restore the originals */
