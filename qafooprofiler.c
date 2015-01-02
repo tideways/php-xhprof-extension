@@ -30,8 +30,10 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #ifdef PHP_QAFOOPROFILER_HAVE_CURL
+#if PHP_VERSION_ID > 50399
 #include <curl/curl.h>
 #include <curl/easy.h>
+#endif
 #endif
 
 #include "php.h"
@@ -291,6 +293,7 @@ typedef struct hp_global_t {
 } hp_global_t;
 
 #ifdef PHP_QAFOOPROFILER_HAVE_CURL
+#if PHP_VERSION_ID > 50399
 typedef struct hp_curl_t {
 	struct {
 		char str[CURL_ERROR_SIZE + 1];
@@ -307,6 +310,7 @@ typedef struct hp_curl_t {
 	void ***thread_ctx;
 	CURL *cp;
 } hp_curl_t;
+#endif
 #endif
 
 /**
@@ -1557,6 +1561,7 @@ static char *hp_get_function_argument_summary(char *ret, zend_execute_data *data
 			efree(summary);
 		}
 #ifdef PHP_QAFOOPROFILER_HAVE_CURL
+#if PHP_VERSION_ID > 50399
 	} else if (strcmp(ret, "curl_exec#") == 0) {
 		hp_curl_t *ch;
 		int  le_curl;
@@ -1575,6 +1580,7 @@ static char *hp_get_function_argument_summary(char *ret, zend_execute_data *data
 				efree(summary);
 			}
 		}
+#endif
 #endif
 	} else if (strcmp(ret, "PDO::exec#") == 0 ||
 			strcmp(ret, "PDO::query#") == 0 ||

@@ -2,7 +2,7 @@
 XHProf: Curl Summary
 --SKIPIF--
 <?php
-if (!extension_loaded('curl')) {
+if (!extension_loaded('curl') || PHP_VERSION_ID <= 50399) {
     print "skip: Requires curl extension";
 }
 ?>
