@@ -475,9 +475,10 @@ zend_module_entry qafooprofiler_module_entry = {
 PHP_INI_BEGIN()
 
 /**
- * INI-Settings are not yet used by the extension, but by the PHP library.
+ * INI-Settings are always used by the extension, but by the PHP library.
  */
-PHP_INI_ENTRY("qafooprofiler.socket", "/tmp/qprofd.sock", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("qafooprofiler.connection", "unix:///tmp/qprofd.sock", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("qafooprofiler.udp_connection", "127.0.0.1:8135", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("qafooprofiler.auto_start", "1", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("qafooprofiler.api_key", "", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("qafooprofiler.transaction_function", "", PHP_INI_ALL, NULL)
@@ -803,12 +804,13 @@ PHP_MINFO_FUNCTION(qafooprofiler)
 			php_info_print_table_row(2, buf, tmp);
 		}
 	}
-	php_info_print_table_row(2, "Socket/TCPIP", INI_STR("qafooprofiler.socket"));
-	php_info_print_table_row(2, "Default API Key", INI_STR("qafooprofiler.api_key"));
-	php_info_print_table_row(2, "Default Sample-Rate", INI_STR("qafooprofiler.sample_rate"));
-	php_info_print_table_row(2, "Default Transaction Function", INI_STR("qafooprofiler.transaction_function"));
-	php_info_print_table_row(2, "Automatically Start", INI_INT("qafooprofiler.auto_start") ? "Yes": "No");
-	php_info_print_table_row(2, "Load PHP Library", INI_INT("qafooprofiler.load_library") ? "Yes": "No");
+	php_info_print_table_row(2, "Connection (qafooprofiler.connection)", INI_STR("qafooprofiler.connection"));
+	php_info_print_table_row(2, "UDP Connection (qafooprofiler.udp_connection)", INI_STR("qafooprofiler.udp_connection"));
+	php_info_print_table_row(2, "Default API Key (qafooprofiler.api_key)", INI_STR("qafooprofiler.api_key"));
+	php_info_print_table_row(2, "Default Sample-Rate (qafooprofiler.sample_rate)", INI_STR("qafooprofiler.sample_rate"));
+	php_info_print_table_row(2, "Default Transaction Function (qafooprofiler.transaction_function)", INI_STR("qafooprofiler.transaction_function"));
+	php_info_print_table_row(2, "Automatically Start (qafooprofiler.auto_start)", INI_INT("qafooprofiler.auto_start") ? "Yes": "No");
+	php_info_print_table_row(2, "Load PHP Library (qafooprofiler.load_library)", INI_INT("qafooprofiler.load_library") ? "Yes": "No");
 
 	zend_class_entry **ce;
 	int found = zend_hash_find(EG(class_table), "QafooLabs\\Profiler", 19, (void **) &ce);
