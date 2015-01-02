@@ -29,12 +29,6 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-#ifdef PHP_QAFOOPROFILER_HAVE_CURL
-#if PHP_VERSION_ID > 50399
-#include <curl/curl.h>
-#include <curl/easy.h>
-#endif
-#endif
 
 #include "php.h"
 #include "php_ini.h"
@@ -49,6 +43,13 @@
 #include "ext/pdo/php_pdo_driver.h"
 #include "zend_exceptions.h"
 #include "zend_stream.h"
+
+#ifdef PHP_QAFOOPROFILER_HAVE_CURL
+#if PHP_VERSION_ID > 50399
+#include <curl/curl.h>
+#include <curl/easy.h>
+#endif
+#endif
 
 #ifdef __FreeBSD__
 # if __FreeBSD_version >= 700110
