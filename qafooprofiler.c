@@ -90,7 +90,7 @@
  */
 
 /* Qafoo Profiler version                           */
-#define QAFOOPROFILER_VERSION       "1.3.4"
+#define QAFOOPROFILER_VERSION       "1.3.5"
 
 /* Fictitious function name to represent top of the call tree. The paranthesis
  * in the name is to ensure we don't conflict with user function names.  */
