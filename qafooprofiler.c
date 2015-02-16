@@ -817,13 +817,10 @@ PHP_MINFO_FUNCTION(qafooprofiler)
 	php_info_print_table_row(2, "Automatically Start (qafooprofiler.auto_start)", INI_INT("qafooprofiler.auto_start") ? "Yes": "No");
 	php_info_print_table_row(2, "Load PHP Library (qafooprofiler.load_library)", INI_INT("qafooprofiler.load_library") ? "Yes": "No");
 
-	zend_class_entry **ce;
-	int found = zend_hash_find(EG(class_table), "QafooLabs\\Profiler", 19, (void **) &ce);
-	php_info_print_table_row(
-		2,
-		"QafooLabs\\Profiler automatically loaded",
-		(found == SUCCESS) ? "Yes" : (INI_INT("qafooprofiler.load_library") ? "Not Found" : "No")
-	);
+	char *version = zend_get_module_version("xdebug");
+	if (found != 0 && version != NULL && php_version_compare(version, "2.2.7") < 0 && INI_INT("qafooprofiler.load_library") != 0) {
+		php_info_print_table_row(1, "Incompatible Xdebug version prevents loading library automatically! At least Xdebug version 2.2.7 required.");
+	}
 
 	php_info_print_table_end();
 }
