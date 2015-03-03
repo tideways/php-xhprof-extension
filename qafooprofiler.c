@@ -790,6 +790,7 @@ PHP_MINFO_FUNCTION(qafooprofiler)
 	char tmp[SCRATCH_BUF_LEN];
 	int i;
 	int len;
+	int found = 0;
 
 	php_info_print_table_start();
 	php_info_print_table_header(2, "qafooprofiler", QAFOOPROFILER_VERSION);
