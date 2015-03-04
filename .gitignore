@@ -56,3 +56,5 @@ tests/*.sh
 tests/*.log
 tests/*.exp
 run-tests.php
+vendor/
+*.phar
