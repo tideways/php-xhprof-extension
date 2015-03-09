@@ -1663,6 +1663,15 @@ static char *hp_get_function_argument_summary(char *ret, zend_execute_data *data
 				break;
 			}
 		}
+	} else if (strcmp(ret, "pg_execute#") == 0) {
+		for (i=0; i < arg_count; i++) {
+			argument_element = *(p-(arg_count-i));
+
+			if (argument_element && Z_TYPE_P(argument_element) == IS_STRING && Z_STRLEN_P(argument_element) > 0) {
+				snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(argument_element));
+				break;
+			}
+		}
 	} else {
 		for (i=0; i < arg_count; i++) {
 			argument_element = *(p-(arg_count-i));
