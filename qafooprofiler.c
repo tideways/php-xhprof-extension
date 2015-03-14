@@ -181,7 +181,7 @@ typedef struct hp_mode_cb {
 } hp_mode_cb;
 
 typedef struct hp_string {
-	const char *value;
+	char *value;
 	size_t length;
 } hp_string;
 
@@ -731,7 +731,7 @@ PHP_RINIT_FUNCTION(qafooprofiler)
 	}
 
 	// See https://github.com/xdebug/xdebug/pull/131
-	char *version = zend_get_module_version("xdebug");
+	const char *version = zend_get_module_version("xdebug");
 	if (version != NULL && php_version_compare(version, "2.2.7") < 0) {
 		return SUCCESS;
 	}
@@ -818,7 +818,7 @@ PHP_MINFO_FUNCTION(qafooprofiler)
 	php_info_print_table_row(2, "Automatically Start (qafooprofiler.auto_start)", INI_INT("qafooprofiler.auto_start") ? "Yes": "No");
 	php_info_print_table_row(2, "Load PHP Library (qafooprofiler.load_library)", INI_INT("qafooprofiler.load_library") ? "Yes": "No");
 
-	char *version = zend_get_module_version("xdebug");
+	const char *version = zend_get_module_version("xdebug");
 	if (found != 0 && version != NULL && php_version_compare(version, "2.2.7") < 0 && INI_INT("qafooprofiler.load_library") != 0) {
 		php_info_print_table_row(1, "Incompatible Xdebug version prevents loading library automatically! At least Xdebug version 2.2.7 required.");
 	}
@@ -1489,7 +1489,7 @@ static inline void **hp_get_execute_arguments(zend_execute_data *data)
 	return p;
 }
 
-static char *hp_concat_char(char *s1, size_t len1, char *s2, size_t len2, const char *seperator, size_t sep_len)
+static char *hp_concat_char(const char *s1, size_t len1, const char *s2, size_t len2, const char *seperator, size_t sep_len)
 {
     char *result = emalloc(len1+len2+sep_len+1);
 
@@ -1498,16 +1498,6 @@ static char *hp_concat_char(char *s1, size_t len1, char *s2, size_t len2, const 
     strcat(result, s2);
 
     return result;
-}
-
-static void hp_append_char(char *result, size_t result_len, char *append, size_t append_len, const char *seperator, size_t sep_len)
-{
-	if ((append_len+sep_len) > result_len) {
-		return;
-	}
-
-	strcat(result, seperator);
-	strcat(result, append);
 }
 
 static char *hp_get_function_argument_summary(char *ret, zend_execute_data *data TSRMLS_DC)
@@ -2766,7 +2756,7 @@ ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filena
 	zend_op_array *ret;
 	int            hp_profile_flag = 1;
 
-	filename = hp_get_base_filename(filename);
+	filename = (char *)hp_get_base_filename((const char *)filename);
 	len  = strlen("eval") + strlen(filename) + 3;
 	func = (char *)emalloc(len);
 	snprintf(func, len, "eval::%s", filename);
