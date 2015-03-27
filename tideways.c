@@ -482,7 +482,7 @@ PHP_INI_BEGIN()
 /**
  * INI-Settings are always used by the extension, but by the PHP library.
  */
-PHP_INI_ENTRY("tideways.connection", "unix:///tmp/qprofd.sock", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("tideways.connection", "unix:///var/run/tideways/tidewaysd.sock", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.udp_connection", "127.0.0.1:8135", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.auto_start", "1", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.api_key", "", PHP_INI_ALL, NULL)
