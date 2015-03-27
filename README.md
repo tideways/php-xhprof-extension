@@ -1,10 +1,10 @@
-# Qafoo Profiler PHP Extension
+# Tideways PHP Profiler Extension
 
 The Profiler extension contains functions for finding performance bottlenecks
-in PHP code.The extension is one core piece of functionality for the [Qafoo
-Profiler Platform](https://qafoolabs.com). The platform solves the problem of
-efficiently collecting, aggregating and analyzing the profiling data when
-running the Profiler in production.
+in PHP code. The extension is one core piece of functionality for the [Tideways
+Profiler Platform](https://tideways.io). It solves the problem of efficiently
+collecting, aggregating and analyzing the profiling data when running a
+Profiler in production.
 
 ## Requirements
 
@@ -14,13 +14,12 @@ running the Profiler in production.
 
 ## Installation
 
-You can install the Qafoo Profiler extension from source or by downloading the
-pre-compiled binaries from the [Qafoo
-Profiler](https://qafoolabs.com/profiler/downloads) website.
+You can install the Tideways extension from source or download 
+pre-compiled binaries from the [Tidways Downloads](https://tideways.io/profiler/downloads) page.
 
 Building from source is straightforward:
 
-    git clone https://github.com/QafooLabs/php-profiler-extension.git
+    git clone https://github.com/tideways/php-profiler-extension.git
     cd php-profiler-extension
     phpize
     ./configure
@@ -29,8 +28,10 @@ Building from source is straightforward:
 
 Afterwards you need to enable the extension in your php.ini:
 
-    extension=qafooprofiler.so
+    extension=tideways.so
+    tideways.api_key=set your key
 
 ## Documentation
 
-You can find the documentation on the [QafooLabs Profiler website](https://qafoolabs.com/profiler/docs/setup/profiler-php-pecl-extension).
+You can find the documentation on the [Tidways Profiler
+website](https://tideways.io/profiler/docs/setup/profiler-php-pecl-extension).
