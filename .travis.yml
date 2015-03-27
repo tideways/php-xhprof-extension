@@ -23,6 +23,6 @@ before_script:
   - ./configure 
   - make
 
-script: REPORT_EXIT_STATUS=1 php run-tests.php -p `which php` --show-diff -d extension=`pwd`/.libs/qafooprofiler.so -q
+script: REPORT_EXIT_STATUS=1 php run-tests.php -p `which php` --show-diff -d extension=`pwd`/.libs/tideways.so -q
 
 after_failure: "cat tests/*.diff"
