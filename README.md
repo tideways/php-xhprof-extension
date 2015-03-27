@@ -1,5 +1,7 @@
 # Tideways PHP Profiler Extension
 
+[![Build Status](https://travis-ci.org/tideways/php-profiler-extension.svg?branch=master)](https://travis-ci.org/tideways/php-profiler-extension)
+
 The Profiler extension contains functions for finding performance bottlenecks
 in PHP code. The extension is one core piece of functionality for the [Tideways
 Profiler Platform](https://tideways.io). It solves the problem of efficiently
