@@ -35,3 +35,4 @@ Afterwards you need to enable the extension in your php.ini:
 
 You can find the documentation on the [Tidways Profiler
 website](https://tideways.io/profiler/docs/setup/profiler-php-pecl-extension).
+
