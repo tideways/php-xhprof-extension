@@ -92,8 +92,8 @@
  * **********************
  */
 
-/* Qafoo Profiler version                           */
-#define TIDEWAYS_VERSION       "1.3.7"
+/* Tideways version                           */
+#define TIDEWAYS_VERSION       "1.4.2"
 
 /* Fictitious function name to represent top of the call tree. The paranthesis
  * in the name is to ensure we don't conflict with user function names.  */
@@ -145,7 +145,7 @@ typedef unsigned char uint8;
  * *****************************
  */
 
-/* Qafoo Profiler maintains a stack of entries being profiled. The memory for the entry
+/* Tideways maintains a stack of entries being profiled. The memory for the entry
  * is passed by the layer that invokes BEGIN_PROFILING(), e.g. the hp_execute()
  * function. Often, this is just C-stack memory.
  *
@@ -201,7 +201,7 @@ typedef struct hp_function_map {
 	uint8 filter[TIDEWAYS_FILTERED_FUNCTION_SIZE];
 } hp_function_map;
 
-/* Qafoo Profiler's global state.
+/* Tideways's global state.
  *
  * This structure is instantiated once.  Initialize defaults for attributes in
  * hp_init_profiler_state() Cleanup/free attributes in
@@ -210,10 +210,10 @@ typedef struct hp_global_t {
 
 	/*       ----------   Global attributes:  -----------       */
 
-	/* Indicates if Qafoo Profiler is currently enabled */
+	/* Indicates if Tideways is currently enabled */
 	int              enabled;
 
-	/* Indicates if Qafoo Profiler was ever enabled during this request */
+	/* Indicates if Tideways was ever enabled during this request */
 	int              ever_enabled;
 
 	/* Holds all information about layer profiling */
@@ -222,7 +222,7 @@ typedef struct hp_global_t {
 	/* A key=>value list of function calls to their respective layers. */
 	HashTable       *layers_definition;
 
-	/* Holds all the Qafoo Profiler statistics */
+	/* Holds all the Tideways statistics */
 	zval            *stats_count;
 
 	/* Holds all the information about last error. */
@@ -231,7 +231,7 @@ typedef struct hp_global_t {
 	/* Holds the last exception */
 	hp_error            *last_exception;
 
-	/* Indicates the current Qafoo Profiler mode or level */
+	/* Indicates the current Tideways mode or level */
 	int              profiler_level;
 
 	/* Top of the profile stack */
@@ -240,7 +240,7 @@ typedef struct hp_global_t {
 	/* freelist of hp_entry_t chunks for reuse... */
 	hp_entry_t      *entry_free_list;
 
-	/* Callbacks for various Qafoo Profiler modes */
+	/* Callbacks for various Tideways modes */
 	hp_mode_cb      mode_cb;
 
 	/* Function that determines the transaction name and callback */
@@ -274,7 +274,7 @@ typedef struct hp_global_t {
 	/* The cpu id current process is bound to. (default 0) */
 	uint32 cur_cpu_id;
 
-	/* Qafoo Profiler flags */
+	/* Tideways flags */
 	uint32 tideways_flags;
 
 	/* counter table indexed by hash value of function names. */
@@ -319,7 +319,7 @@ typedef struct hp_curl_t {
  * GLOBAL STATIC VARIABLES
  * ***********************
  */
-/* Qafoo Profiler global state */
+/* Tideways global state */
 static hp_global_t       hp_globals;
 
 #if PHP_VERSION_ID < 50500
@@ -447,7 +447,7 @@ int bind_to_cpu(uint32 cpu_id);
  * PHP EXTENSION GLOBALS
  * *********************
  */
-/* List of functions implemented/exposed by Qafoo Profiler */
+/* List of functions implemented/exposed by Tideways */
 zend_function_entry tideways_functions[] = {
 	PHP_FE(tideways_enable, arginfo_tideways_enable)
 	PHP_FE(tideways_disable, arginfo_tideways_disable)
@@ -459,7 +459,7 @@ zend_function_entry tideways_functions[] = {
 	{NULL, NULL, NULL}
 };
 
-/* Callback functions for the Qafoo Profiler extension */
+/* Callback functions for the Tideways extension */
 zend_module_entry tideways_module_entry = {
 #if ZEND_MODULE_API_NO >= 20010901
 	STANDARD_MODULE_HEADER,
@@ -503,7 +503,7 @@ ZEND_GET_MODULE(tideways)
  */
 
 /**
- * Start Qafoo Profiler profiling in hierarchical mode.
+ * Start Tideways profiling in hierarchical mode.
  *
  * @param  long $flags  flags for hierarchical mode
  * @return void
@@ -511,7 +511,7 @@ ZEND_GET_MODULE(tideways)
  */
 PHP_FUNCTION(tideways_enable)
 {
-	long  tideways_flags = 0;       /* Qafoo PRofiler flags */
+	long  tideways_flags = 0;       /* Tideways flags */
 	zval *optional_array = NULL;         /* optional array arg: for future use */
 
 	if (hp_globals.enabled) {
@@ -543,20 +543,20 @@ PHP_FUNCTION(tideways_last_exception_data)
 }
 
 /**
- * Start Qafoo Profiler in sampling mode.
+ * Start Tideways in sampling mode.
  *
  * @return void
  * @author cjiang
  */
 PHP_FUNCTION(tideways_sample_enable)
 {
-	long  tideways_flags = 0;                                    /* Qafoo Profiler flags */
+	long  tideways_flags = 0;                                    /* Tideways flags */
 	hp_parse_options_from_arg(NULL);
 	hp_begin(TIDEWAYS_MODE_SAMPLED, tideways_flags TSRMLS_CC);
 }
 
 /**
- * Start Qafoo Profiler profiling in layers mode.
+ * Start Tideways profiling in layers mode.
  */
 PHP_FUNCTION(tideways_layers_enable)
 {
@@ -596,10 +596,10 @@ PHP_FUNCTION(tideways_layers_enable)
 }
 
 /**
- * Stops Qafoo Profiler from profiling  and returns the profile info.
+ * Stops Tideways from profiling  and returns the profile info.
  *
  * @param  void
- * @return array  hash-array of Qafoo Profiler's profile info
+ * @return array  hash-array of Tideways's profile info
  * @author cjiang
  */
 PHP_FUNCTION(tideways_disable)
@@ -721,7 +721,7 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
  * Request init callback.
  *
  * Check if tideways.php exists in extension_dir and load it
- * in request init. This makes class \QafooLabs\Profiler available
+ * in request init. This makes class \Tideways\Profiler available
  * for usage.
  */
 PHP_RINIT_FUNCTION(tideways)
@@ -782,7 +782,7 @@ PHP_RSHUTDOWN_FUNCTION(tideways)
 }
 
 /**
- * Module info callback. Returns the Qafoo Profiler version.
+ * Module info callback. Returns the Tideways version.
  */
 PHP_MINFO_FUNCTION(tideways)
 {
@@ -2623,7 +2623,7 @@ ZEND_DLEXPORT void hp_detect_tx_execute_ex (zend_execute_data *execute_data TSRM
 }
 
 /**
- * Qafoo Profiler enable replaced the zend_execute function with this
+ * Tideways enable replaced the zend_execute function with this
  * new execute function. We can do whatever profiling we need to
  * before and after calling the actual zend_execute().
  *
@@ -2778,7 +2778,7 @@ ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filena
  */
 
 /**
- * This function gets called once when Qafoo Profiler gets enabled.
+ * This function gets called once when Tideways gets enabled.
  * It replaces all the functions like zend_execute, zend_execute_internal,
  * etc that needs to be instrumented with their corresponding proxies.
  */
