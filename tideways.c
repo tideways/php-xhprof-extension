@@ -486,7 +486,7 @@ PHP_INI_ENTRY("tideways.connection", "unix:///var/run/tideways/tidewaysd.sock", 
 PHP_INI_ENTRY("tideways.udp_connection", "127.0.0.1:8135", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.auto_start", "1", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.api_key", "", PHP_INI_ALL, NULL)
-PHP_INI_ENTRY("tideways.transaction_function", "", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("tideways.framework", "", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.sample_rate", "10", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.load_library", "1", PHP_INI_ALL, NULL)
 
@@ -814,7 +814,7 @@ PHP_MINFO_FUNCTION(tideways)
 	php_info_print_table_row(2, "UDP Connection (tideways.udp_connection)", INI_STR("tideways.udp_connection"));
 	php_info_print_table_row(2, "Default API Key (tideways.api_key)", INI_STR("tideways.api_key"));
 	php_info_print_table_row(2, "Default Sample-Rate (tideways.sample_rate)", INI_STR("tideways.sample_rate"));
-	php_info_print_table_row(2, "Default Transaction Function (tideways.transaction_function)", INI_STR("tideways.transaction_function"));
+	php_info_print_table_row(2, "Framework Detection (tideways.framework)", INI_STR("tideways.framework"));
 	php_info_print_table_row(2, "Automatically Start (tideways.auto_start)", INI_INT("tideways.auto_start") ? "Yes": "No");
 	php_info_print_table_row(2, "Load PHP Library (tideways.load_library)", INI_INT("tideways.load_library") ? "Yes": "No");
 
