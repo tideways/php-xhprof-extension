@@ -157,16 +157,12 @@ typedef struct hp_entry_t {
 } hp_entry_t;
 
 /* Various types for TIDEWAYS callbacks       */
-typedef void (*hp_init_cb)           (TSRMLS_D);
-typedef void (*hp_exit_cb)           (TSRMLS_D);
 typedef void (*hp_begin_function_cb) (hp_entry_t **entries,
                                       hp_entry_t *current   TSRMLS_DC);
 typedef void (*hp_end_function_cb)   (hp_entry_t **entries  TSRMLS_DC);
 
 /* Struct to hold the various callbacks for a single profiling mode */
 typedef struct hp_mode_cb {
-	hp_init_cb             init_cb;
-	hp_exit_cb             exit_cb;
 	hp_begin_function_cb   begin_fn_cb;
 	hp_end_function_cb     end_fn_cb;
 } hp_mode_cb;
@@ -922,9 +918,6 @@ void hp_init_profiler_state(TSRMLS_D)
 	/* bind to a random cpu so that we can use rdtsc instruction. */
 	bind_to_cpu((int) (rand() % hp_globals.cpu_num));
 
-	/* Call current mode's init cb */
-	hp_globals.mode_cb.init_cb(TSRMLS_C);
-
 	/* Set up filter of functions which may be ignored during profiling */
 	hp_transaction_name_clear();
 }
@@ -936,9 +929,6 @@ void hp_init_profiler_state(TSRMLS_D)
  */
 void hp_clean_profiler_state(TSRMLS_D)
 {
-	/* Call current mode's exit cb */
-	hp_globals.mode_cb.exit_cb(TSRMLS_C);
-
 	/* Clear globals */
 	if (hp_globals.stats_count) {
 		zval_dtor(hp_globals.stats_count);
@@ -2049,11 +2039,6 @@ static void clear_frequencies()
  * TIDEWAYS DUMMY CALLBACKS
  * ***************************
  */
-void hp_mode_dummy_init_cb(TSRMLS_D) { }
-
-
-void hp_mode_dummy_exit_cb(TSRMLS_D) { }
-
 
 void hp_mode_dummy_beginfn_cb(hp_entry_t **entries,
                               hp_entry_t *current  TSRMLS_DC) { }
@@ -2488,8 +2473,6 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
 
 		/* Initialize with the dummy mode first Having these dummy callbacks saves
 		 * us from checking if any of the callbacks are NULL everywhere. */
-		hp_globals.mode_cb.init_cb     = hp_mode_dummy_init_cb;
-		hp_globals.mode_cb.exit_cb     = hp_mode_dummy_exit_cb;
 		hp_globals.mode_cb.begin_fn_cb = hp_mode_dummy_beginfn_cb;
 		hp_globals.mode_cb.end_fn_cb   = hp_mode_dummy_endfn_cb;
 
