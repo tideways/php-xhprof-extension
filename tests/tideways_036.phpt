@@ -18,12 +18,12 @@ echo "\n";
 --EXPECTF--
 abc,def,ghi
 I am in foo()...
-main()                                  : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
-main()==>dirname                        : cpu=*; ct=       2; mu=*; pmu=*; wt=*;
-main()==>evaledfoo                      : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
-main()==>run_init::tests/common.php     : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
-main()==>run_init::tests/tideways_004_inc.php: cpu=*; ct=       1; mu=*; pmu=*; wt=*;
-main()==>tideways_disable               : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
-run_init::tests/tideways_004_inc.php==>explode: cpu=*; ct=       1; mu=*; pmu=*; wt=*;
-run_init::tests/tideways_004_inc.php==>foo: cpu=*; ct=       1; mu=*; pmu=*; wt=*;
-run_init::tests/tideways_004_inc.php==>implode: cpu=*; ct=       1; mu=*; pmu=*; wt=*;
+main()                                  : ct=       1; wt=*;
+main()==>dirname                        : ct=       2; wt=*;
+main()==>evaledfoo                      : ct=       1; wt=*;
+main()==>run_init::tests/common.php     : ct=       1; wt=*;
+main()==>run_init::tests/tideways_004_inc.php: ct=       1; wt=*;
+main()==>tideways_disable               : ct=       1; wt=*;
+run_init::tests/tideways_004_inc.php==>explode: ct=       1; wt=*;
+run_init::tests/tideways_004_inc.php==>foo: ct=       1; wt=*;
+run_init::tests/tideways_004_inc.php==>implode: ct=       1; wt=*;
