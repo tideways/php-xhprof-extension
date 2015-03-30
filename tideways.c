@@ -93,7 +93,7 @@
  */
 
 /* Tideways version                           */
-#define TIDEWAYS_VERSION       "1.6.1"
+#define TIDEWAYS_VERSION       "1.6.2"
 
 /* Fictitious function name to represent top of the call tree. The paranthesis
  * in the name is to ensure we don't conflict with user function names.  */
@@ -112,7 +112,7 @@
 #define TIDEWAYS_FLAGS_CPU           0x0002 /* gather CPU times for funcs */
 #define TIDEWAYS_FLAGS_MEMORY        0x0004 /* gather memory usage for funcs */
 #define TIDEWAYS_FLAGS_NO_USERLAND   0x0008 /* do not profile userland functions */
-#define TIDEWAYS_FLAGS_NO_COMPILE    0x0016 /* do not profile userland functions */
+#define TIDEWAYS_FLAGS_NO_COMPILE    0x0010 /* do not profile userland functions */
 
 /* Constant for ignoring functions, transparent to hierarchical profile */
 #define TIDEWAYS_MAX_FILTERED_FUNCTIONS  256

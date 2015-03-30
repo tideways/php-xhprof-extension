@@ -1,3 +1,7 @@
+# Version 1.6.2
+
+- Fix wrong definition of TIDEWAYS_FLAGS_NO_COMPILE flag.
+
 # Version 1.6.1
 
 - Fix segfault in `auto_prepend_library` cleanup handling.
