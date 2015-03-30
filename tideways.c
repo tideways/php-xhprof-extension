@@ -112,6 +112,7 @@
 #define TIDEWAYS_FLAGS_CPU           0x0002 /* gather CPU times for funcs */
 #define TIDEWAYS_FLAGS_MEMORY        0x0004 /* gather memory usage for funcs */
 #define TIDEWAYS_FLAGS_NO_USERLAND   0x0008 /* do not profile userland functions */
+#define TIDEWAYS_FLAGS_NO_COMPILE    0x0016 /* do not profile userland functions */
 
 /* Constant for ignoring functions, transparent to hierarchical profile */
 #define TIDEWAYS_MAX_FILTERED_FUNCTIONS  256
@@ -635,7 +636,7 @@ PHP_RSHUTDOWN_FUNCTION(tideways)
 {
 	hp_end(TSRMLS_C);
 
-	if (hp_globals.prepend_overwritten = 1) {
+	if (hp_globals.prepend_overwritten == 1) {
 		efree(PG(auto_prepend_file));
 	}
 	PG(auto_prepend_file) = NULL;
@@ -707,6 +708,10 @@ static void hp_register_constants(INIT_FUNC_ARGS)
 
 	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_USERLAND",
 			TIDEWAYS_FLAGS_NO_USERLAND,
+			CONST_CS | CONST_PERSISTENT);
+
+	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_COMPILE",
+			TIDEWAYS_FLAGS_NO_COMPILE,
 			CONST_CS | CONST_PERSISTENT);
 }
 
@@ -1586,7 +1591,6 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 			} else {
 				ret = estrdup(func);
 			}
-
 		} else {
 			long     curr_op;
 			int      add_filename = 1;
@@ -2324,13 +2328,14 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
 		hp_globals.enabled      = 1;
 		hp_globals.tideways_flags = (uint32)tideways_flags;
 
-		/* Replace zend_compile with our proxy */
+		/* Replace zend_compile file/string with our proxies */
 		_zend_compile_file = zend_compile_file;
-		zend_compile_file  = hp_compile_file;
-
-		/* Replace zend_compile_string with our proxy */
 		_zend_compile_string = zend_compile_string;
-		zend_compile_string = hp_compile_string;
+
+		if (!(hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_COMPILE)) {
+			zend_compile_file  = hp_compile_file;
+			zend_compile_string = hp_compile_string;
+		}
 
 		/* Replace zend_execute with our proxy */
 #if PHP_VERSION_ID < 50500

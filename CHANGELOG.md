@@ -1,3 +1,9 @@
+# Version 1.6.1
+
+- Fix segfault in `auto_prepend_library` cleanup handling.
+- Add new constant `TIDEWAYS_FLAGS_NO_COMPILE` that skips
+  profiling of require/include and eval statements.
+
 # Version 1.6.0
 
 - Move away from requireing file in module RINIT to hooking into
