@@ -105,7 +105,6 @@
 /* Various TIDEWAYS modes. If you are adding a new mode, register the appropriate
  * callbacks in hp_begin() */
 #define TIDEWAYS_MODE_HIERARCHICAL	1
-#define TIDEWAYS_MODE_SAMPLED			620002      /* Rockfort's zip code */
 
 /* Hierarchical profiling flags.
  *
@@ -117,9 +116,6 @@
 #define TIDEWAYS_FLAGS_CPU           0x0002 /* gather CPU times for funcs */
 #define TIDEWAYS_FLAGS_MEMORY        0x0004 /* gather memory usage for funcs */
 #define TIDEWAYS_FLAGS_NO_USERLAND   0x0008 /* do not profile userland functions */
-
-/* Constants for TIDEWAYS_MODE_SAMPLED        */
-#define TIDEWAYS_SAMPLING_INTERVAL       100000      /* In microsecs        */
 
 /* Constant for ignoring functions, transparent to hierarchical profile */
 #define TIDEWAYS_MAX_FILTERED_FUNCTIONS  256
@@ -240,14 +236,6 @@ typedef struct hp_global_t {
 	hp_string       *transaction_function;
 	hp_string		*transaction_name;
 	char			*root;
-
-	/*       ----------   Mode specific attributes:  -----------       */
-
-	/* Global to track the time of the last sample in time and ticks */
-	struct timeval   last_sample_time;
-	uint64           last_sample_tsc;
-	/* TIDEWAYS_SAMPLING_INTERVAL in ticks */
-	uint64           sampling_interval_tsc;
 
 	/* This array is used to store cpu frequencies for all available logical
 	 * cpus.  For now, we assume the cpu frequencies will not change for power
@@ -416,9 +404,6 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO(arginfo_tideways_last_exception_data, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO(arginfo_tideways_sample_enable, 0)
-ZEND_END_ARG_INFO()
-
 /* }}} */
 
 /**
@@ -441,7 +426,6 @@ zend_function_entry tideways_functions[] = {
 	PHP_FE(tideways_transaction_name, arginfo_tideways_transaction_name)
 	PHP_FE(tideways_last_fatal_error, arginfo_tideways_last_fatal_error)
 	PHP_FE(tideways_last_exception_data, arginfo_tideways_last_exception_data)
-	PHP_FE(tideways_sample_enable, arginfo_tideways_sample_enable)
 	{NULL, NULL, NULL}
 };
 
@@ -529,19 +513,6 @@ PHP_FUNCTION(tideways_last_exception_data)
 }
 
 /**
- * Start Tideways in sampling mode.
- *
- * @return void
- * @author cjiang
- */
-PHP_FUNCTION(tideways_sample_enable)
-{
-	long  tideways_flags = 0;                                    /* Tideways flags */
-	hp_parse_options_from_arg(NULL);
-	hp_begin(TIDEWAYS_MODE_SAMPLED, tideways_flags TSRMLS_CC);
-}
-
-/**
  * Stops Tideways from profiling  and returns the profile info.
  *
  * @param  void
@@ -560,10 +531,6 @@ PHP_FUNCTION(tideways_disable)
 	hp_stop(TSRMLS_C);
 
 	if (hp_globals.profiler_level == TIDEWAYS_MODE_HIERARCHICAL) {
-		RETURN_ZVAL(hp_globals.stats_count, 1, 0);
-	}
-
-	if (hp_globals.profiler_level == TIDEWAYS_MODE_SAMPLED) {
 		RETURN_ZVAL(hp_globals.stats_count, 1, 0);
 	}
 }
@@ -1838,82 +1805,6 @@ void hp_trunc_time(struct timeval *tv, uint64 intr)
 }
 
 /**
- * Sample the stack. Add it to the stats_count global.
- *
- * @param  tv            current time
- * @param  entries       func stack as linked list of hp_entry_t
- * @return void
- * @author veeve
- */
-void hp_sample_stack(hp_entry_t  **entries  TSRMLS_DC)
-{
-	char key[SCRATCH_BUF_LEN];
-	char symbol[SCRATCH_BUF_LEN * 1000] = "";
-
-	/* Build key */
-	snprintf(
-		key,
-		sizeof(key),
-		"%d.%06d",
-		hp_globals.last_sample_time.tv_sec,
-		hp_globals.last_sample_time.tv_usec
-	);
-
-	/* Init stats in the global stats_count hashtable */
-	hp_get_function_stack(
-		*entries,
-		INT_MAX,
-		symbol,
-		sizeof(symbol)
-	);
-
-	add_assoc_string(
-		hp_globals.stats_count,
-		key,
-		symbol,
-		1
-	);
-
-	return;
-}
-
-/**
- * Checks to see if it is time to sample the stack.
- * Calls hp_sample_stack() if its time.
- *
- * @param  entries        func stack as linked list of hp_entry_t
- * @param  last_sample    time the last sample was taken
- * @param  sampling_intr  sampling interval in microsecs
- * @return void
- * @author veeve
- */
-void hp_sample_check(hp_entry_t **entries  TSRMLS_DC)
-{
-	/* Validate input */
-	if (!entries || !(*entries)) {
-		return;
-	}
-
-	/* See if its time to sample.  While loop is to handle a single function
-	 * taking a long time and passing several sampling intervals. */
-	while ((cycle_timer() - hp_globals.last_sample_tsc)
-			> hp_globals.sampling_interval_tsc) {
-
-		/* bump last_sample_tsc */
-		hp_globals.last_sample_tsc += hp_globals.sampling_interval_tsc;
-
-		/* bump last_sample_time - HAS TO BE UPDATED BEFORE calling hp_sample_stack */
-		incr_us_interval(&hp_globals.last_sample_time, TIDEWAYS_SAMPLING_INTERVAL);
-
-		/* sample the stack */
-		hp_sample_stack(entries  TSRMLS_CC);
-	}
-
-	return;
-}
-
-
-/**
  * ***********************
  * High precision timer related functions.
  * ***********************
@@ -2238,39 +2129,6 @@ void hp_mode_common_endfn(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC)
  * TIDEWAYS INIT MODULE CALLBACKS
  * *********************************
  */
-/**
- * TIDEWAYS_MODE_SAMPLED's init callback
- *
- * @author veeve
- */
-void hp_mode_sampled_init_cb(TSRMLS_D)
-{
-	struct timeval  now;
-	uint64 truncated_us;
-	uint64 truncated_tsc;
-	double cpu_freq = hp_globals.cpu_frequencies[hp_globals.cur_cpu_id];
-
-	/* Init the last_sample in tsc */
-	hp_globals.last_sample_tsc = cycle_timer();
-
-	/* Find the microseconds that need to be truncated */
-	gettimeofday(&hp_globals.last_sample_time, 0);
-	now = hp_globals.last_sample_time;
-	hp_trunc_time(&hp_globals.last_sample_time, TIDEWAYS_SAMPLING_INTERVAL);
-
-	/* Subtract truncated time from last_sample_tsc */
-	truncated_us  = get_us_interval(&hp_globals.last_sample_time, &now);
-	truncated_tsc = get_tsc_from_us(truncated_us, cpu_freq);
-	if (hp_globals.last_sample_tsc > truncated_tsc) {
-		/* just to be safe while subtracting unsigned ints */
-		hp_globals.last_sample_tsc -= truncated_tsc;
-	}
-
-	/* Convert sampling interval to ticks */
-	hp_globals.sampling_interval_tsc =
-		get_tsc_from_us(TIDEWAYS_SAMPLING_INTERVAL, cpu_freq);
-}
-
 
 /**
  * ************************************
@@ -2301,19 +2159,6 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC
 		current->pmu_start_hprof = zend_memory_peak_usage(0 TSRMLS_CC);
 	}
 }
-
-
-/**
- * TIDEWAYS_MODE_SAMPLED's begin function callback
- *
- * @author veeve
- */
-void hp_mode_sampled_beginfn_cb(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC)
-{
-	/* See if its time to take a sample */
-	hp_sample_check(entries  TSRMLS_CC);
-}
-
 
 /**
  * **********************************
@@ -2396,17 +2241,6 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 		hp_inc_count(counts, "mu",  mu_end - top->mu_start_hprof    TSRMLS_CC);
 		hp_inc_count(counts, "pmu", pmu_end - top->pmu_start_hprof  TSRMLS_CC);
 	}
-}
-
-/**
- * TIDEWAYS_MODE_SAMPLED's end function callback
- *
- * @author veeve
- */
-void hp_mode_sampled_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
-{
-	/* See if its time to take a sample */
-	hp_sample_check(entries  TSRMLS_CC);
 }
 
 
@@ -2676,12 +2510,6 @@ static void hp_begin(long level, long tideways_flags TSRMLS_DC)
 			case TIDEWAYS_MODE_HIERARCHICAL:
 				hp_globals.mode_cb.begin_fn_cb = hp_mode_hier_beginfn_cb;
 				hp_globals.mode_cb.end_fn_cb   = hp_mode_hier_endfn_cb;
-				break;
-
-			case TIDEWAYS_MODE_SAMPLED:
-				hp_globals.mode_cb.init_cb     = hp_mode_sampled_init_cb;
-				hp_globals.mode_cb.begin_fn_cb = hp_mode_sampled_beginfn_cb;
-				hp_globals.mode_cb.end_fn_cb   = hp_mode_sampled_endfn_cb;
 				break;
 		}
 

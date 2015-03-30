@@ -41,7 +41,6 @@ PHP_MINFO_FUNCTION(tideways);
 PHP_FUNCTION(tideways_enable);
 PHP_FUNCTION(tideways_disable);
 PHP_FUNCTION(tideways_transaction_name);
-PHP_FUNCTION(tideways_sample_enable);
 PHP_FUNCTION(tideways_last_fatal_error);
 PHP_FUNCTION(tideways_last_exception_data);
 
