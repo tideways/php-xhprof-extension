@@ -112,7 +112,7 @@
 #define TIDEWAYS_FLAGS_CPU           0x0002 /* gather CPU times for funcs */
 #define TIDEWAYS_FLAGS_MEMORY        0x0004 /* gather memory usage for funcs */
 #define TIDEWAYS_FLAGS_NO_USERLAND   0x0008 /* do not profile userland functions */
-#define TIDEWAYS_FLAGS_NO_COMPILE    0x0010 /* do not profile userland functions */
+#define TIDEWAYS_FLAGS_NO_COMPILE    0x0010 /* do not profile require/include/eval */
 
 /* Constant for ignoring functions, transparent to hierarchical profile */
 #define TIDEWAYS_MAX_FILTERED_FUNCTIONS  256
