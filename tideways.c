@@ -381,6 +381,9 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO(arginfo_tideways_last_exception_data, 0)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO(arginfo_tideways_prepend_overwritten, 0)
+ZEND_END_ARG_INFO()
+
 /* }}} */
 
 /**
@@ -403,6 +406,7 @@ zend_function_entry tideways_functions[] = {
 	PHP_FE(tideways_transaction_name, arginfo_tideways_transaction_name)
 	PHP_FE(tideways_last_fatal_error, arginfo_tideways_last_fatal_error)
 	PHP_FE(tideways_last_exception_data, arginfo_tideways_last_exception_data)
+	PHP_FE(tideways_prepend_overwritten, arginfo_tideways_prepend_overwritten)
 	{NULL, NULL, NULL}
 };
 
@@ -518,6 +522,11 @@ PHP_FUNCTION(tideways_transaction_name)
 	}
 }
 
+PHP_FUNCTION(tideways_prepend_overwritten)
+{
+	RETURN_BOOL(hp_globals.prepend_overwritten);
+}
+
 /**
  * Module init callback.
  *
@@ -604,10 +613,6 @@ PHP_RINIT_FUNCTION(tideways)
 		return SUCCESS;
 	}
 
-	if (PG(auto_prepend_file) && PG(auto_prepend_file)[0]) {
-		return SUCCESS;
-	}
-
 	extension_dir  = INI_STR("extension_dir");
 	profiler_file_len = strlen(extension_dir) + strlen("Tideways.php") + 2;
 	profiler_file = emalloc(profiler_file_len);
@@ -632,8 +637,8 @@ PHP_RSHUTDOWN_FUNCTION(tideways)
 
 	if (hp_globals.prepend_overwritten = 1) {
 		efree(PG(auto_prepend_file));
-		PG(auto_prepend_file) = NULL;
 	}
+	PG(auto_prepend_file) = NULL;
 	hp_globals.prepend_overwritten = 0;
 
 	return SUCCESS;
