@@ -106,7 +106,6 @@
  * callbacks in hp_begin() */
 #define TIDEWAYS_MODE_HIERARCHICAL	1
 #define TIDEWAYS_MODE_SAMPLED			620002      /* Rockfort's zip code */
-#define TIDEWAYS_MODE_LAYER			2
 
 /* Hierarchical profiling flags.
  *
@@ -215,12 +214,6 @@ typedef struct hp_global_t {
 
 	/* Indicates if Tideways was ever enabled during this request */
 	int              ever_enabled;
-
-	/* Holds all information about layer profiling */
-	zval            *layers_count;
-
-	/* A key=>value list of function calls to their respective layers. */
-	HashTable       *layers_definition;
 
 	/* Holds all the Tideways statistics */
 	zval            *stats_count;
@@ -380,7 +373,6 @@ static long get_us_interval(struct timeval *start, struct timeval *end);
 static void incr_us_interval(struct timeval *start, uint64 incr);
 
 static void hp_parse_options_from_arg(zval *args);
-static void hp_parse_layers_options_from_arg(zval *layers);
 static void hp_clean_profiler_options_state();
 
 static void hp_transaction_function_clear();
@@ -427,11 +419,6 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO(arginfo_tideways_sample_enable, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO(arginfo_tideways_layers_enable, 0)
-	ZEND_ARG_INFO(0, layers)
-	ZEND_ARG_INFO(0, transaction_function)
-ZEND_END_ARG_INFO()
-
 /* }}} */
 
 /**
@@ -455,7 +442,6 @@ zend_function_entry tideways_functions[] = {
 	PHP_FE(tideways_last_fatal_error, arginfo_tideways_last_fatal_error)
 	PHP_FE(tideways_last_exception_data, arginfo_tideways_last_exception_data)
 	PHP_FE(tideways_sample_enable, arginfo_tideways_sample_enable)
-	PHP_FE(tideways_layers_enable, arginfo_tideways_layers_enable)
 	{NULL, NULL, NULL}
 };
 
@@ -556,46 +542,6 @@ PHP_FUNCTION(tideways_sample_enable)
 }
 
 /**
- * Start Tideways profiling in layers mode.
- */
-PHP_FUNCTION(tideways_layers_enable)
-{
-	long tideways_flags = TIDEWAYS_FLAGS_NO_USERLAND;
-
-	zval *layers, *transaction_function = NULL;
-
-	if (hp_globals.enabled) {
-		return;
-	}
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|zz", &layers, &transaction_function) == FAILURE) {
-		return;
-	}
-
-	if (layers == NULL || Z_TYPE_P(layers) != IS_ARRAY) {
-		zend_error(E_NOTICE, "tideways_layers_enable() requires first argument to be array");
-		return;
-	}
-
-	if (transaction_function != NULL && Z_TYPE_P(transaction_function) == IS_STRING) {
-		hp_globals.transaction_function = hp_zval_to_string(transaction_function);
-	}
-
-	if (zend_hash_num_elements(Z_ARRVAL_P(layers)) == 0) {
-		tideways_flags = TIDEWAYS_FLAGS_NO_USERLAND | TIDEWAYS_FLAGS_NO_BUILTINS;
-	}
-
-	hp_clean_profiler_options_state();
-
-	hp_parse_layers_options_from_arg(layers);
-
-	hp_globals.filtered_type = 2;
-	hp_globals.filtered_functions = hp_function_map_create(hp_strings_in_zval(layers));
-
-	hp_begin(TIDEWAYS_MODE_LAYER, tideways_flags TSRMLS_CC);
-}
-
-/**
  * Stops Tideways from profiling  and returns the profile info.
  *
  * @param  void
@@ -613,27 +559,7 @@ PHP_FUNCTION(tideways_disable)
 
 	hp_stop(TSRMLS_C);
 
-	if (hp_globals.profiler_level == TIDEWAYS_MODE_LAYER) {
-		if (zend_hash_find(Z_ARRVAL_P(hp_globals.stats_count), ROOT_SYMBOL, strlen(ROOT_SYMBOL) + 1, &data) == SUCCESS) {
-			tmp = *(zval **) data;
-
-			add_assoc_zval(hp_globals.layers_count, "main()", tmp);
-		}
-
-		RETURN_ZVAL(hp_globals.layers_count, 1, 0);
-	}
-
 	if (hp_globals.profiler_level == TIDEWAYS_MODE_HIERARCHICAL) {
-		if (hp_globals.layers_count) {
-			if (zend_hash_find(Z_ARRVAL_P(hp_globals.stats_count), ROOT_SYMBOL, strlen(ROOT_SYMBOL) + 1, &data) == SUCCESS) {
-				tmp = *(zval **) data;
-
-				MAKE_STD_ZVAL(value);
-				ZVAL_ZVAL(value, hp_globals.layers_count, 1, 0);
-				add_assoc_zval(tmp, "layers", value);
-			}
-		}
-
 		RETURN_ZVAL(hp_globals.stats_count, 1, 0);
 	}
 
@@ -891,26 +817,6 @@ EMPTY_SWITCH_DEFAULT_CASE()
 	return hash;
 }
 
-static void hp_parse_layers_options_from_arg(zval *layers)
-{
-	if (layers == NULL || Z_TYPE_P(layers) != IS_ARRAY) {
-		return;
-	}
-
-	HashTable *ht;
-	zval *tmp;
-
-	ALLOC_HASHTABLE(hp_globals.layers_definition);
-	zend_hash_init(hp_globals.layers_definition, 0, NULL, ZVAL_PTR_DTOR, 0);
-	zend_hash_copy(
-		hp_globals.layers_definition,
-		Z_ARRVAL_P(layers),
-		(copy_ctor_func_t)zval_add_ref,
-		(void*)&tmp,
-		sizeof(zval *)
-	);
-}
-
 /**
  * Parse the list of ignored functions from the zval argument.
  *
@@ -941,9 +847,6 @@ static void hp_parse_options_from_arg(zval *args)
 
 	zresult = hp_zval_at_key("argument_functions", args);
 	hp_globals.argument_functions = hp_function_map_create(hp_strings_in_zval(zresult));
-
-	zresult = hp_zval_at_key("layers", args);
-	hp_parse_layers_options_from_arg(zresult);
 
 	zresult = hp_zval_at_key("transaction_function", args);
 
@@ -1041,17 +944,6 @@ void hp_init_profiler_state(int level TSRMLS_DC)
 	MAKE_STD_ZVAL(hp_globals.stats_count);
 	array_init(hp_globals.stats_count);
 
-	if (hp_globals.layers_count) {
-		zval_dtor(hp_globals.layers_count);
-		FREE_ZVAL(hp_globals.layers_count);
-		hp_globals.layers_count = NULL;
-	}
-
-	if (hp_globals.layers_definition) {
-		MAKE_STD_ZVAL(hp_globals.layers_count);
-		array_init(hp_globals.layers_count);
-	}
-
 	if (hp_globals.last_error) {
 		hp_error_clean(hp_globals.last_error);
 		hp_globals.last_error = NULL;
@@ -1097,12 +989,6 @@ void hp_clean_profiler_state(TSRMLS_D)
 		hp_globals.stats_count = NULL;
 	}
 
-	if (hp_globals.layers_count) {
-		zval_dtor(hp_globals.layers_count);
-		FREE_ZVAL(hp_globals.layers_count);
-		hp_globals.layers_count = NULL;
-	}
-
 	if (hp_globals.last_error) {
 		hp_error_clean(hp_globals.last_error);
 		hp_globals.last_error = NULL;
@@ -1138,12 +1024,6 @@ static void hp_transaction_name_clear()
 
 static void hp_clean_profiler_options_state()
 {
-	if (hp_globals.layers_definition) {
-		zend_hash_destroy(hp_globals.layers_definition);
-		FREE_HASHTABLE(hp_globals.layers_definition);
-		hp_globals.layers_definition = NULL;
-	}
-
 	hp_function_map_clear(hp_globals.filtered_functions);
 	hp_globals.filtered_functions = NULL;
 	hp_function_map_clear(hp_globals.argument_functions);
@@ -2466,23 +2346,6 @@ zval * hp_mode_shared_endfn_cb(hp_entry_t *top, char *symbol TSRMLS_DC)
 	hp_inc_count(counts, "ct", 1  TSRMLS_CC);
 	hp_inc_count(counts, "wt", wt TSRMLS_CC);
 
-	if (hp_globals.layers_definition) {
-		void **data;
-		zval *layer, *layer_counts;
-		char function_name[SCRATCH_BUF_LEN] = "";
-
-		hp_get_function_stack(top, 1, function_name, sizeof(function_name));
-
-		if (zend_hash_find(hp_globals.layers_definition, function_name, strlen(function_name)+1, (void**)&data) == SUCCESS) {
-			layer = *data;
-
-			if (layer_counts = hp_hash_lookup(hp_globals.layers_count, Z_STRVAL_P(layer) TSRMLS_CC)) {
-				hp_inc_count(layer_counts, "ct", 1  TSRMLS_CC);
-				hp_inc_count(layer_counts, "wt", wt TSRMLS_CC);
-			}
-		}
-	}
-
 	return counts;
 }
 
@@ -2532,39 +2395,6 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 		/* Bump Memory stats in the counts hashtable */
 		hp_inc_count(counts, "mu",  mu_end - top->mu_start_hprof    TSRMLS_CC);
 		hp_inc_count(counts, "pmu", pmu_end - top->pmu_start_hprof  TSRMLS_CC);
-	}
-}
-
-/**
- * Simplified layer end callback, to avoid unnecessary computations comapred to hierachical end callback.
- */
-void hp_mode_layer_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
-{
-	hp_entry_t   *top = (*entries);
-	void **data;
-	zval *layer, *layer_counts;
-	char function_name[SCRATCH_BUF_LEN] = "";
-	uint64   tsc_end;
-	double   wt;
-
-	/* Get end tsc counter */
-	tsc_end = cycle_timer();
-
-	wt = get_us_from_tsc(tsc_end - top->tsc_start, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
-
-	if (!hp_globals.layers_definition) {
-		return;
-	}
-
-	hp_get_function_stack(top, 1, function_name, sizeof(function_name));
-
-	if (zend_hash_find(hp_globals.layers_definition, function_name, strlen(function_name)+1, (void**)&data) == SUCCESS) {
-		layer = *data;
-
-		if (layer_counts = hp_hash_lookup(hp_globals.layers_count, Z_STRVAL_P(layer) TSRMLS_CC)) {
-			hp_inc_count(layer_counts, "ct", 1  TSRMLS_CC);
-			hp_inc_count(layer_counts, "wt", wt TSRMLS_CC);
-		}
 	}
 }
 
@@ -2846,11 +2676,6 @@ static void hp_begin(long level, long tideways_flags TSRMLS_DC)
 			case TIDEWAYS_MODE_HIERARCHICAL:
 				hp_globals.mode_cb.begin_fn_cb = hp_mode_hier_beginfn_cb;
 				hp_globals.mode_cb.end_fn_cb   = hp_mode_hier_endfn_cb;
-				break;
-
-			case TIDEWAYS_MODE_LAYER:
-				hp_globals.mode_cb.begin_fn_cb = hp_mode_hier_beginfn_cb;
-				hp_globals.mode_cb.end_fn_cb   = hp_mode_layer_endfn_cb;
 				break;
 
 			case TIDEWAYS_MODE_SAMPLED:
