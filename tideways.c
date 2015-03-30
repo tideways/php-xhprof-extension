@@ -156,17 +156,6 @@ typedef struct hp_entry_t {
 	zend_uint				gc_collected; /* number of collected items in garbage run */
 } hp_entry_t;
 
-/* Various types for TIDEWAYS callbacks       */
-typedef void (*hp_begin_function_cb) (hp_entry_t **entries,
-                                      hp_entry_t *current   TSRMLS_DC);
-typedef void (*hp_end_function_cb)   (hp_entry_t **entries  TSRMLS_DC);
-
-/* Struct to hold the various callbacks for a single profiling mode */
-typedef struct hp_mode_cb {
-	hp_begin_function_cb   begin_fn_cb;
-	hp_end_function_cb     end_fn_cb;
-} hp_mode_cb;
-
 typedef struct hp_string {
 	char *value;
 	size_t length;
@@ -217,9 +206,6 @@ typedef struct hp_global_t {
 
 	/* freelist of hp_entry_t chunks for reuse... */
 	hp_entry_t      *entry_free_list;
-
-	/* Callbacks for various Tideways modes */
-	hp_mode_cb      mode_cb;
 
 	/* Function that determines the transaction name and callback */
 	hp_string       *transaction_function;
@@ -1000,7 +986,7 @@ static void hp_clean_profiler_options_state()
 			/* Call the universal callback */									\
 			hp_mode_common_beginfn((entries), (cur_entry) TSRMLS_CC);			\
 			/* Call the mode's beginfn callback */								\
-			hp_globals.mode_cb.begin_fn_cb((entries), (cur_entry) TSRMLS_CC);   \
+			hp_mode_hier_beginfn_cb((entries), (cur_entry) TSRMLS_CC);   \
 			/* Update entries linked list */									\
 			(*(entries)) = (cur_entry);											\
 		}																		\
@@ -1022,7 +1008,7 @@ static void hp_clean_profiler_options_state()
 			/* NOTE(cjiang): we want to call this 'end_fn_cb' before */		\
 			/* 'hp_mode_common_endfn' to avoid including the time in */		\
 			/* 'hp_mode_common_endfn' in the profiling results.      */		\
-			hp_globals.mode_cb.end_fn_cb((entries) TSRMLS_CC);				\
+			hp_mode_hier_endfn_cb((entries) TSRMLS_CC);				\
 			cur_entry = (*(entries));										\
 			/* Call the universal callback */								\
 			hp_mode_common_endfn((entries), (cur_entry) TSRMLS_CC);			\
@@ -2033,19 +2019,6 @@ static void clear_frequencies()
 	restore_cpu_affinity(&hp_globals.prev_mask);
 }
 
-
-/**
- * ***************************
- * TIDEWAYS DUMMY CALLBACKS
- * ***************************
- */
-
-void hp_mode_dummy_beginfn_cb(hp_entry_t **entries,
-                              hp_entry_t *current  TSRMLS_DC) { }
-
-void hp_mode_dummy_endfn_cb(hp_entry_t **entries   TSRMLS_DC) { }
-
-
 /**
  * ****************************
  * TIDEWAYS COMMON CALLBACKS
@@ -2470,16 +2443,6 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
 			 */
 			zend_execute_internal = hp_execute_internal;
 		}
-
-		/* Initialize with the dummy mode first Having these dummy callbacks saves
-		 * us from checking if any of the callbacks are NULL everywhere. */
-		hp_globals.mode_cb.begin_fn_cb = hp_mode_dummy_beginfn_cb;
-		hp_globals.mode_cb.end_fn_cb   = hp_mode_dummy_endfn_cb;
-
-		/* Register the appropriate callback functions Override just a subset of
-		 * all the callbacks is OK. */
-		hp_globals.mode_cb.begin_fn_cb = hp_mode_hier_beginfn_cb;
-		hp_globals.mode_cb.end_fn_cb   = hp_mode_hier_endfn_cb;
 
 		/* one time initializations */
 		hp_init_profiler_state(TSRMLS_C);
