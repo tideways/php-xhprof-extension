@@ -720,7 +720,7 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 /**
  * Request init callback.
  *
- * Check if tideways.php exists in extension_dir and load it
+ * Check if Tideways.php exists in extension_dir and load it
  * in request init. This makes class \Tideways\Profiler available
  * for usage.
  */
@@ -745,9 +745,9 @@ PHP_RINIT_FUNCTION(tideways)
 	char *profiler_file;
 	int profiler_file_len;
 
-	profiler_file_len = strlen(extension_dir) + strlen("tideways.php") + 2;
+	profiler_file_len = strlen(extension_dir) + strlen("Tideways.php") + 2;
 	profiler_file = emalloc(profiler_file_len);
-	snprintf(profiler_file, profiler_file_len, "%s/%s", extension_dir, "tideways.php");
+	snprintf(profiler_file, profiler_file_len, "%s/%s", extension_dir, "Tideways.php");
 
 	ret = php_stream_open_for_zend_ex(profiler_file, &file_handle, STREAM_OPEN_FOR_INCLUDE TSRMLS_CC);
 
@@ -763,7 +763,7 @@ PHP_RINIT_FUNCTION(tideways)
 		zend_try {
 			zend_execute_scripts(ZEND_REQUIRE TSRMLS_CC, NULL, 1, &file_handle);
 		} zend_catch {
-			php_log_err("tideways.so: Error during execution of auto start script tideways.php - Skipping" TSRMLS_CC);
+			php_log_err("tideways.so: Error during execution of auto start script Tideways.php - Set tideways.load_library=0 to disable." TSRMLS_CC);
 		} zend_end_try();
 	}
 
