@@ -1,3 +1,21 @@
+# Version 1.6.0
+
+- Move away from requireing file in module RINIT to hooking into
+  auto_prepend_file. We changed the INI setting `tideways.load_library`
+  to be `tideways.auto_prepend_library` instead and defaults to 1.
+
+  It will check for `Tideways.php` next to tideways.so and load that
+  library by adding it to the `auto_prepend_file` PHP.INI option.
+
+  If that is already set a new function `tideways_prepend_overwritten()`
+  allows to check if we need to require the old ini_get("auto_prepend_file").
+
+# Version 1.5.0
+
+- Change default socket option to `/var/run/tideways/tidewaysd.sock`
+- Rename INI option `tideways.transaction_function` to `tideways.framework`
+- Rename from qafooprofiler to tideways
+
 # Version 1.3.2
 
 - Add protection against segfault in combination with XDebug < 2.2.7
