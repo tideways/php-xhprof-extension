@@ -192,6 +192,8 @@ typedef struct hp_global_t {
 	/* Indicates if Tideways was ever enabled during this request */
 	int              ever_enabled;
 
+	int				 prepend_overwritten;
+
 	/* Holds all the Tideways statistics */
 	zval            *stats_count;
 
@@ -433,7 +435,7 @@ PHP_INI_ENTRY("tideways.auto_start", "1", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.api_key", "", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.framework", "", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.sample_rate", "10", PHP_INI_ALL, NULL)
-PHP_INI_ENTRY("tideways.load_library", "1", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("tideways.auto_prepend_library", "1", PHP_INI_ALL, NULL)
 
 PHP_INI_END()
 
@@ -592,48 +594,31 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
  */
 PHP_RINIT_FUNCTION(tideways)
 {
-	if (INI_INT("tideways.load_library") == 0) {
-		return SUCCESS;
-	}
-
-	// See https://github.com/xdebug/xdebug/pull/131
-	const char *version = zend_get_module_version("xdebug");
-	if (version != NULL && php_version_compare(version, "2.2.7") < 0) {
-		return SUCCESS;
-	}
-
-	zend_file_handle file_handle;
-	zend_op_array *new_op_array;
-	zval *result = NULL;
-	int ret;
-	int dummy = 1;
-	char *extension_dir = INI_STR("extension_dir");
+	char *extension_dir;
 	char *profiler_file;
 	int profiler_file_len;
 
+	hp_globals.prepend_overwritten = 0;
+
+	if (INI_INT("tideways.auto_prepend_library") == 0) {
+		return SUCCESS;
+	}
+
+	if (PG(auto_prepend_file) && PG(auto_prepend_file)[0]) {
+		return SUCCESS;
+	}
+
+	extension_dir  = INI_STR("extension_dir");
 	profiler_file_len = strlen(extension_dir) + strlen("Tideways.php") + 2;
 	profiler_file = emalloc(profiler_file_len);
 	snprintf(profiler_file, profiler_file_len, "%s/%s", extension_dir, "Tideways.php");
 
-	ret = php_stream_open_for_zend_ex(profiler_file, &file_handle, STREAM_OPEN_FOR_INCLUDE TSRMLS_CC);
-
-	if (ret == SUCCESS) {
-		// This code is partially copied from php_execute_script
-		if (PG(max_input_time) != -1) {
-#ifdef PHP_WIN32
-			zend_unset_timeout(TSRMLS_C);
-#endif
-			zend_set_timeout(INI_INT("max_execution_time"), 0);
-		}
-
-		zend_try {
-			zend_execute_scripts(ZEND_REQUIRE TSRMLS_CC, NULL, 1, &file_handle);
-		} zend_catch {
-			php_log_err("tideways.so: Error during execution of auto start script Tideways.php - Set tideways.load_library=0 to disable." TSRMLS_CC);
-		} zend_end_try();
+	if (VCWD_ACCESS(profiler_file, F_OK) == 0) {
+		PG(auto_prepend_file) = profiler_file;
+		hp_globals.prepend_overwritten = 1;
+	} else {
+		efree(profiler_file);
 	}
-
-	efree(profiler_file);
 
 	return SUCCESS;
 }
@@ -644,6 +629,13 @@ PHP_RINIT_FUNCTION(tideways)
 PHP_RSHUTDOWN_FUNCTION(tideways)
 {
 	hp_end(TSRMLS_C);
+
+	if (hp_globals.prepend_overwritten = 1) {
+		efree(PG(auto_prepend_file));
+		PG(auto_prepend_file) = NULL;
+	}
+	hp_globals.prepend_overwritten = 0;
+
 	return SUCCESS;
 }
 
@@ -682,12 +674,7 @@ PHP_MINFO_FUNCTION(tideways)
 	php_info_print_table_row(2, "Default Sample-Rate (tideways.sample_rate)", INI_STR("tideways.sample_rate"));
 	php_info_print_table_row(2, "Framework Detection (tideways.framework)", INI_STR("tideways.framework"));
 	php_info_print_table_row(2, "Automatically Start (tideways.auto_start)", INI_INT("tideways.auto_start") ? "Yes": "No");
-	php_info_print_table_row(2, "Load PHP Library (tideways.load_library)", INI_INT("tideways.load_library") ? "Yes": "No");
-
-	const char *version = zend_get_module_version("xdebug");
-	if (found != 0 && version != NULL && php_version_compare(version, "2.2.7") < 0 && INI_INT("tideways.load_library") != 0) {
-		php_info_print_table_row(1, "Incompatible Xdebug version prevents loading library automatically! At least Xdebug version 2.2.7 required.");
-	}
+	php_info_print_table_row(2, "Load PHP Library (tideways.auto_prepend_library)", INI_INT("tideways.auto_prepend_library") ? "Yes": "No");
 
 	php_info_print_table_end();
 }
