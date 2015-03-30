@@ -983,9 +983,6 @@ static void hp_clean_profiler_options_state()
 			(cur_entry)->hash_code = hash_code;									\
 			(cur_entry)->name_hprof = symbol;									\
 			(cur_entry)->prev_hprof = (*(entries));								\
-			/* Call the universal callback */									\
-			hp_mode_common_beginfn((entries), (cur_entry) TSRMLS_CC);			\
-			/* Call the mode's beginfn callback */								\
 			hp_mode_hier_beginfn_cb((entries), (cur_entry) TSRMLS_CC);   \
 			/* Update entries linked list */									\
 			(*(entries)) = (cur_entry);											\
@@ -1004,14 +1001,8 @@ static void hp_clean_profiler_options_state()
 	do {																	\
 		if (profile_curr) {													\
 			hp_entry_t *cur_entry;											\
-			/* Call the mode's endfn callback. */							\
-			/* NOTE(cjiang): we want to call this 'end_fn_cb' before */		\
-			/* 'hp_mode_common_endfn' to avoid including the time in */		\
-			/* 'hp_mode_common_endfn' in the profiling results.      */		\
 			hp_mode_hier_endfn_cb((entries) TSRMLS_CC);				\
 			cur_entry = (*(entries));										\
-			/* Call the universal callback */								\
-			hp_mode_common_endfn((entries), (cur_entry) TSRMLS_CC);			\
 			/* Free top entry and update entries linked list */				\
 			(*(entries)) = (*(entries))->prev_hprof;						\
 			hp_fast_free_hprof_entry(cur_entry);							\
@@ -2020,22 +2011,11 @@ static void clear_frequencies()
 }
 
 /**
- * ****************************
- * TIDEWAYS COMMON CALLBACKS
- * ****************************
- */
-/**
- * TIDEWAYS universal begin function.
- * This function is called for all modes before the
- * mode's specific begin_function callback is called.
+ * TIDEWAYS_MODE_HIERARCHICAL's begin function callback
  *
- * @param  hp_entry_t **entries  linked list (stack)
- *                                  of hprof entries
- * @param  hp_entry_t  *current  hprof entry for the current fn
- * @return void
- * @author kannan, veeve
+ * @author kannan
  */
-void hp_mode_common_beginfn(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC)
+void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC)
 {
 	hp_entry_t   *p;
 
@@ -2055,41 +2035,7 @@ void hp_mode_common_beginfn(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC)
 
 	/* Init current function's recurse level */
 	current->rlvl_hprof = recurse_level;
-}
 
-/**
- * TIDEWAYS universal end function.  This function is called for all modes after
- * the mode's specific end_function callback is called.
- *
- * @param  hp_entry_t **entries  linked list (stack) of hprof entries
- * @return void
- * @author kannan, veeve
- */
-void hp_mode_common_endfn(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC)
-{
-	hp_globals.func_hash_counters[current->hash_code]--;
-}
-
-
-/**
- * *********************************
- * TIDEWAYS INIT MODULE CALLBACKS
- * *********************************
- */
-
-/**
- * ************************************
- * TIDEWAYS BEGIN FUNCTION CALLBACKS
- * ************************************
- */
-
-/**
- * TIDEWAYS_MODE_HIERARCHICAL's begin function callback
- *
- * @author kannan
- */
-void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC)
-{
 	/* Get start tsc counter */
 	current->tsc_start = cycle_timer();
 	current->gc_runs = GC_G(gc_runs);
@@ -2114,15 +2060,22 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC
  */
 
 /**
- * TIDEWAYS shared end function callback
+ * TIDEWAYS_MODE_HIERARCHICAL's end function callback
  *
  * @author kannan
  */
-zval * hp_mode_shared_endfn_cb(hp_entry_t *top, char *symbol TSRMLS_DC)
+void hp_mode_hier_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 {
-	zval    *counts;
+	hp_entry_t      *top = (*entries);
+	zval            *counts;
+	struct rusage    ru_end;
+	char             symbol[SCRATCH_BUF_LEN] = "";
+	long int         mu_end;
+	long int         pmu_end;
 	uint64   tsc_end;
 	double   wt;
+	/* Get the stat array */
+	hp_get_function_stack(top, 2, symbol, sizeof(symbol));
 
 	/* Get end tsc counter */
 	tsc_end = cycle_timer();
@@ -2137,30 +2090,6 @@ zval * hp_mode_shared_endfn_cb(hp_entry_t *top, char *symbol TSRMLS_DC)
 	/* Bump stats in the counts hashtable */
 	hp_inc_count(counts, "ct", 1  TSRMLS_CC);
 	hp_inc_count(counts, "wt", wt TSRMLS_CC);
-
-	return counts;
-}
-
-/**
- * TIDEWAYS_MODE_HIERARCHICAL's end function callback
- *
- * @author kannan
- */
-void hp_mode_hier_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
-{
-	hp_entry_t   *top = (*entries);
-	zval            *counts;
-	struct rusage    ru_end;
-	char             symbol[SCRATCH_BUF_LEN] = "";
-	long int         mu_end;
-	long int         pmu_end;
-
-	/* Get the stat array */
-	hp_get_function_stack(top, 2, symbol, sizeof(symbol));
-	if (!(counts = hp_mode_shared_endfn_cb(top,
-					symbol  TSRMLS_CC))) {
-		return;
-	}
 
 	if ((GC_G(gc_runs) - top->gc_runs) > 0) {
 		hp_inc_count(counts, "gc", GC_G(gc_runs) - top->gc_runs TSRMLS_CC);
@@ -2188,6 +2117,8 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 		hp_inc_count(counts, "mu",  mu_end - top->mu_start_hprof    TSRMLS_CC);
 		hp_inc_count(counts, "pmu", pmu_end - top->pmu_start_hprof  TSRMLS_CC);
 	}
+
+	hp_globals.func_hash_counters[top->hash_code]--;
 }
 
 
