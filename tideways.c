@@ -102,10 +102,6 @@
 /* Size of a temp scratch buffer            */
 #define SCRATCH_BUF_LEN            512
 
-/* Various TIDEWAYS modes. If you are adding a new mode, register the appropriate
- * callbacks in hp_begin() */
-#define TIDEWAYS_MODE_HIERARCHICAL	1
-
 /* Hierarchical profiling flags.
  *
  * Note: Function call counts and wall (elapsed) time are always profiled.
@@ -219,9 +215,6 @@ typedef struct hp_global_t {
 
 	/* Holds the last exception */
 	hp_error            *last_exception;
-
-	/* Indicates the current Tideways mode or level */
-	int              profiler_level;
 
 	/* Top of the profile stack */
 	hp_entry_t      *entries;
@@ -343,7 +336,7 @@ static void tideways_throw_exception_hook(zval *exception TSRMLS_DC);
  */
 static void hp_register_constants(INIT_FUNC_ARGS);
 
-static void hp_begin(long level, long tideways_flags TSRMLS_DC);
+static void hp_begin(long tideways_flags TSRMLS_DC);
 static void hp_stop(TSRMLS_D);
 static void hp_end(TSRMLS_D);
 
@@ -495,7 +488,7 @@ PHP_FUNCTION(tideways_enable)
 
 	hp_parse_options_from_arg(optional_array);
 
-	hp_begin(TIDEWAYS_MODE_HIERARCHICAL, tideways_flags TSRMLS_CC);
+	hp_begin(tideways_flags TSRMLS_CC);
 }
 
 PHP_FUNCTION(tideways_last_fatal_error)
@@ -530,9 +523,7 @@ PHP_FUNCTION(tideways_disable)
 
 	hp_stop(TSRMLS_C);
 
-	if (hp_globals.profiler_level == TIDEWAYS_MODE_HIERARCHICAL) {
-		RETURN_ZVAL(hp_globals.stats_count, 1, 0);
-	}
+	RETURN_ZVAL(hp_globals.stats_count, 1, 0);
 }
 
 PHP_FUNCTION(tideways_transaction_name)
@@ -894,14 +885,13 @@ static inline int hp_function_map_filter_collision(hp_function_map *map, uint8 h
  *
  * @author kannan, veeve
  */
-void hp_init_profiler_state(int level TSRMLS_DC)
+void hp_init_profiler_state(TSRMLS_D)
 {
 	/* Setup globals */
 	if (!hp_globals.ever_enabled) {
 		hp_globals.ever_enabled  = 1;
 		hp_globals.entries = NULL;
 	}
-	hp_globals.profiler_level  = (int) level;
 
 	/* Init stats_count */
 	if (hp_globals.stats_count) {
@@ -967,7 +957,6 @@ void hp_clean_profiler_state(TSRMLS_D)
 	}
 
 	hp_globals.entries = NULL;
-	hp_globals.profiler_level = 1;
 	hp_globals.ever_enabled = 0;
 
 	hp_clean_profiler_options_state();
@@ -2446,7 +2435,7 @@ ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filena
  * It replaces all the functions like zend_execute, zend_execute_internal,
  * etc that needs to be instrumented with their corresponding proxies.
  */
-static void hp_begin(long level, long tideways_flags TSRMLS_DC)
+static void hp_begin(long tideways_flags TSRMLS_DC)
 {
 	if (!hp_globals.enabled) {
 		int hp_profile_flag = 1;
@@ -2506,15 +2495,11 @@ static void hp_begin(long level, long tideways_flags TSRMLS_DC)
 
 		/* Register the appropriate callback functions Override just a subset of
 		 * all the callbacks is OK. */
-		switch(level) {
-			case TIDEWAYS_MODE_HIERARCHICAL:
-				hp_globals.mode_cb.begin_fn_cb = hp_mode_hier_beginfn_cb;
-				hp_globals.mode_cb.end_fn_cb   = hp_mode_hier_endfn_cb;
-				break;
-		}
+		hp_globals.mode_cb.begin_fn_cb = hp_mode_hier_beginfn_cb;
+		hp_globals.mode_cb.end_fn_cb   = hp_mode_hier_endfn_cb;
 
 		/* one time initializations */
-		hp_init_profiler_state(level TSRMLS_CC);
+		hp_init_profiler_state(TSRMLS_C);
 
 		/* start profiling from fictitious main() */
 		hp_globals.root = estrdup(ROOT_SYMBOL);
