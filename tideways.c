@@ -198,6 +198,8 @@ typedef struct hp_global_t {
 	/* Holds all the Tideways statistics */
 	zval            *stats_count;
 
+	zval			*backtrace;
+
 	/* Holds all the information about last error. */
 	hp_error            *last_error;
 
@@ -307,7 +309,6 @@ static zend_op_array * (*_zend_compile_string) (zval *source_string, char *filen
 /* error callback replacement functions */
 void (*tideways_original_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
 void tideways_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
-static void tideways_throw_exception_hook(zval *exception TSRMLS_DC);
 
 /* Bloom filter for function names to be ignored */
 #define INDEX_2_BYTE(index)  (index >> 3)
@@ -385,6 +386,9 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO(arginfo_tideways_prepend_overwritten, 0)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO(arginfo_tideways_fatal_backtrace, 0)
+ZEND_END_ARG_INFO()
+
 /* }}} */
 
 /**
@@ -408,6 +412,7 @@ zend_function_entry tideways_functions[] = {
 	PHP_FE(tideways_last_fatal_error, arginfo_tideways_last_fatal_error)
 	PHP_FE(tideways_last_exception_data, arginfo_tideways_last_exception_data)
 	PHP_FE(tideways_prepend_overwritten, arginfo_tideways_prepend_overwritten)
+	PHP_FE(tideways_fatal_backtrace, arginfo_tideways_fatal_backtrace)
 	{NULL, NULL, NULL}
 };
 
@@ -526,6 +531,13 @@ PHP_FUNCTION(tideways_transaction_name)
 PHP_FUNCTION(tideways_prepend_overwritten)
 {
 	RETURN_BOOL(hp_globals.prepend_overwritten);
+}
+
+PHP_FUNCTION(tideways_fatal_backtrace)
+{
+	if (hp_globals.backtrace != NULL) {
+		RETURN_ZVAL(hp_globals.backtrace, 1, 1);
+	}
 }
 
 /**
@@ -2361,8 +2373,6 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
 		tideways_original_error_cb = zend_error_cb;
 		zend_error_cb = tideways_error_cb;
 
-		zend_throw_exception_hook = tideways_throw_exception_hook;
-
 		/* Replace zend_execute_internal with our proxy */
 		_zend_execute_internal = zend_execute_internal;
 		if (!(hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_BUILTINS)) {
@@ -2723,9 +2733,9 @@ void tideways_store_error(int type, const char *error_filename, const uint error
 
 void tideways_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
 {
-	error_handling_t  error_handling;
-
 	TSRMLS_FETCH();
+	error_handling_t  error_handling;
+	zval *backtrace;
 
 #if (PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION >= 3) || PHP_MAJOR_VERSION >= 6
 	error_handling  = EG(error_handling);
@@ -2733,53 +2743,24 @@ void tideways_error_cb(int type, const char *error_filename, const uint error_li
 	error_handling  = PG(error_handling);
 #endif
 
+	printf("foo");
 	if (error_handling == EH_NORMAL) {
 		switch (type) {
 			case E_ERROR:
 			case E_CORE_ERROR:
-			case E_USER_ERROR:
-				tideways_store_error(type, error_filename, error_lineno, format, args TSRMLS_CC);
+				ALLOC_INIT_ZVAL(backtrace);
+
+#if IS_PHP_53
+				zend_fetch_debug_backtrace(backtrace, 1, 0 TSRMLS_CC);
+#else
+				zend_fetch_debug_backtrace(backtrace, 1, 0, 0 TSRMLS_CC);
+#endif
+
+				hp_globals.backtrace = backtrace;
 		}
 	}
 
 	tideways_original_error_cb(type, error_filename, error_lineno, format, args);
-}
-
-static void tideways_throw_exception_hook(zval *exception TSRMLS_DC)
-{
-	zend_class_entry *default_ce, *exception_ce;
-	zval *tmp;
-	hp_error *error;
-
-	if (!exception) {
-		return;
-	}
-
-	default_ce = zend_exception_get_default(TSRMLS_C);
-	exception_ce = zend_get_class_entry(exception TSRMLS_CC);
-
-	if (hp_globals.last_exception != NULL) {
-		hp_error_clean(hp_globals.last_exception);
-	}
-
-	hp_globals.last_exception = hp_error_create();
-
-	tmp = zend_read_property(default_ce, exception, "message", sizeof("message")-1, 0 TSRMLS_CC);
-	hp_globals.last_exception->message = hp_zval_to_string(tmp);
-
-	tmp = zend_read_property(default_ce, exception, "file", sizeof("file")-1, 0 TSRMLS_CC);
-	hp_globals.last_exception->file = hp_zval_to_string(tmp);
-
-	tmp = zend_read_property(default_ce, exception, "line", sizeof("line")-1, 0 TSRMLS_CC);
-	hp_globals.last_exception->line = hp_zval_to_long(tmp);
-
-	tmp = zend_read_property(default_ce, exception, "code", sizeof("code")-1, 0 TSRMLS_CC);
-	hp_globals.last_exception->code = hp_zval_to_long(tmp);
-
-	tmp = zend_read_property(default_ce, exception, "trace", sizeof("trace")-1, 0 TSRMLS_CC);
-	hp_globals.last_exception->trace = hp_zval_to_string(tmp);
-
-	hp_globals.last_exception->class = hp_create_string(exception_ce->name, exception_ce->name_length);
 }
 
 static inline hp_string *hp_create_string(const char *value, size_t length)
