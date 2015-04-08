@@ -187,6 +187,7 @@ typedef struct hp_global_t {
 	zval            *stats_count;
 
 	zval			*backtrace;
+	zval			*exception;
 
 	/* Top of the profile stack */
 	hp_entry_t      *entries;
@@ -198,6 +199,8 @@ typedef struct hp_global_t {
 	hp_string       *transaction_function;
 	hp_string		*transaction_name;
 	char			*root;
+
+	hp_string		*exception_function;
 
 	/* This array is used to store cpu frequencies for all available logical
 	 * cpus.  For now, we assume the cpu frequencies will not change for power
@@ -324,6 +327,7 @@ static void incr_us_interval(struct timeval *start, uint64 incr);
 static void hp_parse_options_from_arg(zval *args);
 static void hp_clean_profiler_options_state();
 
+static void hp_exception_function_clear();
 static void hp_transaction_function_clear();
 static void hp_transaction_name_clear();
 
@@ -360,6 +364,9 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO(arginfo_tideways_fatal_backtrace, 0)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO(arginfo_tideways_last_detected_exception, 0)
+ZEND_END_ARG_INFO()
+
 /* }}} */
 
 /**
@@ -382,6 +389,7 @@ zend_function_entry tideways_functions[] = {
 	PHP_FE(tideways_transaction_name, arginfo_tideways_transaction_name)
 	PHP_FE(tideways_prepend_overwritten, arginfo_tideways_prepend_overwritten)
 	PHP_FE(tideways_fatal_backtrace, arginfo_tideways_fatal_backtrace)
+	PHP_FE(tideways_last_detected_exception, arginfo_tideways_last_detected_exception)
 	{NULL, NULL, NULL}
 };
 
@@ -495,6 +503,13 @@ PHP_FUNCTION(tideways_fatal_backtrace)
 	}
 }
 
+PHP_FUNCTION(tideways_last_detected_exception)
+{
+	if (hp_globals.exception != NULL) {
+		RETURN_ZVAL(hp_globals.exception, 1, 0);
+	}
+}
+
 /**
  * Module init callback.
  *
@@ -536,6 +551,7 @@ PHP_MINIT_FUNCTION(tideways)
 	}
 
 	hp_transaction_function_clear();
+	hp_exception_function_clear();
 
 #if defined(DEBUG)
 	/* To make it random number generator repeatable to ease testing. */
@@ -755,6 +771,24 @@ static void hp_parse_options_from_arg(zval *args)
 	if (zresult != NULL) {
 		hp_globals.transaction_function = hp_zval_to_string(zresult);
 	}
+
+	zresult = hp_zval_at_key("exception_function", args);
+
+	if (zresult != NULL) {
+		hp_globals.exception_function = hp_zval_to_string(zresult);
+	}
+}
+
+static void hp_exception_function_clear() {
+	if (hp_globals.exception_function != NULL) {
+		hp_string_clean(hp_globals.exception_function);
+		efree(hp_globals.exception_function);
+		hp_globals.exception_function = NULL;
+	}
+
+	if (hp_globals.exception != NULL) {
+		zval_ptr_dtor(&hp_globals.exception);
+	}
 }
 
 static void hp_transaction_function_clear() {
@@ -878,8 +912,6 @@ void hp_clean_profiler_state(TSRMLS_D)
 	hp_globals.ever_enabled = 0;
 
 	hp_clean_profiler_options_state();
-	hp_transaction_function_clear();
-	hp_transaction_name_clear();
 
 	hp_function_map_clear(hp_globals.filtered_functions);
 	hp_globals.filtered_functions = NULL;
@@ -902,6 +934,10 @@ static void hp_clean_profiler_options_state()
 	hp_globals.filtered_functions = NULL;
 	hp_function_map_clear(hp_globals.argument_functions);
 	hp_globals.argument_functions = NULL;
+
+	hp_exception_function_clear();
+	hp_transaction_function_clear();
+	hp_transaction_name_clear();
 }
 
 /*
@@ -1444,6 +1480,31 @@ static char *hp_get_function_argument_summary(char *ret, zend_execute_data *data
 	}
 
 	return ret;
+}
+
+static void hp_detect_exception(char *func_name, zend_execute_data *data TSRMLS_DC)
+{
+	void **p = hp_get_execute_arguments(data);
+	int arg_count = (int)(zend_uintptr_t) *p;
+	zval *argument_element;
+	int i;
+	zend_class_entry *default_ce, *exception_ce;
+
+	default_ce = zend_exception_get_default(TSRMLS_C);
+
+	for (i=0; i < arg_count; i++) {
+		argument_element = *(p-(arg_count-i));
+
+		if (Z_TYPE_P(argument_element) == IS_OBJECT) {
+			exception_ce = zend_get_class_entry(argument_element TSRMLS_CC);
+
+			if (instanceof_function(exception_ce, default_ce) == 1) {
+				Z_ADDREF_P(argument_element);
+				hp_globals.exception = argument_element;
+				return;
+			}
+		}
+	}
 }
 
 static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS_DC)
@@ -2087,6 +2148,11 @@ ZEND_DLEXPORT void hp_detect_tx_execute_ex (zend_execute_data *execute_data TSRM
 	func = hp_get_function_name(real_execute_data TSRMLS_CC);
 	if (func) {
 		hp_detect_transaction_name(func, real_execute_data TSRMLS_CC);
+
+		if (hp_globals.exception_function != NULL && strcmp(func, hp_globals.exception_function->value) == 0) {
+			hp_detect_exception(func, real_execute_data TSRMLS_CC);
+		}
+
 		efree(func);
 	}
 
@@ -2095,14 +2161,6 @@ ZEND_DLEXPORT void hp_detect_tx_execute_ex (zend_execute_data *execute_data TSRM
 #else
 	_zend_execute_ex(execute_data TSRMLS_CC);
 #endif
-
-	if (hp_globals.transaction_name) {
-#if PHP_VERSION_ID < 50500
-		zend_execute          = _zend_execute;
-#else
-		zend_execute_ex       = _zend_execute_ex;
-#endif
-	}
 }
 
 /**
@@ -2135,6 +2193,10 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 	}
 
 	hp_detect_transaction_name(func, real_execute_data TSRMLS_CC);
+
+	if (hp_globals.exception_function != NULL && strcmp(func, hp_globals.exception_function->value) == 0) {
+		hp_detect_exception(func, real_execute_data TSRMLS_CC);
+	}
 
 	BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag, real_execute_data);
 #if PHP_VERSION_ID < 50500
