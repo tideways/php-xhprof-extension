@@ -2512,7 +2512,6 @@ void tideways_error_cb(int type, const char *error_filename, const uint error_li
 	error_handling  = PG(error_handling);
 #endif
 
-	printf("foo");
 	if (error_handling == EH_NORMAL) {
 		switch (type) {
 			case E_ERROR:

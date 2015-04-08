@@ -20,7 +20,7 @@ tideways_enable();
 foo();
 --EXPECTF--
 Fatal error: Call to undefined function unknown() in /home/benny/code/php/workspace/tideways-extension/tests/tideways_errors_001.php on line 8
-fooarray(2) {
+array(2) {
   [0]=>
   array(4) {
     ["file"]=>
