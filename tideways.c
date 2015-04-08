@@ -1498,7 +1498,7 @@ static void hp_detect_exception(char *func_name, zend_execute_data *data TSRMLS_
 		if (Z_TYPE_P(argument_element) == IS_OBJECT) {
 			exception_ce = zend_get_class_entry(argument_element TSRMLS_CC);
 
-			if (instanceof_function(exception_ce, default_ce) == 1) {
+			if (instanceof_function(exception_ce, default_ce TSRMLS_CC) == 1) {
 				Z_ADDREF_P(argument_element);
 				hp_globals.exception = argument_element;
 				return;
@@ -2084,7 +2084,7 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 
 	/* Get the stat array */
 	if (!(counts = hp_hash_lookup(hp_globals.stats_count, symbol TSRMLS_CC))) {
-		return (zval *) 0;
+		return;
 	}
 
 	wt = get_us_from_tsc(tsc_end - top->tsc_start, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
