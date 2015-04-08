@@ -41,7 +41,6 @@
 #include "ext/pcre/php_pcre.h"
 #include "ext/standard/url.h"
 #include "ext/pdo/php_pdo_driver.h"
-#include "zend_exceptions.h"
 #include "zend_stream.h"
 
 #ifdef PHP_TIDEWAYS_HAVE_CURL
@@ -2374,7 +2373,6 @@ static void hp_stop(TSRMLS_D)
 	zend_compile_string   = _zend_compile_string;
 
 	zend_error_cb = tideways_original_error_cb;
-	zend_throw_exception_hook = NULL;
 
 	/* Resore cpu affinity. */
 	restore_cpu_affinity(&hp_globals.prev_mask);
