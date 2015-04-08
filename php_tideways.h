@@ -42,8 +42,6 @@ PHP_FUNCTION(tideways_enable);
 PHP_FUNCTION(tideways_disable);
 PHP_FUNCTION(tideways_transaction_name);
 PHP_FUNCTION(tideways_fatal_backtrace);
-PHP_FUNCTION(tideways_last_fatal_error);
-PHP_FUNCTION(tideways_last_exception_data);
 PHP_FUNCTION(tideways_prepend_overwritten);
 
 #endif	/* PHP_TIDEWAYS_H */

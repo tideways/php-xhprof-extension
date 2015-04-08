@@ -162,17 +162,6 @@ typedef struct hp_string {
 	size_t length;
 } hp_string;
 
-/* Struct that defines caught errors or exceptions inside the engine. */
-typedef struct hp_error {
-	unsigned int line;
-	hp_string *file;
-	hp_string *message;
-	hp_string *trace;
-	unsigned int type;
-	long code;
-	hp_string *class;
-} hp_error;
-
 typedef struct hp_function_map {
 	char **names;
 	uint8 filter[TIDEWAYS_FILTERED_FUNCTION_SIZE];
@@ -199,12 +188,6 @@ typedef struct hp_global_t {
 	zval            *stats_count;
 
 	zval			*backtrace;
-
-	/* Holds all the information about last error. */
-	hp_error            *last_error;
-
-	/* Holds the last exception */
-	hp_error            *last_exception;
 
 	/* Top of the profile stack */
 	hp_entry_t      *entries;
@@ -360,11 +343,6 @@ static inline void hp_function_map_clear(hp_function_map *map);
 static inline int hp_function_map_exists(hp_function_map *map, uint8 hash_code, char *curr_func);
 static inline int hp_function_map_filter_collision(hp_function_map *map, uint8 hash);
 
-static hp_string *tideways_backtrace(TSRMLS_D);
-static void hp_error_clean(hp_error *error);
-static void hp_error_to_zval(hp_error *error, zval *z);
-static hp_error *hp_error_create();
-
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_enable, 0, 0, 0)
   ZEND_ARG_INFO(0, flags)
@@ -375,12 +353,6 @@ ZEND_BEGIN_ARG_INFO(arginfo_tideways_disable, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO(arginfo_tideways_transaction_name, 0)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO(arginfo_tideways_last_fatal_error, 0)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO(arginfo_tideways_last_exception_data, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO(arginfo_tideways_prepend_overwritten, 0)
@@ -409,8 +381,6 @@ zend_function_entry tideways_functions[] = {
 	PHP_FE(tideways_enable, arginfo_tideways_enable)
 	PHP_FE(tideways_disable, arginfo_tideways_disable)
 	PHP_FE(tideways_transaction_name, arginfo_tideways_transaction_name)
-	PHP_FE(tideways_last_fatal_error, arginfo_tideways_last_fatal_error)
-	PHP_FE(tideways_last_exception_data, arginfo_tideways_last_exception_data)
 	PHP_FE(tideways_prepend_overwritten, arginfo_tideways_prepend_overwritten)
 	PHP_FE(tideways_fatal_backtrace, arginfo_tideways_fatal_backtrace)
 	{NULL, NULL, NULL}
@@ -483,20 +453,6 @@ PHP_FUNCTION(tideways_enable)
 	hp_parse_options_from_arg(optional_array);
 
 	hp_begin(tideways_flags TSRMLS_CC);
-}
-
-PHP_FUNCTION(tideways_last_fatal_error)
-{
-	if (hp_globals.enabled && hp_globals.last_error) {
-		hp_error_to_zval(hp_globals.last_error, return_value);
-	}
-}
-
-PHP_FUNCTION(tideways_last_exception_data)
-{
-	if (hp_globals.enabled && hp_globals.last_exception) {
-		hp_error_to_zval(hp_globals.last_exception, return_value);
-	}
 }
 
 /**
@@ -572,8 +528,6 @@ PHP_MINIT_FUNCTION(tideways)
 	hp_globals.cur_cpu_id = 0;
 
 	hp_globals.stats_count = NULL;
-	hp_globals.last_error = NULL;
-	hp_globals.last_exception = NULL;
 
 	/* no free hp_entry_t structures to start with */
 	hp_globals.entry_free_list = NULL;
@@ -892,16 +846,6 @@ void hp_init_profiler_state(TSRMLS_D)
 	MAKE_STD_ZVAL(hp_globals.stats_count);
 	array_init(hp_globals.stats_count);
 
-	if (hp_globals.last_error) {
-		hp_error_clean(hp_globals.last_error);
-		hp_globals.last_error = NULL;
-	}
-
-	if (hp_globals.last_exception) {
-		hp_error_clean(hp_globals.last_exception);
-		hp_globals.last_exception = NULL;
-	}
-
 	/* NOTE(cjiang): some fields such as cpu_frequencies take relatively longer
 	 * to initialize, (5 milisecond per logical cpu right now), therefore we
 	 * calculate them lazily. */
@@ -929,16 +873,6 @@ void hp_clean_profiler_state(TSRMLS_D)
 		zval_dtor(hp_globals.stats_count);
 		FREE_ZVAL(hp_globals.stats_count);
 		hp_globals.stats_count = NULL;
-	}
-
-	if (hp_globals.last_error) {
-		hp_error_clean(hp_globals.last_error);
-		hp_globals.last_error = NULL;
-	}
-
-	if (hp_globals.last_exception) {
-		hp_error_clean(hp_globals.last_exception);
-		hp_globals.last_exception = NULL;
 	}
 
 	hp_globals.entries = NULL;
@@ -2566,171 +2500,6 @@ static inline int hp_argument_entry(uint8 hash_code, char *curr_func)
 		hp_function_map_exists(hp_globals.argument_functions, hash_code, curr_func);
 }
 
-/* {{{ gettraceasstring() macros */
-#define TIDEWAYS_TRACE_APPEND_CHR(chr)				\
-	*str = (char*)erealloc(*str, *len + 1 + 1);		\
-	(*str)[(*len)++] = chr
-
-#define TIDEWAYS_TRACE_APPEND_STRL(val, vallen)							\
-	{                                                                   \
-		int l = vallen;                                                 \
-		*str = (char*)erealloc(*str, *len + l + 1);                     \
-		memcpy((*str) + *len, val, l);                                  \
-		*len += l;                                                      \
-	}
-
-#define TIDEWAYS_TRACE_APPEND_STR(val)                                            \
-    TIDEWAYS_TRACE_APPEND_STRL(val, sizeof(val)-1)
-
-#define TIDEWAYS_TRACE_APPEND_KEY(key)										\
-	if (zend_hash_find(ht, key, sizeof(key), (void**)&tmp) == SUCCESS) {    \
-		if (Z_TYPE_PP(tmp) != IS_STRING) {									\
-			zend_error(E_WARNING, "Value for %s is no string", key);		\
-			TIDEWAYS_TRACE_APPEND_STR("[unknown]");							\
-		} else {															\
-			TIDEWAYS_TRACE_APPEND_STRL(Z_STRVAL_PP(tmp), Z_STRLEN_PP(tmp));	\
-		}																	\
-	}
-
-
-#define TRACE_ARG_APPEND(vallen)														\
-	*str = (char*)erealloc(*str, *len + 1 + vallen);									\
-	memmove((*str) + *len - l_added + 1 + vallen, (*str) + *len - l_added + 1, l_added);
-
-/* }}} */
-
-static int tideways_build_trace_string(zval **frame TSRMLS_DC, int num_args, va_list args, zend_hash_key *hash_key) /* {{{ */
-{
-	char *s_tmp, **str;
-	int *len, *num;
-	long line;
-	HashTable *ht = Z_ARRVAL_PP(frame);
-	zval **file, **tmp;
-
-	if (Z_TYPE_PP(frame) != IS_ARRAY) {
-		zend_error(E_WARNING, "Expected array for frame %lu", hash_key->h);
-		return ZEND_HASH_APPLY_KEEP;
-	}
-
-	str = va_arg(args, char**);
-	len = va_arg(args, int*);
-	num = va_arg(args, int*);
-
-	s_tmp = emalloc(1 + MAX_LENGTH_OF_LONG + 1 + 1);
-	sprintf(s_tmp, "#%d ", (*num)++);
-	TIDEWAYS_TRACE_APPEND_STRL(s_tmp, strlen(s_tmp));
-	efree(s_tmp);
-	if (zend_hash_find(ht, "file", sizeof("file"), (void**)&file) == SUCCESS) {
-		if (Z_TYPE_PP(file) != IS_STRING) {
-			zend_error(E_WARNING, "Function name is no string");
-			TIDEWAYS_TRACE_APPEND_STR("[unknown function]");
-		} else{
-			if (zend_hash_find(ht, "line", sizeof("line"), (void**)&tmp) == SUCCESS) {
-				if (Z_TYPE_PP(tmp) == IS_LONG) {
-					line = Z_LVAL_PP(tmp);
-				} else {
-					zend_error(E_WARNING, "Line is no long");
-					line = 0;
-				}
-			} else {
-				line = 0;
-			}
-			s_tmp = emalloc(Z_STRLEN_PP(file) + MAX_LENGTH_OF_LONG + 4 + 1);
-			sprintf(s_tmp, "%s(%ld): ", Z_STRVAL_PP(file), line);
-			TIDEWAYS_TRACE_APPEND_STRL(s_tmp, strlen(s_tmp));
-			efree(s_tmp);
-		}
-	} else {
-		TIDEWAYS_TRACE_APPEND_STR("[internal function]: ");
-	}
-	TIDEWAYS_TRACE_APPEND_KEY("class");
-	TIDEWAYS_TRACE_APPEND_KEY("type");
-	TIDEWAYS_TRACE_APPEND_KEY("function");
-	TIDEWAYS_TRACE_APPEND_STR("()\n");
-	return ZEND_HASH_APPLY_KEEP;
-}
-/* }}} */
-
-static hp_string *tideways_backtrace(TSRMLS_D)
-{
-	zval *trace;
-	char *res, **str, *s_tmp;
-	int res_len = 0, *len = &res_len, num = 0;
-
-	res = estrdup("");
-	str = &res;
-
-	ALLOC_ZVAL(trace);
-	Z_UNSET_ISREF_P(trace);
-	Z_SET_REFCOUNT_P(trace, 0);
-
-	zend_fetch_debug_backtrace(trace, 1, 0, 0 TSRMLS_CC);
-	zend_hash_apply_with_arguments(Z_ARRVAL_P(trace) TSRMLS_CC, (apply_func_args_t)tideways_build_trace_string, 3, str, len, &num);
-
-	s_tmp = emalloc(1 + MAX_LENGTH_OF_LONG + 7 + 1);
-	sprintf(s_tmp, "#%d {main}", num);
-	TIDEWAYS_TRACE_APPEND_STRL(s_tmp, strlen(s_tmp));
-	efree(s_tmp);
-
-	res[res_len] = '\0';
-
-	return hp_create_string(res, res_len);
-}
-
-void tideways_store_error(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args TSRMLS_DC)
-{
-	va_list new_args;
-	char *buffer;
-	int buffer_len;
-
-	/* We have to copy the arglist otherwise it will segfault in original error cb */
-	va_copy(new_args, args);
-
-	buffer_len = vspprintf(&buffer, PG(log_errors_max_len), format, new_args);
-
-	if (!hp_globals.last_error) {
-		hp_error_clean(hp_globals.last_error);
-	}
-	hp_globals.last_error = hp_error_create();
-
-	hp_globals.last_error->line = (int)error_lineno;
-	hp_globals.last_error->type = type;
-
-	if (error_filename != NULL) {
-		hp_globals.last_error->file = hp_create_string(error_filename, strlen(error_filename));
-	}
-
-	/* We need to see if we have an uncaught exception fatal error now */
-	if (type == E_ERROR && strncmp(buffer, "Uncaught exception", 18) == 0 && hp_globals.last_exception) {
-		hp_globals.last_error->code = hp_globals.last_exception->code;
-
-		if (hp_globals.last_exception->message) {
-			hp_globals.last_error->message = emalloc(sizeof(hp_string));
-			memcpy(hp_globals.last_error->message, hp_globals.last_exception->message, sizeof(hp_string));
-			hp_globals.last_error->message->value = estrdup(hp_globals.last_exception->message->value);
-		}
-
-		if (hp_globals.last_exception->class) {
-			hp_globals.last_error->class = emalloc(sizeof(hp_string));
-			memcpy(hp_globals.last_error->class, hp_globals.last_exception->class, sizeof(hp_string));
-			hp_globals.last_error->class->value = estrdup(hp_globals.last_exception->class->value);
-		}
-
-		if (hp_globals.last_exception->trace) {
-			hp_globals.last_error->trace = emalloc(sizeof(hp_string));
-			memcpy(hp_globals.last_error->trace, hp_globals.last_exception->trace, sizeof(hp_string));
-			hp_globals.last_error->trace->value = estrdup(hp_globals.last_exception->trace->value);
-		}
-	} else {
-		hp_globals.last_error->message = hp_create_string(buffer, buffer_len);
-#if PHP_VERSION_ID >= 50400
-		hp_globals.last_error->trace = tideways_backtrace(TSRMLS_C);
-#endif
-	}
-
-	efree(buffer);
-}
-
 void tideways_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
 {
 	TSRMLS_FETCH();
@@ -2809,50 +2578,6 @@ static inline zval *hp_string_to_zval(hp_string *str)
 	return ret;
 }
 
-static hp_error *hp_error_create()
-{
-	hp_error *error;
-
-	error = emalloc(sizeof(hp_error));
-	error->type = 0;
-	error->line = 0;
-	error->code = -1;
-	error->message = NULL;
-	error->trace = NULL;
-	error->file = NULL;
-	error->class = NULL;
-
-	return error;
-}
-
-static void hp_error_clean(hp_error *error)
-{
-	if (error == NULL) {
-		return;
-	}
-
-	if (error->message) {
-		hp_string_clean(error->message);
-		efree(error->message);
-	}
-
-	if (error->class) {
-		hp_string_clean(error->class);
-		efree(error->class);
-	}
-
-	if (error->trace) {
-		hp_string_clean(error->trace);
-		efree(error->trace);
-	}
-
-	if (error->file) {
-		hp_string_clean(error->file);
-		efree(error->file);
-	}
-
-	efree(error);
-}
 
 static inline void hp_string_clean(hp_string *str)
 {
@@ -2863,32 +2588,3 @@ static inline void hp_string_clean(hp_string *str)
 	efree(str->value);
 }
 
-static void hp_error_to_zval(hp_error *error, zval *z)
-{
-	zval *line, *type, *code;
-
-	if (error == NULL) {
-		return;
-	}
-
-	MAKE_STD_ZVAL(line);
-	ZVAL_LONG(line, error->line);
-
-	MAKE_STD_ZVAL(type);
-	ZVAL_LONG(type, error->type);
-
-	MAKE_STD_ZVAL(code);
-	ZVAL_LONG(code, error->code);
-
-	array_init(z);
-	add_assoc_zval(z, "message", hp_string_to_zval(error->message));
-	add_assoc_zval(z, "trace", hp_string_to_zval(error->trace));
-	add_assoc_zval(z, "file", hp_string_to_zval(error->file));
-	add_assoc_zval(z, "type", type);
-	add_assoc_zval(z, "line", line);
-
-	if (error->class) {
-		add_assoc_zval(z, "class", hp_string_to_zval(error->class));
-		add_assoc_zval(z, "code", code);
-	}
-}
