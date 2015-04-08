@@ -1,3 +1,15 @@
+# Version 1.7.0
+
+- Remove `tideways_last_fatal_error` and `tideways_last_exception`.
+
+- Add new method `tideways_fatal_backtrace()` that returns the data
+  from `debug_backtrace()` as an array instead of string as before.
+  This is easier to maintain, but requires userland code to convert to string.
+
+- Add `"exception_function"` option that allows setting a function
+  which gets passed exceptions at the framework level. You
+  have access to this exception calling `tideways_last_detected_exception()`.
+
 # Version 1.6.2
 
 - Fix wrong definition of TIDEWAYS_FLAGS_NO_COMPILE flag.
