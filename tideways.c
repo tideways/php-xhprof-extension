@@ -92,7 +92,7 @@
  */
 
 /* Tideways version                           */
-#define TIDEWAYS_VERSION       "1.7.0"
+#define TIDEWAYS_VERSION       "1.7.1"
 
 /* Fictitious function name to represent top of the call tree. The paranthesis
  * in the name is to ensure we don't conflict with user function names.  */
@@ -367,6 +367,9 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO(arginfo_tideways_last_detected_exception, 0)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO(arginfo_tideways_last_fatal_error, 0)
+ZEND_END_ARG_INFO()
+
 /* }}} */
 
 /**
@@ -390,6 +393,7 @@ zend_function_entry tideways_functions[] = {
 	PHP_FE(tideways_prepend_overwritten, arginfo_tideways_prepend_overwritten)
 	PHP_FE(tideways_fatal_backtrace, arginfo_tideways_fatal_backtrace)
 	PHP_FE(tideways_last_detected_exception, arginfo_tideways_last_detected_exception)
+	PHP_FE(tideways_last_fatal_error, arginfo_tideways_last_fatal_error)
 	{NULL, NULL, NULL}
 };
 
@@ -509,6 +513,22 @@ PHP_FUNCTION(tideways_last_detected_exception)
 		RETURN_ZVAL(hp_globals.exception, 1, 0);
 	}
 }
+
+PHP_FUNCTION(tideways_last_fatal_error)
+{
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
+		return;
+	}
+
+	if (PG(last_error_message)) {
+		array_init(return_value);
+		add_assoc_long_ex(return_value, "type", sizeof("type"), PG(last_error_type));
+		add_assoc_string_ex(return_value, "message", sizeof("message"), PG(last_error_message), 1);
+		add_assoc_string_ex(return_value, "file", sizeof("file"), PG(last_error_file)?PG(last_error_file):"-", 1 );
+		add_assoc_long_ex(return_value, "line", sizeof("line"), PG(last_error_lineno));
+	}
+}
+
 
 /**
  * Module init callback.

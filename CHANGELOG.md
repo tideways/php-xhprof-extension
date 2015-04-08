@@ -1,3 +1,9 @@
+# Version 1.7.1
+
+- Reintroduce `tideways_last_fatal_error` as alias of `error_get_last()` for
+  backwards compatibility reasons because Profiler PHP library is written in a
+  way where extension update could break application.
+
 # Version 1.7.0
 
 - Remove `tideways_last_fatal_error` and `tideways_last_exception`.
