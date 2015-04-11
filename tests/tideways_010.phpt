@@ -1,5 +1,11 @@
 --TEST--
 XHProf: SQL Summanry
+--SKIPIF--
+<?php
+if (!extension_loaded('pdo_sqlite')) {
+    print "skip: pdo_sqlite not installed\n";
+    exit(1);
+}
 --FILE--
 <?php
 

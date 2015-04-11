@@ -1,0 +1,24 @@
+<?xml version="1.0" ?>
+<project name="Tideways PHP Extension">
+    <target name="compile">
+        <exec executable="phpize" failonerror="true" />
+        <exec executable="./configure" failonerror="true" />
+        <exec executable="make" failonerror="true" />
+    </target>
+
+    <target name="test" depends="compile">
+        <exec executable="make" failonerror="true">
+            <arg value="test" />
+
+            <env key="NO_INTERACTION" value="1" />
+            <env key="REPORT_EXIT_STATUS" value="1" />
+        </exec>
+    </target>
+
+    <target name="install" depends="test">
+        <exec executable="sudo" failonerror="true">
+            <arg value="make" />
+            <arg value="install" />
+        </exec>
+    </target>
+</project>
