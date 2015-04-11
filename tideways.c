@@ -610,6 +610,7 @@ PHP_RINIT_FUNCTION(tideways)
 	int profiler_file_len;
 
 	hp_globals.prepend_overwritten = 0;
+	hp_globals.backtrace = NULL;
 
 	if (INI_INT("tideways.auto_prepend_library") == 0) {
 		return SUCCESS;
