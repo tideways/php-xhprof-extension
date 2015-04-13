@@ -611,6 +611,7 @@ PHP_RINIT_FUNCTION(tideways)
 
 	hp_globals.prepend_overwritten = 0;
 	hp_globals.backtrace = NULL;
+	hp_globals.exception = NULL;
 
 	if (INI_INT("tideways.auto_prepend_library") == 0) {
 		return SUCCESS;
