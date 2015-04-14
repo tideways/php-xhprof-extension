@@ -185,6 +185,7 @@ typedef struct hp_global_t {
 
 	/* Holds all the Tideways statistics */
 	zval            *stats_count;
+	zval			*spans;
 
 	zval			*backtrace;
 	zval			*exception;
@@ -370,6 +371,13 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO(arginfo_tideways_last_fatal_error, 0)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_create_span, 0, 0, 0)
+	ZEND_ARG_INFO(0, category)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO(arginfo_tideways_get_spans, 0)
+ZEND_END_ARG_INFO()
+
 /* }}} */
 
 /**
@@ -394,6 +402,8 @@ zend_function_entry tideways_functions[] = {
 	PHP_FE(tideways_fatal_backtrace, arginfo_tideways_fatal_backtrace)
 	PHP_FE(tideways_last_detected_exception, arginfo_tideways_last_detected_exception)
 	PHP_FE(tideways_last_fatal_error, arginfo_tideways_last_fatal_error)
+	PHP_FE(tideways_create_span, arginfo_tideways_create_span)
+	PHP_FE(tideways_get_spans, arginfo_tideways_get_spans)
 	{NULL, NULL, NULL}
 };
 
@@ -529,6 +539,45 @@ PHP_FUNCTION(tideways_last_fatal_error)
 	}
 }
 
+PHP_FUNCTION(tideways_create_span)
+{
+	zval *span, *starts, *stops, *annotations;
+	char *category;
+	size_t category_len;
+	int idx;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &category, &category_len) == FAILURE) {
+		return;
+	}
+
+	idx = zend_hash_num_elements(Z_ARRVAL_P(hp_globals.spans)) + 1;
+
+	MAKE_STD_ZVAL(span);
+	MAKE_STD_ZVAL(starts);
+	MAKE_STD_ZVAL(stops);
+	MAKE_STD_ZVAL(annotations);
+
+	array_init(span);
+	array_init(starts);
+	array_init(stops);
+	array_init(annotations);
+
+	add_assoc_stringl(span, "n", category, category_len, 1);
+	add_assoc_zval(span, "b", starts);
+	add_assoc_zval(span, "e", stops);
+	add_assoc_zval(span, "a", annotations);
+
+	zend_hash_index_update(Z_ARRVAL_P(hp_globals.spans), idx, &span, sizeof(zval*), NULL);
+
+	RETURN_LONG(idx);
+}
+
+PHP_FUNCTION(tideways_get_spans)
+{
+	if (hp_globals.enabled) {
+		RETURN_ZVAL(hp_globals.spans, 1, 0);
+	}
+}
 
 /**
  * Module init callback.
@@ -562,6 +611,7 @@ PHP_MINIT_FUNCTION(tideways)
 	hp_globals.cur_cpu_id = 0;
 
 	hp_globals.stats_count = NULL;
+	hp_globals.spans = NULL;
 
 	/* no free hp_entry_t structures to start with */
 	hp_globals.entry_free_list = NULL;
@@ -901,6 +951,13 @@ void hp_init_profiler_state(TSRMLS_D)
 	MAKE_STD_ZVAL(hp_globals.stats_count);
 	array_init(hp_globals.stats_count);
 
+	if (hp_globals.spans) {
+		zval_dtor(hp_globals.spans);
+		FREE_ZVAL(hp_globals.spans);
+	}
+	MAKE_STD_ZVAL(hp_globals.spans);
+	array_init(hp_globals.spans);
+
 	/* NOTE(cjiang): some fields such as cpu_frequencies take relatively longer
 	 * to initialize, (5 milisecond per logical cpu right now), therefore we
 	 * calculate them lazily. */
@@ -928,6 +985,11 @@ void hp_clean_profiler_state(TSRMLS_D)
 		zval_dtor(hp_globals.stats_count);
 		FREE_ZVAL(hp_globals.stats_count);
 		hp_globals.stats_count = NULL;
+	}
+	if (hp_globals.spans) {
+		zval_dtor(hp_globals.spans);
+		FREE_ZVAL(hp_globals.spans);
+		hp_globals.spans = NULL;
 	}
 
 	hp_globals.entries = NULL;
