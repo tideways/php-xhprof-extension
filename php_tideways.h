@@ -48,8 +48,8 @@ PHP_FUNCTION(tideways_last_fatal_error);
 
 PHP_FUNCTION(tideways_create_span);
 PHP_FUNCTION(tideways_get_spans);
-/*PHP_FUNCTION(tideways_timer_start);
+PHP_FUNCTION(tideways_timer_start);
 PHP_FUNCTION(tideways_timer_stop);
-PHP_FUNCTION(tideways_annotate);*/
+PHP_FUNCTION(tideways_annotate);
 
 #endif	/* PHP_TIDEWAYS_H */

@@ -186,6 +186,7 @@ typedef struct hp_global_t {
 	/* Holds all the Tideways statistics */
 	zval            *stats_count;
 	zval			*spans;
+	uint64			start_time;
 
 	zval			*backtrace;
 	zval			*exception;
@@ -324,6 +325,7 @@ static inline uint8 hp_inline_hash(char * str);
 static void get_all_cpu_frequencies();
 static long get_us_interval(struct timeval *start, struct timeval *end);
 static void incr_us_interval(struct timeval *start, uint64 incr);
+static inline double get_us_from_tsc(uint64 count, double cpu_frequency);
 
 static void hp_parse_options_from_arg(zval *args);
 static void hp_clean_profiler_options_state();
@@ -378,6 +380,19 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO(arginfo_tideways_get_spans, 0)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_timer_start, 0, 0, 0)
+	ZEND_ARG_INFO(0, span)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_timer_stop, 0, 0, 0)
+	ZEND_ARG_INFO(0, span)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_annotate, 0, 0, 0)
+	ZEND_ARG_INFO(0, span)
+	ZEND_ARG_INFO(0, annotations)
+ZEND_END_ARG_INFO()
+
 /* }}} */
 
 /**
@@ -404,6 +419,9 @@ zend_function_entry tideways_functions[] = {
 	PHP_FE(tideways_last_fatal_error, arginfo_tideways_last_fatal_error)
 	PHP_FE(tideways_create_span, arginfo_tideways_create_span)
 	PHP_FE(tideways_get_spans, arginfo_tideways_get_spans)
+	PHP_FE(tideways_timer_start, arginfo_tideways_timer_start)
+	PHP_FE(tideways_timer_stop, arginfo_tideways_timer_stop)
+	PHP_FE(tideways_annotate, arginfo_tideways_annotate)
 	{NULL, NULL, NULL}
 };
 
@@ -550,7 +568,11 @@ PHP_FUNCTION(tideways_create_span)
 		return;
 	}
 
-	idx = zend_hash_num_elements(Z_ARRVAL_P(hp_globals.spans)) + 1;
+	if (hp_globals.enabled == 0) {
+		return;
+	}
+
+	idx = zend_hash_num_elements(Z_ARRVAL_P(hp_globals.spans));
 
 	MAKE_STD_ZVAL(span);
 	MAKE_STD_ZVAL(starts);
@@ -577,6 +599,83 @@ PHP_FUNCTION(tideways_get_spans)
 	if (hp_globals.enabled) {
 		RETURN_ZVAL(hp_globals.spans, 1, 0);
 	}
+}
+
+PHP_FUNCTION(tideways_timer_start)
+{
+	zval **span, **starts;
+	long spanId;
+	double wt;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &spanId) == FAILURE) {
+		return;
+	}
+
+	if (hp_globals.enabled == 0) {
+		return;
+	}
+
+	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
+		return;
+	}
+
+	if (zend_hash_find(Z_ARRVAL_PP(span), "b", sizeof("b"), (void **) &starts) == FAILURE) {
+		return;
+	}
+
+	wt = get_us_from_tsc(cycle_timer() - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]) / 1000;
+	add_next_index_long(*starts, wt);
+}
+
+PHP_FUNCTION(tideways_timer_stop)
+{
+	zval **span, **stops;
+	long spanId;
+	double wt;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &spanId) == FAILURE) {
+		return;
+	}
+
+	if (hp_globals.enabled == 0) {
+		return;
+	}
+
+	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
+		return;
+	}
+
+	if (zend_hash_find(Z_ARRVAL_PP(span), "e", sizeof("e"), (void **) &stops) == FAILURE) {
+		return;
+	}
+
+	wt = get_us_from_tsc(cycle_timer() - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]) / 1000;
+	add_next_index_long(*stops, wt);
+}
+
+PHP_FUNCTION(tideways_annotate)
+{
+	long spanId;
+	zval **span, **span_annotations;
+	zval *annotations;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lz", &spanId, &annotations) == FAILURE) {
+		return;
+	}
+
+	if (hp_globals.enabled == 0) {
+		return;
+	}
+
+	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
+		return;
+	}
+
+	if (zend_hash_find(Z_ARRVAL_PP(span), "a", sizeof("a"), (void **) &span_annotations) == FAILURE) {
+		return;
+	}
+
+	zend_hash_merge(Z_ARRVAL_PP(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *), 1);
 }
 
 /**
@@ -957,6 +1056,8 @@ void hp_init_profiler_state(TSRMLS_D)
 	}
 	MAKE_STD_ZVAL(hp_globals.spans);
 	array_init(hp_globals.spans);
+
+	hp_globals.start_time = cycle_timer();
 
 	/* NOTE(cjiang): some fields such as cpu_frequencies take relatively longer
 	 * to initialize, (5 milisecond per logical cpu right now), therefore we
