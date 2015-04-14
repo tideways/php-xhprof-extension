@@ -5,15 +5,15 @@ Tideways: Start/Stop Timers
 
 tideways_enable();
 
-$span1 = tideways_create_span('php');
-tideways_timer_start($span1);
-tideways_timer_stop($span1);
+$span1 = tideways_span_create('php');
+tideways_span_timer_start($span1);
+tideways_span_timer_stop($span1);
 
-$span2 = tideways_create_span('php');
-tideways_timer_start($span2);
-tideways_timer_stop($span2);
-tideways_timer_start($span2);
-tideways_timer_stop($span2);
+$span2 = tideways_span_create('php');
+tideways_span_timer_start($span2);
+tideways_span_timer_stop($span2);
+tideways_span_timer_start($span2);
+tideways_span_timer_stop($span2);
 
 $spans = tideways_get_spans();
 var_dump($spans);

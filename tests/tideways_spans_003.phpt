@@ -5,8 +5,8 @@ Tideways: Span Annotations
 
 tideways_enable();
 
-$span = tideways_create_span('app');
-tideways_annotate($span, array('foo' => 'bar', 'bar' => 'baz'));
+$span = tideways_span_create('app');
+tideways_span_annotate($span, array('foo' => 'bar', 'bar' => 'baz'));
 
 var_dump(tideways_get_spans());
 --EXPECTF--

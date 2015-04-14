@@ -3,7 +3,7 @@ Tideways: Span Create/Get
 --FILE--
 <?php
 
-$span = tideways_create_span('app');
+$span = tideways_span_create('app');
 $spans = tideways_get_spans();
 
 var_dump($span);
@@ -11,7 +11,7 @@ var_dump($spans);
 
 tideways_enable();
 
-$span = tideways_create_span('php');
+$span = tideways_span_create('php');
 $spans = tideways_get_spans();
 
 var_dump($span);
@@ -21,7 +21,7 @@ tideways_disable();
 
 tideways_enable();
 
-$span = tideways_create_span('app');
+$span = tideways_span_create('app');
 $spans = tideways_get_spans();
 
 var_dump($span);

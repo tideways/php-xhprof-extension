@@ -373,22 +373,22 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO(arginfo_tideways_last_fatal_error, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_create_span, 0, 0, 0)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_span_create, 0, 0, 0)
 	ZEND_ARG_INFO(0, category)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO(arginfo_tideways_get_spans, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_timer_start, 0, 0, 0)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_span_timer_start, 0, 0, 0)
 	ZEND_ARG_INFO(0, span)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_timer_stop, 0, 0, 0)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_span_timer_stop, 0, 0, 0)
 	ZEND_ARG_INFO(0, span)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_annotate, 0, 0, 0)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_span_annotate, 0, 0, 0)
 	ZEND_ARG_INFO(0, span)
 	ZEND_ARG_INFO(0, annotations)
 ZEND_END_ARG_INFO()
@@ -417,11 +417,11 @@ zend_function_entry tideways_functions[] = {
 	PHP_FE(tideways_fatal_backtrace, arginfo_tideways_fatal_backtrace)
 	PHP_FE(tideways_last_detected_exception, arginfo_tideways_last_detected_exception)
 	PHP_FE(tideways_last_fatal_error, arginfo_tideways_last_fatal_error)
-	PHP_FE(tideways_create_span, arginfo_tideways_create_span)
+	PHP_FE(tideways_span_create, arginfo_tideways_span_create)
 	PHP_FE(tideways_get_spans, arginfo_tideways_get_spans)
-	PHP_FE(tideways_timer_start, arginfo_tideways_timer_start)
-	PHP_FE(tideways_timer_stop, arginfo_tideways_timer_stop)
-	PHP_FE(tideways_annotate, arginfo_tideways_annotate)
+	PHP_FE(tideways_span_timer_start, arginfo_tideways_span_timer_start)
+	PHP_FE(tideways_span_timer_stop, arginfo_tideways_span_timer_stop)
+	PHP_FE(tideways_span_annotate, arginfo_tideways_span_annotate)
 	{NULL, NULL, NULL}
 };
 
@@ -557,7 +557,7 @@ PHP_FUNCTION(tideways_last_fatal_error)
 	}
 }
 
-PHP_FUNCTION(tideways_create_span)
+PHP_FUNCTION(tideways_span_create)
 {
 	zval *span, *starts, *stops, *annotations;
 	char *category;
@@ -601,7 +601,7 @@ PHP_FUNCTION(tideways_get_spans)
 	}
 }
 
-PHP_FUNCTION(tideways_timer_start)
+PHP_FUNCTION(tideways_span_timer_start)
 {
 	zval **span, **starts;
 	long spanId;
@@ -627,7 +627,7 @@ PHP_FUNCTION(tideways_timer_start)
 	add_next_index_long(*starts, wt);
 }
 
-PHP_FUNCTION(tideways_timer_stop)
+PHP_FUNCTION(tideways_span_timer_stop)
 {
 	zval **span, **stops;
 	long spanId;
@@ -653,7 +653,7 @@ PHP_FUNCTION(tideways_timer_stop)
 	add_next_index_long(*stops, wt);
 }
 
-PHP_FUNCTION(tideways_annotate)
+PHP_FUNCTION(tideways_span_annotate)
 {
 	long spanId;
 	zval **span, **span_annotations;
