@@ -45,6 +45,7 @@ PHP_FUNCTION(tideways_fatal_backtrace);
 PHP_FUNCTION(tideways_prepend_overwritten);
 PHP_FUNCTION(tideways_last_detected_exception);
 PHP_FUNCTION(tideways_last_fatal_error);
+PHP_FUNCTION(tideways_sql_minify);
 
 PHP_FUNCTION(tideways_span_create);
 PHP_FUNCTION(tideways_get_spans);

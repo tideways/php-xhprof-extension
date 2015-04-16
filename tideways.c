@@ -343,6 +343,7 @@ static inline long hp_zval_to_long(zval *z);
 static inline hp_string *hp_zval_to_string(zval *z);
 static inline zval *hp_string_to_zval(hp_string *str);
 static inline void hp_string_clean(hp_string *str);
+static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC);
 
 static inline hp_function_map *hp_function_map_create(char **names);
 static inline void hp_function_map_clear(hp_function_map *map);
@@ -371,6 +372,10 @@ ZEND_BEGIN_ARG_INFO(arginfo_tideways_last_detected_exception, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO(arginfo_tideways_last_fatal_error, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_sql_minify, 0, 0, 0)
+	ZEND_ARG_INFO(0, sql)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_span_create, 0, 0, 0)
@@ -417,6 +422,7 @@ zend_function_entry tideways_functions[] = {
 	PHP_FE(tideways_fatal_backtrace, arginfo_tideways_fatal_backtrace)
 	PHP_FE(tideways_last_detected_exception, arginfo_tideways_last_detected_exception)
 	PHP_FE(tideways_last_fatal_error, arginfo_tideways_last_fatal_error)
+	PHP_FE(tideways_sql_minify, arginfo_tideways_sql_minify)
 	PHP_FE(tideways_span_create, arginfo_tideways_span_create)
 	PHP_FE(tideways_get_spans, arginfo_tideways_get_spans)
 	PHP_FE(tideways_span_timer_start, arginfo_tideways_span_timer_start)
@@ -676,6 +682,20 @@ PHP_FUNCTION(tideways_span_annotate)
 	}
 
 	zend_hash_merge(Z_ARRVAL_PP(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *), 1);
+}
+
+PHP_FUNCTION(tideways_sql_minify)
+{
+	char *sql, *minified;
+	int len;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &sql, &len) == FAILURE) {
+		return;
+	}
+
+	minified = hp_get_sql_summary(sql, len TSRMLS_DC);
+
+	RETURN_STRING(minified, 0);
 }
 
 /**
