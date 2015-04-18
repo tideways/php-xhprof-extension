@@ -5,33 +5,16 @@ XHProf: Stream Summary
 
 include_once dirname(__FILE__).'/common.php';
 
-$options = array('argument_functions' => array('fopen', 'fgets', 'fclose'));
+$options = array('argument_functions' => array('file_get_contents'));
 
 tideways_enable(0, $options);
 
-$fh = fopen(__DIR__, "r");
-fgets($fh);
-fclose($fh);
-
-$fh = fopen(__FILE__, "r");
-fgets($fh);
-fclose($fh);
-
-$fh = fopen(dirname(__FILE__).'/common.php', "r");
-fgets($fh);
-fclose($fh);
+file_get_contents(__FILE__);
+file_get_contents("http://localhost:80");
 
 print_canonical(tideways_disable());
 --EXPECTF--
 main()                                  : ct=       1; wt=*;
-main()==>dirname                        : ct=       1; wt=*;
-main()==>fclose#%d                       : ct=       1; wt=*;
-main()==>fclose#%d                       : ct=       1; wt=*;
-main()==>fclose#%d                       : ct=       1; wt=*;
-main()==>fgets#%d                        : ct=       1; wt=*;
-main()==>fgets#%d                        : ct=       1; wt=*;
-main()==>fgets#%d                        : ct=       1; wt=*;
-main()==>fopen#%s#%d: ct=       1; wt=*;
-main()==>fopen#%s/tests/common.php#%d: ct=       1; wt=*;
-main()==>fopen#%s/tests/tideways_011.php#%d: ct=       1; wt=*;
+main()==>file_get_contents#             : ct=       1; wt=*;
+main()==>file_get_contents#http://localhost:80: ct=       1; wt=*;
 main()==>tideways_disable               : ct=       1; wt=*;

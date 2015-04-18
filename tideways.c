@@ -1424,6 +1424,9 @@ static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC)
 
 	if (url->scheme) {
 		snprintf(ret, len, "%s%s://", ret, url->scheme);
+	} else {
+		php_url_free(url);
+		return ret;
 	}
 
 	if (url->host) {
@@ -1431,22 +1434,12 @@ static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC)
 	}
 
 	if (url->port) {
-		snprintf(ret, len, "%s%d", ret, url->port);
+		snprintf(ret, len, "%s:%d", ret, url->port);
 	}
 
 	if (url->path) {
 		snprintf(ret, len, "%s%s", ret, url->path);
 	}
-
-	/*
-	 * We assume the stream will be opened,
-	 * pointing to the next free element in resource list.
-	 *
-	 * This does not reliably work however, the first opened stream
-	 * (http,file) will open two entries, creating an offset. We can
-	 * handle this in the profiler parsing for now.
-	 */
-	snprintf(ret, len, "%s#%d", ret, EG(regular_list).nNextFreeElement);
 
 	php_url_free(url);
 
@@ -1504,28 +1497,7 @@ static char *hp_get_function_argument_summary(char *ret, zend_execute_data *data
 	snprintf(ret, len, "%s#", oldret);
 	efree(oldret);
 
-	if (strcmp(ret, "fgets#") == 0 ||
-			strcmp(ret, "fgetcsv#") == 0 ||
-			strcmp(ret, "fread#") == 0 ||
-			strcmp(ret, "fwrite#") == 0 ||
-			strcmp(ret, "fputs#") == 0 ||
-			strcmp(ret, "fputcsv#") == 0 ||
-			strcmp(ret, "stream_get_contents#") == 0 ||
-			strcmp(ret, "fclose#") == 0
-	   ) {
-
-		php_stream *stream;
-
-		argument_element = *(p-arg_count);
-
-		if (Z_TYPE_P(argument_element) == IS_RESOURCE) {
-			php_stream_from_zval_no_verify(stream, &argument_element);
-
-			if (stream != NULL && stream->orig_path) {
-				snprintf(ret, len, "%s%d", ret, stream->rsrc_id);
-			}
-		}
-	} else if (strcmp(ret, "fopen#") == 0 || strcmp(ret, "file_get_contents#") == 0 || strcmp(ret, "file_put_contents#") == 0) {
+	if (strcmp(ret, "file_get_contents#") == 0) {
 		argument_element = *(p-arg_count);
 
 		if (Z_TYPE_P(argument_element) == IS_STRING) {
