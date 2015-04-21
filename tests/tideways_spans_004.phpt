@@ -10,6 +10,7 @@ tideways_enable(0, array());
 @file_get_contents("http://localhost");
 @file_get_contents("http://localhost:8080");
 @file_get_contents("http://localhost");
+file_get_contents(__FILE__);
 
 print_spans(tideways_get_spans());
 
