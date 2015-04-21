@@ -265,7 +265,7 @@ typedef struct hp_curl_t {
 #endif
 #endif
 
-typedef void (*tw_trace_callback)(char *symbol, void **args, int args_len, zval *object TSRMLS_DC);
+typedef void (*tw_trace_callback)(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC);
 
 /**
  * ***********************
@@ -609,8 +609,29 @@ void tw_span_timer_start(long spanId)
 		return;
 	}
 
-	wt = get_us_from_tsc(cycle_timer() - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]) / 1000;
+	wt = get_us_from_tsc(cycle_timer() - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 	add_next_index_long(*starts, wt);
+}
+
+void tw_span_record_duration(long spanId, double start, double end)
+{
+	zval **span, **timer;
+
+	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
+		return;
+	}
+
+	if (zend_hash_find(Z_ARRVAL_PP(span), "e", sizeof("e"), (void **) &timer) == FAILURE) {
+		return;
+	}
+
+	add_next_index_long(*timer, end);
+
+	if (zend_hash_find(Z_ARRVAL_PP(span), "b", sizeof("b"), (void **) &timer) == FAILURE) {
+		return;
+	}
+
+	add_next_index_long(*timer, start);
 }
 
 void tw_span_timer_stop(long spanId)
@@ -626,7 +647,7 @@ void tw_span_timer_stop(long spanId)
 		return;
 	}
 
-	wt = get_us_from_tsc(cycle_timer() - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]) / 1000;
+	wt = get_us_from_tsc(cycle_timer() - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 	add_next_index_long(*stops, wt);
 }
 
@@ -810,7 +831,7 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	return SUCCESS;
 }
 
-void tw_trace_callback_file_get_contents(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
+void tw_trace_callback_file_get_contents(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *argument = *(args-args_len);
 	char *summary;
@@ -833,8 +854,7 @@ void tw_trace_callback_file_get_contents(char *symbol, void **args, int args_len
 		zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
 	}
 
-	tw_span_timer_start(idx);
-	tw_span_timer_stop(idx);
+	tw_span_record_duration(idx, start, end);
 	tw_span_annotate_string(idx, "title", summary, 0);
 }
 
@@ -2362,8 +2382,10 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 		void **args =  hp_get_execute_arguments(data);
 		int arg_count = (int)(zend_uintptr_t) *args;
 		zval *obj = data->object;
+		double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
+		double end = get_us_from_tsc(tsc_end - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 
-		(*callback)(symbol, args, arg_count, obj TSRMLS_CC);
+		(*callback)(symbol, args, arg_count, obj, start, end TSRMLS_CC);
 	}
 
 	/* Bump stats in the counts hashtable */
