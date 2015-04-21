@@ -833,6 +833,61 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	return SUCCESS;
 }
 
+void tw_trace_callback_pgsql_execute(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx, *idx_ptr;
+	zval *argument_element;
+	char *summary;
+	int i;
+
+	for (i = 0; i < args_len; i++) {
+		argument_element = *(args-(args_len-i));
+
+		if (argument_element && Z_TYPE_P(argument_element) == IS_STRING && Z_STRLEN_P(argument_element) > 0) {
+			// TODO: Introduce SQL statement cache to find the names here again.
+			summary = Z_STRVAL_P(argument_element);
+
+			if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
+				idx = *idx_ptr;
+			} else {
+				idx = tw_span_create("sql", 3);
+				zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
+			}
+
+			tw_span_record_duration(idx, start, end);
+			tw_span_annotate_string(idx, "title", summary, 1);
+			return;
+		}
+	}
+}
+
+void tw_trace_callback_pgsql_query(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx, *idx_ptr;
+	zval *argument_element;
+	char *summary;
+	int i;
+
+	for (i = 0; i < args_len; i++) {
+		argument_element = *(args-(args_len-i));
+
+		if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
+			summary = hp_get_sql_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element) TSRMLS_CC);
+
+			if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
+				idx = *idx_ptr;
+			} else {
+				idx = tw_span_create("sql", 3);
+				zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
+			}
+
+			tw_span_record_duration(idx, start, end);
+			tw_span_annotate_string(idx, "title", summary, 0);
+			return;
+		}
+	}
+}
+
 void tw_trace_callback_smarty2_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx, *idx_ptr;
@@ -1037,6 +1092,13 @@ PHP_RINIT_FUNCTION(tideways)
 
 	cb = tw_trace_callback_pdo_stmt_execute;
 	register_trace_callback("PDOStatement::execute", cb);
+
+	cb = tw_trace_callback_pgsql_query;
+	register_trace_callback("pg_query", cb);
+	register_trace_callback("pg_query_params", cb);
+
+	cb = tw_trace_callback_pgsql_execute;
+	register_trace_callback("pg_execute", cb);
 
 	cb = tw_trace_callback_event_dispatchers;
 	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch", cb);
