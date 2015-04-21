@@ -833,6 +833,81 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	return SUCCESS;
 }
 
+void tw_trace_callback_smarty2_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx, *idx_ptr;
+	zval *argument_element = *(args-args_len);
+
+	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
+		if (zend_hash_find(hp_globals.span_cache, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element)+1, (void **)&idx_ptr) == SUCCESS) {
+			idx = *idx_ptr;
+		} else {
+			idx = tw_span_create("view", 4);
+			zend_hash_update(hp_globals.span_cache, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element)+1, &idx, sizeof(long), NULL);
+		}
+
+		tw_span_record_duration(idx, start, end);
+		tw_span_annotate_string(idx, "title", Z_STRVAL_P(argument_element), 1);
+	}
+}
+
+void tw_trace_callback_smarty3_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx, *idx_ptr;
+	zval *argument_element = *(args-args_len);
+	zval *obj;
+	zend_class_entry *smarty_ce;
+	char *template;
+	size_t template_len;
+
+	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
+		template = Z_STRVAL_P(argument_element);
+	} else {
+		smarty_ce = Z_OBJCE_P(object);
+
+		argument_element = zend_read_property(smarty_ce, object, "template_resource", sizeof("template_resource") - 1, 1 TSRMLS_CC);
+		template = Z_STRVAL_P(argument_element);
+	}
+
+	template_len = Z_STRLEN_P(argument_element);
+
+	if (zend_hash_find(hp_globals.span_cache, template, template_len+1, (void **)&idx_ptr) == SUCCESS) {
+		idx = *idx_ptr;
+	} else {
+		idx = tw_span_create("view", 4);
+		zend_hash_update(hp_globals.span_cache, template, template_len+1, &idx, sizeof(long), NULL);
+	}
+
+	tw_span_record_duration(idx, start, end);
+	tw_span_annotate_string(idx, "title", template, 1);
+}
+
+void tw_trace_callback_twig_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx, *idx_ptr;
+	zval fname, *retval_ptr;
+
+	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
+		return;
+	}
+
+	ZVAL_STRING(&fname, "getTemplateName", 0);
+
+	if (SUCCESS == call_user_function_ex(EG(function_table), &object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
+		if (zend_hash_find(hp_globals.span_cache, Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr)+1, (void **)&idx_ptr) == SUCCESS) {
+			idx = *idx_ptr;
+		} else {
+			idx = tw_span_create("view", 4);
+			zend_hash_update(hp_globals.span_cache, Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr)+1, &idx, sizeof(long), NULL);
+		}
+
+		tw_span_record_duration(idx, start, end);
+		tw_span_annotate_string(idx, "title", Z_STRVAL_P(retval_ptr), 1);
+
+		FREE_ZVAL(retval_ptr);
+	}
+}
+
 void tw_trace_callback_event_dispatchers(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx, *idx_ptr;
@@ -847,7 +922,7 @@ void tw_trace_callback_event_dispatchers(char *symbol, void **args, int args_len
 		}
 
 		tw_span_record_duration(idx, start, end);
-		tw_span_annotate_string(idx, "title", Z_STRVAL_P(argument_element), 0);
+		tw_span_annotate_string(idx, "title", Z_STRVAL_P(argument_element), 1);
 	}
 }
 
@@ -974,6 +1049,16 @@ PHP_RINIT_FUNCTION(tideways)
 	register_trace_callback("apply_filters", cb);
 	register_trace_callback("drupal_alter", cb);
 	register_trace_callback("Mage::dispatchEvent", cb);
+
+	cb = tw_trace_callback_twig_template;
+	register_trace_callback("Twig_Template::render", cb);
+	register_trace_callback("Twig_Template::display", cb);
+
+	cb = tw_trace_callback_smarty2_template;
+	register_trace_callback("Smarty::fetch", cb);
+
+	cb = tw_trace_callback_smarty3_template;
+	register_trace_callback("Smarty_Internal_TemplateBase::fetch", cb);
 
 	if (INI_INT("tideways.auto_prepend_library") == 0) {
 		return SUCCESS;
@@ -2593,7 +2678,7 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 	_zend_execute_ex(execute_data TSRMLS_CC);
 #endif
 	if (hp_globals.entries) {
-		END_PROFILING(&hp_globals.entries, hp_profile_flag, execute_data);
+		END_PROFILING(&hp_globals.entries, hp_profile_flag, real_execute_data);
 	}
 	efree(func);
 }
