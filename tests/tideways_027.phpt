@@ -10,28 +10,8 @@ use Zend\EventManager\EventManager;
 use Doctrine\Common\EventManager as DoctrineEventManager;
 
 include_once dirname(__FILE__).'/common.php';
-include_once dirname(__FILE__).'/tideways_027_classes.php';
-
-class Mage
-{
-    static public function dispatchEvent($eventName, $params)
-    {
-    }
-}
-
-class Enlight_Event_EventManager
-{
-    public function filter($event, $value, $args) {}
-    public function notify($event, $args) {}
-    public function notifyUntil($event, $args) {}
-}
-
-function do_action($name, $params) {
-}
-function apply_filters($name, $params) {
-}
-function drupal_alter($name, $args) {
-}
+include_once dirname(__FILE__).'/tideways_events1.php';
+include_once dirname(__FILE__).'/tideways_events2.php';
 
 tideways_enable(0, array('argument_functions' => array(
     'Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch',

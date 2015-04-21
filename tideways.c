@@ -129,6 +129,8 @@ typedef unsigned int uint32;
 typedef unsigned char uint8;
 #endif
 
+#define register_trace_callback(function_name, cb) zend_hash_update(hp_globals.trace_callbacks, function_name, sizeof(function_name), &cb, sizeof(tw_trace_callback*), NULL);
+
 
 /**
  * *****************************
@@ -831,6 +833,24 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	return SUCCESS;
 }
 
+void tw_trace_callback_event_dispatchers(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx, *idx_ptr;
+	zval *argument_element = *(args-args_len);
+
+	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
+		if (zend_hash_find(hp_globals.span_cache, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element)+1, (void **)&idx_ptr) == SUCCESS) {
+			idx = *idx_ptr;
+		} else {
+			idx = tw_span_create("event", 5);
+			zend_hash_update(hp_globals.span_cache, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element)+1, &idx, sizeof(long), NULL);
+		}
+
+		tw_span_record_duration(idx, start, end);
+		tw_span_annotate_string(idx, "title", Z_STRVAL_P(argument_element), 0);
+	}
+}
+
 void tw_trace_callback_pdo_stmt_execute(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx, *idx_ptr;
@@ -931,17 +951,29 @@ PHP_RINIT_FUNCTION(tideways)
 	zend_hash_init(hp_globals.span_cache, 32, NULL, NULL, 0);
 
 	cb = tw_trace_callback_file_get_contents;
-	zend_hash_update(hp_globals.trace_callbacks, "file_get_contents", sizeof("file_get_contents"), &cb, sizeof(tw_trace_callback*), NULL);
+	register_trace_callback("file_get_contents", cb);
 
 	cb = tw_trace_callback_sql_functions;
-	zend_hash_update(hp_globals.trace_callbacks, "PDO::exec", sizeof("PDO::exec"), &cb, sizeof(tw_trace_callback*), NULL);
-	zend_hash_update(hp_globals.trace_callbacks, "PDO::query", sizeof("PDO::query"), &cb, sizeof(tw_trace_callback*), NULL);
-	zend_hash_update(hp_globals.trace_callbacks, "mysql_query", sizeof("mysql_query"), &cb, sizeof(tw_trace_callback*), NULL);
-	zend_hash_update(hp_globals.trace_callbacks, "mysqli_query", sizeof("mysqli_query"), &cb, sizeof(tw_trace_callback*), NULL);
-	zend_hash_update(hp_globals.trace_callbacks, "mysqli::query", sizeof("mysqli::query"), &cb, sizeof(tw_trace_callback*), NULL);
+	register_trace_callback("PDO::exec", cb);
+	register_trace_callback("PDO::query", cb);
+	register_trace_callback("mysql_query", cb);
+	register_trace_callback("mysqli_query", cb);
+	register_trace_callback("mysqli::query", cb);
 
 	cb = tw_trace_callback_pdo_stmt_execute;
-	zend_hash_update(hp_globals.trace_callbacks, "PDOStatement::execute", sizeof("PDOStatement::execute"), &cb, sizeof(tw_trace_callback*), NULL);
+	register_trace_callback("PDOStatement::execute", cb);
+
+	cb = tw_trace_callback_event_dispatchers;
+	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch", cb);
+	register_trace_callback("Doctrine\\Common\\EventManager::dispatchEvent", cb);
+	register_trace_callback("Enlight_Event_EventManager::filter", cb);
+	register_trace_callback("Enlight_Event_EventManager::notify", cb);
+	register_trace_callback("Enlight_Event_EventManager::notifyUntil", cb);
+	register_trace_callback("Zend\\EventManager\\EventManager::trigger", cb);
+	register_trace_callback("do_action", cb);
+	register_trace_callback("apply_filters", cb);
+	register_trace_callback("drupal_alter", cb);
+	register_trace_callback("Mage::dispatchEvent", cb);
 
 	if (INI_INT("tideways.auto_prepend_library") == 0) {
 		return SUCCESS;
