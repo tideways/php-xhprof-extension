@@ -831,6 +831,23 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	return SUCCESS;
 }
 
+void tw_trace_callback_pdo_stmt_execute(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx, *idx_ptr;
+	pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object_by_handle(Z_OBJ_HANDLE_P(object) TSRMLS_CC);
+	char *summary = hp_get_sql_summary(stmt->query_string, stmt->query_stringlen TSRMLS_CC);
+
+	if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
+		idx = *idx_ptr;
+	} else {
+		idx = tw_span_create("sql", 3);
+		zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
+	}
+
+	tw_span_record_duration(idx, start, end);
+	tw_span_annotate_string(idx, "title", summary, 0);
+}
+
 void tw_trace_callback_sql_functions(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *argument_element;
@@ -922,6 +939,9 @@ PHP_RINIT_FUNCTION(tideways)
 	zend_hash_update(hp_globals.trace_callbacks, "mysql_query", sizeof("mysql_query"), &cb, sizeof(tw_trace_callback*), NULL);
 	zend_hash_update(hp_globals.trace_callbacks, "mysqli_query", sizeof("mysqli_query"), &cb, sizeof(tw_trace_callback*), NULL);
 	zend_hash_update(hp_globals.trace_callbacks, "mysqli::query", sizeof("mysqli::query"), &cb, sizeof(tw_trace_callback*), NULL);
+
+	cb = tw_trace_callback_pdo_stmt_execute;
+	zend_hash_update(hp_globals.trace_callbacks, "PDOStatement::execute", sizeof("PDOStatement::execute"), &cb, sizeof(tw_trace_callback*), NULL);
 
 	if (INI_INT("tideways.auto_prepend_library") == 0) {
 		return SUCCESS;

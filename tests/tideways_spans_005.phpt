@@ -36,4 +36,8 @@ print_spans(tideways_get_spans());
 tideways_disable();
 --EXPECTF--
 sql: 1 timers - title=other
-sql: 1 timers - title=select baz
+sql: 1 timers - title=select 'baz'
+sql: 1 timers - title=insert baz
+sql: 1 timers - title=update baz
+sql: 1 timers - title=delete baz
+sql: 2 timers - title=select baz
