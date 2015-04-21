@@ -1027,6 +1027,38 @@ void tw_trace_callback_sql_functions(char *symbol, void **args, int args_len, zv
 	tw_span_annotate_string(idx, "title", summary, 0);
 }
 
+void tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	zval *argument = *(args-args_len);
+	zval **option;
+	zval ***params_array;
+	long idx, *idx_ptr;
+	zval fname, *retval_ptr, *opt;
+
+	if (argument == NULL || Z_TYPE_P(argument) != IS_RESOURCE) {
+		return;
+	}
+
+	ZVAL_STRING(&fname, "curl_getinfo", 0);
+
+	params_array = (zval ***) emalloc(sizeof(zval **));
+	params_array[0] = &argument;
+
+	if (SUCCESS == call_user_function_ex(EG(function_table), NULL, &fname, &retval_ptr, 1, params_array, 1, NULL TSRMLS_CC)) {
+		idx = tw_span_create("http", 4);
+		tw_span_record_duration(idx, start, end);
+
+		if (zend_hash_find(Z_ARRVAL_P(retval_ptr), "url", sizeof("url"), (void **)&option) == SUCCESS) {
+			tw_span_annotate_string(idx, "title", hp_get_file_summary(Z_STRVAL_PP(option), Z_STRLEN_PP(option) TSRMLS_CC), 0);
+		}
+
+		zval_dtor(retval_ptr);
+		FREE_ZVAL(retval_ptr);
+	}
+
+	efree(params_array);
+}
+
 void tw_trace_callback_file_get_contents(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *argument = *(args-args_len);
@@ -1082,6 +1114,9 @@ PHP_RINIT_FUNCTION(tideways)
 
 	cb = tw_trace_callback_file_get_contents;
 	register_trace_callback("file_get_contents", cb);
+
+	cb = tw_trace_callback_curl_exec;
+	register_trace_callback("curl_exec", cb);
 
 	cb = tw_trace_callback_sql_functions;
 	register_trace_callback("PDO::exec", cb);
