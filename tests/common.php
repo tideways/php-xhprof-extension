@@ -34,3 +34,16 @@ function print_canonical($xhprof_data)
     }
 }
 
+
+function print_spans($spans)
+{
+    foreach ($spans as $span) {
+        ksort($span['a']);
+        $annotations = '';
+        foreach ($span['a'] as $k => $v) {
+            $annotations .= "$k=$v ";
+        }
+
+        printf("%s: %d timers - %s\n", $span['n'], count($span['b']), rtrim($annotations));
+    }
+}

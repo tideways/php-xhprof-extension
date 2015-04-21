@@ -265,7 +265,7 @@ typedef struct hp_curl_t {
 #endif
 #endif
 
-typedef void (*tw_trace_callback)(char *symbol, zend_execute_data *data TSRMLS_DC);
+typedef void (*tw_trace_callback)(char *symbol, void **args, int args_len, zval *object TSRMLS_DC);
 
 /**
  * ***********************
@@ -349,6 +349,7 @@ static inline hp_string *hp_zval_to_string(zval *z);
 static inline zval *hp_string_to_zval(hp_string *str);
 static inline void hp_string_clean(hp_string *str);
 static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC);
+static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC);
 
 static inline hp_function_map *hp_function_map_create(char **names);
 static inline void hp_function_map_clear(hp_function_map *map);
@@ -644,6 +645,21 @@ void tw_span_annotate(long spanId, zval *annotations)
 	zend_hash_merge(Z_ARRVAL_PP(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *), 1);
 }
 
+void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
+{
+	zval **span, **span_annotations, *zval;
+
+	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
+		return;
+	}
+
+	if (zend_hash_find(Z_ARRVAL_PP(span), "a", sizeof("a"), (void **) &span_annotations) == FAILURE) {
+		return;
+	}
+
+	add_assoc_string_ex(*span_annotations, key, strlen(key)+1, value, copy);
+}
+
 PHP_FUNCTION(tideways_span_create)
 {
 	char *category;
@@ -794,11 +810,32 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	return SUCCESS;
 }
 
-void tw_trace_callback_file_get_contents(char *symbol, zend_execute_data *data)
+void tw_trace_callback_file_get_contents(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
 {
-	long idx = tw_span_create("http", sizeof("http"));
+	zval *argument = *(args-args_len);
+	char *summary;
+	long idx, *idx_ptr;
+
+	if (Z_TYPE_P(argument) != IS_STRING) {
+		return;
+	}
+
+	if (strncmp(Z_STRVAL_P(argument), "http", 4) != 0) {
+		return;
+	}
+
+	summary = hp_get_file_summary(Z_STRVAL_P(argument), Z_STRLEN_P(argument) TSRMLS_CC);
+
+	if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
+		idx = *idx_ptr;
+	} else {
+		idx = tw_span_create("http", 4);
+		zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
+	}
+
 	tw_span_timer_start(idx);
 	tw_span_timer_stop(idx);
+	tw_span_annotate_string(idx, "title", summary, 0);
 }
 
 /**
@@ -1234,11 +1271,11 @@ static void hp_clean_profiler_options_state()
  *        CALLING FUNCTION OR BY CALLING TSRMLS_FETCH()
  *        TSRMLS_FETCH() IS RELATIVELY EXPENSIVE.
  */
-#define END_PROFILING(entries, profile_curr)								\
+#define END_PROFILING(entries, profile_curr, data)							\
 	do {																	\
 		if (profile_curr) {													\
 			hp_entry_t *cur_entry;											\
-			hp_mode_hier_endfn_cb((entries) TSRMLS_CC);				\
+			hp_mode_hier_endfn_cb((entries), data TSRMLS_CC);				\
 			cur_entry = (*(entries));										\
 			/* Free top entry and update entries linked list */				\
 			(*(entries)) = (*(entries))->prev_hprof;						\
@@ -2297,7 +2334,7 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC
  *
  * @author kannan
  */
-void hp_mode_hier_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
+void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_DC)
 {
 	hp_entry_t      *top = (*entries);
 	zval            *counts;
@@ -2321,8 +2358,12 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 	wt = get_us_from_tsc(tsc_end - top->tsc_start, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 
 	tw_trace_callback *callback;
-	if (zend_hash_find(hp_globals.trace_callbacks, top->name_hprof, strlen(top->name_hprof)+1, (void **)&callback) == SUCCESS) {
-		(*callback)(symbol, NULL);
+	if (data != NULL && zend_hash_find(hp_globals.trace_callbacks, top->name_hprof, strlen(top->name_hprof)+1, (void **)&callback) == SUCCESS) {
+		void **args =  hp_get_execute_arguments(data);
+		int arg_count = (int)(zend_uintptr_t) *args;
+		zval *obj = data->object;
+
+		(*callback)(symbol, args, arg_count, obj TSRMLS_CC);
 	}
 
 	/* Bump stats in the counts hashtable */
@@ -2441,7 +2482,7 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 	_zend_execute_ex(execute_data TSRMLS_CC);
 #endif
 	if (hp_globals.entries) {
-		END_PROFILING(&hp_globals.entries, hp_profile_flag);
+		END_PROFILING(&hp_globals.entries, hp_profile_flag, execute_data);
 	}
 	efree(func);
 }
@@ -2493,7 +2534,7 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
 
 	if (func) {
 		if (hp_globals.entries) {
-			END_PROFILING(&hp_globals.entries, hp_profile_flag);
+			END_PROFILING(&hp_globals.entries, hp_profile_flag, execute_data);
 		}
 		efree(func);
 	}
@@ -2520,7 +2561,7 @@ ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int 
 	BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag, NULL);
 	ret = _zend_compile_file(file_handle, type TSRMLS_CC);
 	if (hp_globals.entries) {
-		END_PROFILING(&hp_globals.entries, hp_profile_flag);
+		END_PROFILING(&hp_globals.entries, hp_profile_flag, NULL);
 	}
 
 	efree(func);
@@ -2545,7 +2586,7 @@ ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filena
 	BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag, NULL);
 	ret = _zend_compile_string(source_string, filename TSRMLS_CC);
 	if (hp_globals.entries) {
-		END_PROFILING(&hp_globals.entries, hp_profile_flag);
+		END_PROFILING(&hp_globals.entries, hp_profile_flag, NULL);
 	}
 
 	efree(func);
@@ -2651,7 +2692,7 @@ static void hp_stop(TSRMLS_D)
 
 	/* End any unfinished calls */
 	while (hp_globals.entries) {
-		END_PROFILING(&hp_globals.entries, hp_profile_flag);
+		END_PROFILING(&hp_globals.entries, hp_profile_flag, NULL);
 	}
 
 	if (hp_globals.root) {
