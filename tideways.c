@@ -235,6 +235,9 @@ typedef struct hp_global_t {
 	hp_function_map *argument_functions;
 	hp_function_map *trace_functions;
 
+	HashTable *trace_callbacks;
+	HashTable *span_cache;
+
 	/* Table of functions which allow custom tracing */
 	char **trace_function_names;
 	uint8   trace_function_filter[TIDEWAYS_FILTERED_FUNCTION_SIZE];
@@ -261,6 +264,8 @@ typedef struct hp_curl_t {
 } hp_curl_t;
 #endif
 #endif
+
+typedef void (*tw_trace_callback)(char *symbol, zend_execute_data *data TSRMLS_DC);
 
 /**
  * ***********************
@@ -563,20 +568,10 @@ PHP_FUNCTION(tideways_last_fatal_error)
 	}
 }
 
-PHP_FUNCTION(tideways_span_create)
+long tw_span_create(char *category, size_t category_len)
 {
 	zval *span, *starts, *stops, *annotations;
-	char *category;
-	size_t category_len;
 	int idx;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &category, &category_len) == FAILURE) {
-		return;
-	}
-
-	if (hp_globals.enabled == 0) {
-		return;
-	}
 
 	idx = zend_hash_num_elements(Z_ARRVAL_P(hp_globals.spans));
 
@@ -597,29 +592,13 @@ PHP_FUNCTION(tideways_span_create)
 
 	zend_hash_index_update(Z_ARRVAL_P(hp_globals.spans), idx, &span, sizeof(zval*), NULL);
 
-	RETURN_LONG(idx);
+	return idx;
 }
 
-PHP_FUNCTION(tideways_get_spans)
-{
-	if (hp_globals.enabled) {
-		RETURN_ZVAL(hp_globals.spans, 1, 0);
-	}
-}
-
-PHP_FUNCTION(tideways_span_timer_start)
+void tw_span_timer_start(long spanId)
 {
 	zval **span, **starts;
-	long spanId;
 	double wt;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &spanId) == FAILURE) {
-		return;
-	}
-
-	if (hp_globals.enabled == 0) {
-		return;
-	}
 
 	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
 		return;
@@ -633,19 +612,10 @@ PHP_FUNCTION(tideways_span_timer_start)
 	add_next_index_long(*starts, wt);
 }
 
-PHP_FUNCTION(tideways_span_timer_stop)
+void tw_span_timer_stop(long spanId)
 {
 	zval **span, **stops;
-	long spanId;
 	double wt;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &spanId) == FAILURE) {
-		return;
-	}
-
-	if (hp_globals.enabled == 0) {
-		return;
-	}
 
 	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
 		return;
@@ -659,19 +629,9 @@ PHP_FUNCTION(tideways_span_timer_stop)
 	add_next_index_long(*stops, wt);
 }
 
-PHP_FUNCTION(tideways_span_annotate)
+void tw_span_annotate(long spanId, zval *annotations)
 {
-	long spanId;
 	zval **span, **span_annotations;
-	zval *annotations;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lz", &spanId, &annotations) == FAILURE) {
-		return;
-	}
-
-	if (hp_globals.enabled == 0) {
-		return;
-	}
 
 	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
 		return;
@@ -682,6 +642,75 @@ PHP_FUNCTION(tideways_span_annotate)
 	}
 
 	zend_hash_merge(Z_ARRVAL_PP(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *), 1);
+}
+
+PHP_FUNCTION(tideways_span_create)
+{
+	char *category;
+	size_t category_len;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &category, &category_len) == FAILURE) {
+		return;
+	}
+
+	if (hp_globals.enabled == 0) {
+		return;
+	}
+
+	RETURN_LONG(tw_span_create(category, category_len));
+}
+
+PHP_FUNCTION(tideways_get_spans)
+{
+	if (hp_globals.enabled) {
+		RETURN_ZVAL(hp_globals.spans, 1, 0);
+	}
+}
+
+PHP_FUNCTION(tideways_span_timer_start)
+{
+	long spanId;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &spanId) == FAILURE) {
+		return;
+	}
+
+	if (hp_globals.enabled == 0) {
+		return;
+	}
+
+	tw_span_timer_start(spanId);
+}
+
+PHP_FUNCTION(tideways_span_timer_stop)
+{
+	long spanId;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &spanId) == FAILURE) {
+		return;
+	}
+
+	if (hp_globals.enabled == 0) {
+		return;
+	}
+
+	tw_span_timer_stop(spanId);
+}
+
+PHP_FUNCTION(tideways_span_annotate)
+{
+	long spanId;
+	zval *annotations;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lz", &spanId, &annotations) == FAILURE) {
+		return;
+	}
+
+	if (hp_globals.enabled == 0) {
+		return;
+	}
+
+	tw_span_annotate(spanId, annotations);
 }
 
 PHP_FUNCTION(tideways_sql_minify)
@@ -765,6 +794,13 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	return SUCCESS;
 }
 
+void tw_trace_callback_file_get_contents(char *symbol, zend_execute_data *data)
+{
+	long idx = tw_span_create("http", sizeof("http"));
+	tw_span_timer_start(idx);
+	tw_span_timer_stop(idx);
+}
+
 /**
  * Request init callback.
  *
@@ -781,6 +817,17 @@ PHP_RINIT_FUNCTION(tideways)
 	hp_globals.prepend_overwritten = 0;
 	hp_globals.backtrace = NULL;
 	hp_globals.exception = NULL;
+
+	hp_globals.trace_callbacks = NULL;
+	ALLOC_HASHTABLE(hp_globals.trace_callbacks);
+	zend_hash_init(hp_globals.trace_callbacks, 32, NULL, NULL, 0);
+
+	hp_globals.span_cache = NULL;
+	ALLOC_HASHTABLE(hp_globals.span_cache);
+	zend_hash_init(hp_globals.span_cache, 32, NULL, NULL, 0);
+
+	tw_trace_callback *cb = tw_trace_callback_file_get_contents;
+	zend_hash_update(hp_globals.trace_callbacks, "file_get_contents", sizeof("file_get_contents"), &cb, sizeof(tw_trace_callback*), NULL);
 
 	if (INI_INT("tideways.auto_prepend_library") == 0) {
 		return SUCCESS;
@@ -807,6 +854,13 @@ PHP_RINIT_FUNCTION(tideways)
 PHP_RSHUTDOWN_FUNCTION(tideways)
 {
 	hp_end(TSRMLS_C);
+
+	// @todo move to hp_stop
+	zend_hash_destroy(hp_globals.trace_callbacks);
+	FREE_HASHTABLE(hp_globals.trace_callbacks);
+
+	zend_hash_destroy(hp_globals.span_cache);
+	FREE_HASHTABLE(hp_globals.span_cache);
 
 	if (hp_globals.prepend_overwritten == 1) {
 		efree(PG(auto_prepend_file));
@@ -2265,6 +2319,11 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries  TSRMLS_DC)
 	}
 
 	wt = get_us_from_tsc(tsc_end - top->tsc_start, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
+
+	tw_trace_callback *callback;
+	if (zend_hash_find(hp_globals.trace_callbacks, top->name_hprof, strlen(top->name_hprof)+1, (void **)&callback) == SUCCESS) {
+		(*callback)(symbol, NULL);
+	}
 
 	/* Bump stats in the counts hashtable */
 	hp_inc_count(counts, "ct", 1  TSRMLS_CC);
