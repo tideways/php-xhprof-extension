@@ -234,7 +234,6 @@ typedef struct hp_global_t {
 	int     filtered_type; // 1 = blacklist, 2 = whitelist, 0 = nothing
 
 	hp_function_map *filtered_functions;
-	hp_function_map *argument_functions;
 	hp_function_map *trace_functions;
 
 	HashTable *trace_callbacks;
@@ -344,7 +343,6 @@ static void hp_transaction_name_clear();
 static inline zval  *hp_zval_at_key(char  *key, zval  *values);
 static inline char **hp_strings_in_zval(zval  *values);
 static inline void   hp_array_del(char **name_array);
-static inline int  hp_argument_entry(uint8 hash_code, char *curr_func);
 static inline hp_string *hp_create_string(const char *value, size_t length);
 static inline long hp_zval_to_long(zval *z);
 static inline hp_string *hp_zval_to_string(zval *z);
@@ -1344,9 +1342,6 @@ static void hp_parse_options_from_arg(zval *args)
 
 	hp_globals.filtered_functions = hp_function_map_create(hp_strings_in_zval(zresult));
 
-	zresult = hp_zval_at_key("argument_functions", args);
-	hp_globals.argument_functions = hp_function_map_create(hp_strings_in_zval(zresult));
-
 	zresult = hp_zval_at_key("transaction_function", args);
 
 	if (zresult != NULL) {
@@ -1510,8 +1505,6 @@ void hp_clean_profiler_state(TSRMLS_D)
 
 	hp_function_map_clear(hp_globals.filtered_functions);
 	hp_globals.filtered_functions = NULL;
-	hp_function_map_clear(hp_globals.argument_functions);
-	hp_globals.argument_functions = NULL;
 }
 
 static void hp_transaction_name_clear()
@@ -1527,8 +1520,6 @@ static void hp_clean_profiler_options_state()
 {
 	hp_function_map_clear(hp_globals.filtered_functions);
 	hp_globals.filtered_functions = NULL;
-	hp_function_map_clear(hp_globals.argument_functions);
-	hp_globals.argument_functions = NULL;
 
 	hp_exception_function_clear();
 	hp_transaction_function_clear();
@@ -1549,9 +1540,6 @@ static void hp_clean_profiler_options_state()
 		uint8 hash_code  = hp_inline_hash(symbol);								\
 		profile_curr = !hp_filter_entry(hash_code, symbol);						\
 		if (profile_curr) {														\
-			if (execute_data != NULL && hp_argument_entry(hash_code, symbol)) {	\
-				symbol = hp_get_function_argument_summary(symbol, execute_data TSRMLS_CC); \
-			}																	\
 			hp_entry_t *cur_entry = hp_fast_alloc_hprof_entry();				\
 			(cur_entry)->hash_code = hash_code;									\
 			(cur_entry)->name_hprof = symbol;									\
@@ -1867,186 +1855,6 @@ static char *hp_concat_char(const char *s1, size_t len1, const char *s2, size_t 
     strcat(result, s2);
 
     return result;
-}
-
-static char *hp_get_function_argument_summary(char *ret, zend_execute_data *data TSRMLS_DC)
-{
-	void **p;
-	int arg_count = 0;
-	int i;
-	zval *argument_element;
-	/* oldret holding function name or class::function. We will reuse the string and free it after */
-	char *oldret = ret;
-	char *summary;
-	int len = TIDEWAYS_MAX_ARGUMENT_LEN;
-
-	p = hp_get_execute_arguments(data);
-	arg_count = (int)(zend_uintptr_t) *p;       /* this is the amount of arguments passed to function */
-
-	ret = emalloc(len);
-	snprintf(ret, len, "%s#", oldret);
-	efree(oldret);
-
-	if (strcmp(ret, "file_get_contents#") == 0) {
-		argument_element = *(p-arg_count);
-
-		if (Z_TYPE_P(argument_element) == IS_STRING) {
-			summary = hp_get_file_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element) TSRMLS_CC);
-
-			snprintf(ret, len, "%s%s", ret, summary);
-
-			efree(summary);
-		}
-#ifdef PHP_TIDEWAYS_HAVE_CURL
-#if PHP_VERSION_ID > 50399
-	} else if (strcmp(ret, "curl_exec#") == 0) {
-		hp_curl_t *ch;
-		int  le_curl;
-		char *s_code;
-
-		le_curl = zend_fetch_list_dtor_id("curl");
-
-		argument_element = *(p-arg_count);
-
-		if (Z_TYPE_P(argument_element) == IS_RESOURCE) {
-			ZEND_FETCH_RESOURCE_NO_RETURN(ch, hp_curl_t *, &argument_element, -1, "cURL handle", le_curl);
-
-			if (ch && curl_easy_getinfo(ch->cp, CURLINFO_EFFECTIVE_URL, &s_code) == CURLE_OK) {
-				summary = hp_get_file_summary(s_code, strlen(s_code) TSRMLS_CC);
-				snprintf(ret, len, "%s%s", ret, summary);
-				efree(summary);
-			}
-		}
-#endif
-#endif
-	} else if (strcmp(ret, "PDO::exec#") == 0 ||
-			strcmp(ret, "PDO::query#") == 0 ||
-			strcmp(ret, "mysql_query#") == 0 ||
-			strcmp(ret, "mysqli_query#") == 0 ||
-			strcmp(ret, "mysqli::query#") == 0) {
-
-		if (strcmp(ret, "mysqli_query#") == 0) {
-			argument_element = *(p-arg_count+1);
-		} else {
-			argument_element = *(p-arg_count);
-		}
-
-		if (Z_TYPE_P(argument_element) == IS_STRING) {
-			summary = hp_get_sql_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element) TSRMLS_CC);
-
-			snprintf(ret, len, "%s%s", ret, summary);
-			efree(summary);
-		}
-
-	} else if (strcmp(ret, "PDOStatement::execute#") == 0) {
-		pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object_by_handle( (((*((*data).object)).value).obj).handle TSRMLS_CC);
-
-		summary = hp_get_sql_summary(stmt->query_string, stmt->query_stringlen TSRMLS_CC);
-
-		snprintf(ret, len, "%s%s", ret, summary);
-
-		efree(summary);
-	} else if (strcmp(ret, "Twig_Template::render#") == 0 || strcmp(ret, "Twig_Template::display#") == 0) {
-		zval fname, *retval_ptr, *obj;
-
-		ZVAL_STRING(&fname, "getTemplateName", 0);
-		obj = data->object;
-
-		if (SUCCESS == call_user_function_ex(EG(function_table), &obj, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
-			snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(retval_ptr));
-
-			FREE_ZVAL(retval_ptr);
-		}
-	} else if (strcmp(ret, "Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch#") == 0 ||
-			strcmp(ret, "Doctrine\\Common\\EventManager::dispatchEvent#") == 0 ||
-			strcmp(ret, "Enlight_Event_EventManager::filter#") == 0 ||
-			strcmp(ret, "Enlight_Event_EventManager::notify#") == 0 ||
-			strcmp(ret, "Enlight_Event_EventManager::notifyUntil#") == 0 ||
-			strcmp(ret, "Zend\\EventManager\\EventManager::trigger#") == 0 ||
-			strcmp(ret, "do_action#") == 0 ||
-			strcmp(ret, "apply_filters#") == 0 ||
-			strcmp(ret, "drupal_alter#") == 0 ||
-			strcmp(ret, "Mage::dispatchEvent#") == 0) {
-		argument_element = *(p-arg_count);
-
-		if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
-			snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(argument_element));
-		}
-	} else if (strcmp(ret, "Smarty::fetch#") == 0) {
-		argument_element = *(p-arg_count);
-
-		if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
-			snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(argument_element));
-		}
-	} else if (strcmp(ret, "Smarty_Internal_TemplateBase::fetch#") == 0) {
-		argument_element = *(p-arg_count);
-
-		if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
-			snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(argument_element));
-		} else {
-			zval *obj = data->object;
-			zend_class_entry *smarty_ce = data->function_state.function->common.scope;
-
-			argument_element = zend_read_property(smarty_ce, obj, "template_resource", sizeof("template_resource") - 1, 1 TSRMLS_CC);
-			snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(argument_element));
-		}
-	} else if (strcmp(ret, "pg_query#") == 0 || strcmp(ret, "pg_query_params#") == 0) {
-		for (i=0; i < arg_count; i++) {
-			argument_element = *(p-(arg_count-i));
-
-			if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
-				summary = hp_get_sql_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element) TSRMLS_CC);
-				snprintf(ret, len, "%s%s", ret, summary);
-				efree(summary);
-				break;
-			}
-		}
-	} else if (strcmp(ret, "pg_execute#") == 0) {
-		for (i=0; i < arg_count; i++) {
-			argument_element = *(p-(arg_count-i));
-
-			if (argument_element && Z_TYPE_P(argument_element) == IS_STRING && Z_STRLEN_P(argument_element) > 0) {
-				snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(argument_element));
-				break;
-			}
-		}
-	} else {
-		for (i=0; i < arg_count; i++) {
-			argument_element = *(p-(arg_count-i));
-
-			switch(argument_element->type) {
-				case IS_STRING:
-					snprintf(ret, len, "%s%s", ret, Z_STRVAL_P(argument_element));
-					break;
-
-				case IS_LONG:
-				case IS_BOOL:
-					snprintf(ret, len, "%s%ld", ret, Z_LVAL_P(argument_element));
-					break;
-
-				case IS_DOUBLE:
-					snprintf(ret, len, "%s%f", ret, Z_DVAL_P(argument_element));
-					break;
-
-				case IS_ARRAY:
-					snprintf(ret, len, "%s%s", ret, "[...]");
-					break;
-
-				case IS_NULL:
-					snprintf(ret, len, "%s%s", ret, "NULL");
-					break;
-
-				default:
-					snprintf(ret, len, "%s%s", ret, "object");
-			}
-
-			if (i < arg_count-1) {
-				snprintf(ret, len, "%s, ", ret);
-			}
-		}
-	}
-
-	return ret;
 }
 
 static void hp_detect_exception(char *func_name, zend_execute_data *data TSRMLS_DC)
@@ -3129,13 +2937,6 @@ static inline void hp_array_del(char **name_array)
 		}
 		efree(name_array);
 	}
-}
-
-static inline int hp_argument_entry(uint8 hash_code, char *curr_func)
-{
-	/* First check if argument functions is enabled */
-	return hp_globals.argument_functions != NULL &&
-		hp_function_map_exists(hp_globals.argument_functions, hash_code, curr_func);
 }
 
 void tideways_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
