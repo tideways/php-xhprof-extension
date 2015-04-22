@@ -1484,7 +1484,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("pg_execute", cb);
 
 	cb = tw_trace_callback_event_dispatchers;
-	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch", cb);
+	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::doDispatch", cb);
 	register_trace_callback("Doctrine\\Common\\EventManager::dispatchEvent", cb);
 	register_trace_callback("Enlight_Event_EventManager::filter", cb);
 	register_trace_callback("Enlight_Event_EventManager::notify", cb);
