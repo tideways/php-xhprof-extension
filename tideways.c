@@ -132,6 +132,7 @@ typedef unsigned char uint8;
 #endif
 
 #define register_trace_callback(function_name, cb) zend_hash_update(hp_globals.trace_callbacks, function_name, sizeof(function_name), &cb, sizeof(tw_trace_callback*), NULL);
+#define register_trace_callback_dynamic(function_name, cb) zend_hash_update(hp_globals.trace_callbacks, function_name, strlen(function_name)+1, &cb, sizeof(tw_trace_callback*), NULL);
 
 
 /**
@@ -834,6 +835,15 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	UNREGISTER_INI_ENTRIES();
 
 	return SUCCESS;
+}
+
+void tw_trace_callback_php_call(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx;
+
+	idx = tw_span_create("php", 3);
+	tw_span_record_duration(idx, start, end);
+	tw_span_annotate_string(idx, "title", symbol, 1);
 }
 
 void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
@@ -1943,6 +1953,8 @@ static void hp_detect_exception(char *func_name, zend_execute_data *data TSRMLS_
 
 static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS_DC)
 {
+	tw_trace_callback *cb;
+
 	if (!hp_globals.transaction_function ||
 		hp_globals.transaction_name ||
 		strcmp(ret, hp_globals.transaction_function->value) != 0) {
@@ -1986,6 +1998,9 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 			hp_globals.transaction_name = hp_zval_to_string(argument_element);
 		}
 	}
+
+	cb = tw_trace_callback_php_call;
+	register_trace_callback_dynamic(hp_globals.transaction_name->value, cb);
 
 	hp_transaction_function_clear();
 }
