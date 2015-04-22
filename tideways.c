@@ -112,6 +112,8 @@
 #define TIDEWAYS_FLAGS_MEMORY        0x0004 /* gather memory usage for funcs */
 #define TIDEWAYS_FLAGS_NO_USERLAND   0x0008 /* do not profile userland functions */
 #define TIDEWAYS_FLAGS_NO_COMPILE    0x0010 /* do not profile require/include/eval */
+#define TIDEWAYS_FLAGS_NO_SPANS      0x0020
+#define TIDEWAYS_FLAGS_NO_HIERACHICAL 0x0040
 
 /* Constant for ignoring functions, transparent to hierarchical profile */
 #define TIDEWAYS_MAX_FILTERED_FUNCTIONS  256
@@ -1196,25 +1198,13 @@ PHP_MINFO_FUNCTION(tideways)
 
 static void hp_register_constants(INIT_FUNC_ARGS)
 {
-	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_BUILTINS",
-			TIDEWAYS_FLAGS_NO_BUILTINS,
-			CONST_CS | CONST_PERSISTENT);
-
-	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_CPU",
-			TIDEWAYS_FLAGS_CPU,
-			CONST_CS | CONST_PERSISTENT);
-
-	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_MEMORY",
-			TIDEWAYS_FLAGS_MEMORY,
-			CONST_CS | CONST_PERSISTENT);
-
-	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_USERLAND",
-			TIDEWAYS_FLAGS_NO_USERLAND,
-			CONST_CS | CONST_PERSISTENT);
-
-	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_COMPILE",
-			TIDEWAYS_FLAGS_NO_COMPILE,
-			CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_CPU", TIDEWAYS_FLAGS_CPU, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_MEMORY", TIDEWAYS_FLAGS_MEMORY, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_BUILTINS", TIDEWAYS_FLAGS_NO_BUILTINS, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_USERLAND", TIDEWAYS_FLAGS_NO_USERLAND, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_COMPILE", TIDEWAYS_FLAGS_NO_COMPILE, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_SPANS", TIDEWAYS_FLAGS_NO_SPANS, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_HIERACHICAL", TIDEWAYS_FLAGS_NO_HIERACHICAL, CONST_CS | CONST_PERSISTENT);
 }
 
 /**
@@ -1375,58 +1365,16 @@ static inline int hp_function_map_filter_collision(hp_function_map *map, uint8 h
 	return map->filter[INDEX_2_BYTE(hash)] & mask;
 }
 
-
-/**
- * Initialize profiler state
- *
- * @author kannan, veeve
- */
-void hp_init_profiler_state(TSRMLS_D)
+void hp_init_trace_callbacks(TSRMLS_D)
 {
 	tw_trace_callback *cb;
 
-	/* Setup globals */
-	if (!hp_globals.ever_enabled) {
-		hp_globals.ever_enabled  = 1;
-		hp_globals.entries = NULL;
-	}
-
-	/* Init stats_count */
-	if (hp_globals.stats_count) {
-		zval_dtor(hp_globals.stats_count);
-		FREE_ZVAL(hp_globals.stats_count);
-	}
-	MAKE_STD_ZVAL(hp_globals.stats_count);
-	array_init(hp_globals.stats_count);
-
-	if (hp_globals.spans) {
-		zval_dtor(hp_globals.spans);
-		FREE_ZVAL(hp_globals.spans);
-	}
-	MAKE_STD_ZVAL(hp_globals.spans);
-	array_init(hp_globals.spans);
-
-	hp_globals.start_time = cycle_timer();
-
-	/* NOTE(cjiang): some fields such as cpu_frequencies take relatively longer
-	 * to initialize, (5 milisecond per logical cpu right now), therefore we
-	 * calculate them lazily. */
-	if (hp_globals.cpu_frequencies == NULL) {
-		get_all_cpu_frequencies();
-		restore_cpu_affinity(&hp_globals.prev_mask);
-	}
-
-	/* bind to a random cpu so that we can use rdtsc instruction. */
-	bind_to_cpu((int) (rand() % hp_globals.cpu_num));
-
-	/* Set up filter of functions which may be ignored during profiling */
-	hp_transaction_name_clear();
-
 	hp_globals.trace_callbacks = NULL;
+	hp_globals.span_cache = NULL;
+
 	ALLOC_HASHTABLE(hp_globals.trace_callbacks);
 	zend_hash_init(hp_globals.trace_callbacks, 32, NULL, NULL, 0);
 
-	hp_globals.span_cache = NULL;
 	ALLOC_HASHTABLE(hp_globals.span_cache);
 	zend_hash_init(hp_globals.span_cache, 32, NULL, NULL, 0);
 
@@ -1474,6 +1422,56 @@ void hp_init_profiler_state(TSRMLS_D)
 
 	cb = tw_trace_callback_smarty3_template;
 	register_trace_callback("Smarty_Internal_TemplateBase::fetch", cb);
+}
+
+
+/**
+ * Initialize profiler state
+ *
+ * @author kannan, veeve
+ */
+void hp_init_profiler_state(TSRMLS_D)
+{
+	/* Setup globals */
+	if (!hp_globals.ever_enabled) {
+		hp_globals.ever_enabled  = 1;
+		hp_globals.entries = NULL;
+	}
+
+	/* Init stats_count */
+	if (hp_globals.stats_count) {
+		zval_dtor(hp_globals.stats_count);
+		FREE_ZVAL(hp_globals.stats_count);
+	}
+	MAKE_STD_ZVAL(hp_globals.stats_count);
+	array_init(hp_globals.stats_count);
+
+	if (hp_globals.spans) {
+		zval_dtor(hp_globals.spans);
+		FREE_ZVAL(hp_globals.spans);
+	}
+	MAKE_STD_ZVAL(hp_globals.spans);
+	array_init(hp_globals.spans);
+
+	hp_globals.start_time = cycle_timer();
+
+	/* NOTE(cjiang): some fields such as cpu_frequencies take relatively longer
+	 * to initialize, (5 milisecond per logical cpu right now), therefore we
+	 * calculate them lazily. */
+	if (hp_globals.cpu_frequencies == NULL) {
+		get_all_cpu_frequencies();
+		restore_cpu_affinity(&hp_globals.prev_mask);
+	}
+
+	/* bind to a random cpu so that we can use rdtsc instruction. */
+	bind_to_cpu((int) (rand() % hp_globals.cpu_num));
+
+	/* Set up filter of functions which may be ignored during profiling */
+	hp_transaction_name_clear();
+
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
+		hp_init_trace_callbacks();
+	}
 }
 
 /**
@@ -2460,11 +2458,29 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 	long int         pmu_end;
 	uint64   tsc_end;
 	double   wt;
-	/* Get the stat array */
-	hp_get_function_stack(top, 2, symbol, sizeof(symbol));
+	tw_trace_callback *callback;
 
 	/* Get end tsc counter */
 	tsc_end = cycle_timer();
+
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
+		if (data != NULL && zend_hash_find(hp_globals.trace_callbacks, top->name_hprof, strlen(top->name_hprof)+1, (void **)&callback) == SUCCESS) {
+			void **args =  hp_get_execute_arguments(data);
+			int arg_count = (int)(zend_uintptr_t) *args;
+			zval *obj = data->object;
+			double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
+			double end = get_us_from_tsc(tsc_end - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
+
+			(*callback)(symbol, args, arg_count, obj, start, end TSRMLS_CC);
+		}
+	}
+
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_HIERACHICAL) > 0) {
+		return;
+	}
+
+	/* Get the stat array */
+	hp_get_function_stack(top, 2, symbol, sizeof(symbol));
 
 	/* Get the stat array */
 	if (!(counts = hp_hash_lookup(hp_globals.stats_count, symbol TSRMLS_CC))) {
@@ -2472,17 +2488,6 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 	}
 
 	wt = get_us_from_tsc(tsc_end - top->tsc_start, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
-
-	tw_trace_callback *callback;
-	if (data != NULL && zend_hash_find(hp_globals.trace_callbacks, top->name_hprof, strlen(top->name_hprof)+1, (void **)&callback) == SUCCESS) {
-		void **args =  hp_get_execute_arguments(data);
-		int arg_count = (int)(zend_uintptr_t) *args;
-		zval *obj = data->object;
-		double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
-		double end = get_us_from_tsc(tsc_end - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
-
-		(*callback)(symbol, args, arg_count, obj, start, end TSRMLS_CC);
-	}
 
 	/* Bump stats in the counts hashtable */
 	hp_inc_count(counts, "ct", 1  TSRMLS_CC);
