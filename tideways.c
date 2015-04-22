@@ -835,6 +835,15 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	return SUCCESS;
 }
 
+void tw_trace_callback_symfony_boot(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx;
+
+	idx = tw_span_create("php.symfony", 11);
+	tw_span_record_duration(idx, start, end);
+	tw_span_annotate_string(idx, "title", "boot", 1);
+}
+
 void tw_trace_callback_pgsql_execute(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx, *idx_ptr;
@@ -1380,6 +1389,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_file_get_contents;
 	register_trace_callback("file_get_contents", cb);
+
+	cb = tw_trace_callback_symfony_boot;
+	register_trace_callback("Symfony\\Component\\HttpKernel\\Kernel::boot", cb);
 
 	cb = tw_trace_callback_curl_exec;
 	register_trace_callback("curl_exec", cb);
