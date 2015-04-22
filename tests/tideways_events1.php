@@ -10,6 +10,7 @@ namespace Symfony\Component\EventDispatcher {
 
         protected function doDispatch(array $listeners, $eventName, $event)
         {
+            usleep(100);
         }
     }
 
@@ -23,6 +24,7 @@ namespace Zend\EventManager {
     {
         public function trigger($event, $context, $params)
         {
+            usleep(100);
         }
     }
 }
@@ -32,6 +34,7 @@ namespace Doctrine\Common {
     {
         public function dispatchEvent($name, $event)
         {
+            usleep(100);
         }
     }
 }

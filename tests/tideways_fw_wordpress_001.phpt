@@ -5,11 +5,11 @@ Tideways: Wordpress Support
 
 require __DIR__ . '/common.php';
 
-function load_template($filename) { }
-function do_action($event) { }
-function get_header() { }
-function get_footer() { }
-function get_sidebar() { }
+function load_template($filename) { usleep(100); }
+function do_action($event) { usleep(100); }
+function get_header() { usleep(100); }
+function get_footer() { usleep(100); }
+function get_sidebar() { usleep(100); }
 
 tideways_enable();
 

@@ -1078,6 +1078,11 @@ void tw_trace_callback_event_dispatchers(char *symbol, void **args, int args_len
 {
 	long idx, *idx_ptr;
 	zval *argument_element = *(args-args_len);
+	double wt = end-start;
+
+	if (wt < 100) { // < 100us
+		return;
+	}
 
 	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
 		if (zend_hash_find(hp_globals.span_cache, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element)+1, (void **)&idx_ptr) == SUCCESS) {
