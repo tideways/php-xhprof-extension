@@ -23,6 +23,6 @@ print_spans(tideways_get_spans());
 --EXPECTF--
 view: 1 timers - title=foo/bar.php
 event: 1 timers - title=content
-php.wordpress: 1 timers - title=get_header
-php.wordpress: 1 timers - title=get_footer
-php.wordpress: 1 timers - title=get_sidebar
+php: 1 timers - title=get_header
+php: 1 timers - title=get_footer
+php: 1 timers - title=get_sidebar

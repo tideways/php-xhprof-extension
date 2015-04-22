@@ -132,8 +132,6 @@ typedef unsigned char uint8;
 #endif
 
 #define register_trace_callback(function_name, cb) zend_hash_update(hp_globals.trace_callbacks, function_name, sizeof(function_name), &cb, sizeof(tw_trace_callback*), NULL);
-#define register_trace_callback_dynamic(function_name, cb) zend_hash_update(hp_globals.trace_callbacks, function_name, strlen(function_name)+1, &cb, sizeof(tw_trace_callback*), NULL);
-
 
 /**
  * *****************************
@@ -839,15 +837,6 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	return SUCCESS;
 }
 
-void tw_trace_callback_session(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
-{
-	long idx;
-
-	idx = tw_span_create("session", 7);
-	tw_span_record_duration(idx, start, end);
-	tw_span_annotate_string(idx, "title", symbol, 1);
-}
-
 void tw_trace_callback_php_call(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx;
@@ -876,24 +865,6 @@ void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_le
 		tw_span_record_duration(idx, start, end);
 		tw_span_annotate_string(idx, "title", summary, 1);
 	}
-}
-
-void tw_trace_callback_wordpress(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
-{
-	long idx;
-
-	idx = tw_span_create("php.wordpress", 13);
-	tw_span_record_duration(idx, start, end);
-	tw_span_annotate_string(idx, "title", symbol, 1);
-}
-
-void tw_trace_callback_symfony(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
-{
-	long idx;
-
-	idx = tw_span_create("php.symfony", 11);
-	tw_span_record_duration(idx, start, end);
-	tw_span_annotate_string(idx, "title", symbol, 1);
 }
 
 void tw_trace_callback_pgsql_execute(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
@@ -998,6 +969,83 @@ void tw_trace_callback_smarty3_template(char *symbol, void **args, int args_len,
 
 	tw_span_record_duration(idx, start, end);
 	tw_span_annotate_string(idx, "title", template, 1);
+}
+
+void tw_trace_callback_doctrine_persister(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx, *idx_ptr;
+	zval *property;
+	zend_class_entry *persister_ce, *metadata_ce;
+
+	persister_ce = Z_OBJCE_P(object);
+
+	property = zend_read_property(persister_ce, object, "class", sizeof("class") - 1, 1 TSRMLS_CC);
+	if (property == NULL) {
+		property = zend_read_property(persister_ce, object, "_class", sizeof("_class") - 1, 1 TSRMLS_CC);
+	}
+
+	if (property != NULL && Z_TYPE_P(property) == IS_OBJECT) {
+		metadata_ce = Z_OBJCE_P(property);
+
+		property = zend_read_property(metadata_ce, property, "name", sizeof("name") - 1, 1 TSRMLS_CC);
+
+		if (property == NULL) {
+			return;
+		}
+
+		if (zend_hash_find(hp_globals.span_cache, Z_STRVAL_P(property), Z_STRLEN_P(property)+1, (void **)&idx_ptr) == SUCCESS) {
+			idx = *idx_ptr;
+		} else {
+			idx = tw_span_create("doctrine.load", 13);
+			zend_hash_update(hp_globals.span_cache, Z_STRVAL_P(property), Z_STRLEN_P(property)+1, &idx, sizeof(long), NULL);
+		}
+
+		tw_span_record_duration(idx, start, end);
+		tw_span_annotate_string(idx, "title", Z_STRVAL_P(property), 1);
+	}
+}
+
+void tw_trace_callback_doctrine_query(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx, *idx_ptr;
+	zval *property;
+	zend_class_entry *query_ce;
+	zval fname, *retval_ptr;
+	char *summary;
+
+	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
+		return;
+	}
+
+	query_ce = Z_OBJCE_P(object);
+
+	if (strcmp(query_ce->name, "Doctrine\\ORM\\Query") == 0) {
+		ZVAL_STRING(&fname, "getDQL", 0);
+	} else if (strcmp(query_ce->name, "Doctrine\\ORM\\NativeQuery") == 0) {
+		ZVAL_STRING(&fname, "getSQL", 0);
+	} else {
+		return;
+	}
+
+	if (SUCCESS == call_user_function_ex(EG(function_table), &object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
+		if (Z_TYPE_P(retval_ptr) != IS_STRING) {
+			return;
+		}
+
+		summary = hp_get_sql_summary(Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr));
+
+		if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
+			idx = *idx_ptr;
+		} else {
+			idx = tw_span_create("doctrine.query", 14);
+			zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
+		}
+
+		tw_span_record_duration(idx, start, end);
+		tw_span_annotate_string(idx, "title", summary, 0);
+
+		FREE_ZVAL(retval_ptr);
+	}
 }
 
 void tw_trace_callback_twig_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
@@ -1465,18 +1513,24 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	cb = tw_trace_callback_file_get_contents;
 	register_trace_callback("file_get_contents", cb);
 
-	cb = tw_trace_callback_symfony;
-	register_trace_callback("Symfony\\Component\\HttpKernel\\Kernel::boot", cb);
-
-	cb = tw_trace_callback_session;
+	cb = tw_trace_callback_php_call;
 	register_trace_callback("session_start", cb);
-
-	cb = tw_trace_callback_wordpress;
+	// Symfony
+	register_trace_callback("Symfony\\Component\\HttpKernel\\Kernel::boot", cb);
+	// Wordpress
 	register_trace_callback("get_sidebar", cb);
 	register_trace_callback("get_header", cb);
 	register_trace_callback("get_footer", cb);
 	register_trace_callback("load_textdomain", cb);
 	register_trace_callback("setup_theme", cb);
+	// Doctrine
+	register_trace_callback("Doctrine\\ORM\\EntityManager::flush", cb);
+
+	cb = tw_trace_callback_doctrine_persister;
+	register_trace_callback("Doctrine\\ORM\\Persisters\\BasicEntityPersister::load", cb);
+
+	cb = tw_trace_callback_doctrine_query;
+	register_trace_callback("Doctrine\\ORM\\AbstractQuery::execute", cb);
 
 	cb = tw_trace_callback_wordpress_template;
 	register_trace_callback("load_template", cb);
@@ -2037,9 +2091,6 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 			hp_globals.transaction_name = hp_zval_to_string(argument_element);
 		}
 	}
-
-	cb = tw_trace_callback_php_call;
-	register_trace_callback_dynamic(hp_globals.transaction_name->value, cb);
 
 	hp_transaction_function_clear();
 }
