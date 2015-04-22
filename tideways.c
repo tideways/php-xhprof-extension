@@ -797,6 +797,8 @@ PHP_MINIT_FUNCTION(tideways)
 
 	hp_globals.stats_count = NULL;
 	hp_globals.spans = NULL;
+	hp_globals.trace_callbacks = NULL;
+	hp_globals.span_cache = NULL;
 
 	/* no free hp_entry_t structures to start with */
 	hp_globals.entry_free_list = NULL;
@@ -1110,59 +1112,6 @@ PHP_RINIT_FUNCTION(tideways)
 	hp_globals.backtrace = NULL;
 	hp_globals.exception = NULL;
 
-	hp_globals.trace_callbacks = NULL;
-	ALLOC_HASHTABLE(hp_globals.trace_callbacks);
-	zend_hash_init(hp_globals.trace_callbacks, 32, NULL, NULL, 0);
-
-	hp_globals.span_cache = NULL;
-	ALLOC_HASHTABLE(hp_globals.span_cache);
-	zend_hash_init(hp_globals.span_cache, 32, NULL, NULL, 0);
-
-	cb = tw_trace_callback_file_get_contents;
-	register_trace_callback("file_get_contents", cb);
-
-	cb = tw_trace_callback_curl_exec;
-	register_trace_callback("curl_exec", cb);
-
-	cb = tw_trace_callback_sql_functions;
-	register_trace_callback("PDO::exec", cb);
-	register_trace_callback("PDO::query", cb);
-	register_trace_callback("mysql_query", cb);
-	register_trace_callback("mysqli_query", cb);
-	register_trace_callback("mysqli::query", cb);
-
-	cb = tw_trace_callback_pdo_stmt_execute;
-	register_trace_callback("PDOStatement::execute", cb);
-
-	cb = tw_trace_callback_pgsql_query;
-	register_trace_callback("pg_query", cb);
-	register_trace_callback("pg_query_params", cb);
-
-	cb = tw_trace_callback_pgsql_execute;
-	register_trace_callback("pg_execute", cb);
-
-	cb = tw_trace_callback_event_dispatchers;
-	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch", cb);
-	register_trace_callback("Doctrine\\Common\\EventManager::dispatchEvent", cb);
-	register_trace_callback("Enlight_Event_EventManager::filter", cb);
-	register_trace_callback("Enlight_Event_EventManager::notify", cb);
-	register_trace_callback("Enlight_Event_EventManager::notifyUntil", cb);
-	register_trace_callback("Zend\\EventManager\\EventManager::trigger", cb);
-	register_trace_callback("do_action", cb);
-	register_trace_callback("apply_filters", cb);
-	register_trace_callback("drupal_alter", cb);
-	register_trace_callback("Mage::dispatchEvent", cb);
-
-	cb = tw_trace_callback_twig_template;
-	register_trace_callback("Twig_Template::render", cb);
-	register_trace_callback("Twig_Template::display", cb);
-
-	cb = tw_trace_callback_smarty2_template;
-	register_trace_callback("Smarty::fetch", cb);
-
-	cb = tw_trace_callback_smarty3_template;
-	register_trace_callback("Smarty_Internal_TemplateBase::fetch", cb);
-
 	if (INI_INT("tideways.auto_prepend_library") == 0) {
 		return SUCCESS;
 	}
@@ -1188,13 +1137,6 @@ PHP_RINIT_FUNCTION(tideways)
 PHP_RSHUTDOWN_FUNCTION(tideways)
 {
 	hp_end(TSRMLS_C);
-
-	// @todo move to hp_stop
-	zend_hash_destroy(hp_globals.trace_callbacks);
-	FREE_HASHTABLE(hp_globals.trace_callbacks);
-
-	zend_hash_destroy(hp_globals.span_cache);
-	FREE_HASHTABLE(hp_globals.span_cache);
 
 	if (hp_globals.prepend_overwritten == 1) {
 		efree(PG(auto_prepend_file));
@@ -1441,6 +1383,8 @@ static inline int hp_function_map_filter_collision(hp_function_map *map, uint8 h
  */
 void hp_init_profiler_state(TSRMLS_D)
 {
+	tw_trace_callback *cb;
+
 	/* Setup globals */
 	if (!hp_globals.ever_enabled) {
 		hp_globals.ever_enabled  = 1;
@@ -1477,6 +1421,59 @@ void hp_init_profiler_state(TSRMLS_D)
 
 	/* Set up filter of functions which may be ignored during profiling */
 	hp_transaction_name_clear();
+
+	hp_globals.trace_callbacks = NULL;
+	ALLOC_HASHTABLE(hp_globals.trace_callbacks);
+	zend_hash_init(hp_globals.trace_callbacks, 32, NULL, NULL, 0);
+
+	hp_globals.span_cache = NULL;
+	ALLOC_HASHTABLE(hp_globals.span_cache);
+	zend_hash_init(hp_globals.span_cache, 32, NULL, NULL, 0);
+
+	cb = tw_trace_callback_file_get_contents;
+	register_trace_callback("file_get_contents", cb);
+
+	cb = tw_trace_callback_curl_exec;
+	register_trace_callback("curl_exec", cb);
+
+	cb = tw_trace_callback_sql_functions;
+	register_trace_callback("PDO::exec", cb);
+	register_trace_callback("PDO::query", cb);
+	register_trace_callback("mysql_query", cb);
+	register_trace_callback("mysqli_query", cb);
+	register_trace_callback("mysqli::query", cb);
+
+	cb = tw_trace_callback_pdo_stmt_execute;
+	register_trace_callback("PDOStatement::execute", cb);
+
+	cb = tw_trace_callback_pgsql_query;
+	register_trace_callback("pg_query", cb);
+	register_trace_callback("pg_query_params", cb);
+
+	cb = tw_trace_callback_pgsql_execute;
+	register_trace_callback("pg_execute", cb);
+
+	cb = tw_trace_callback_event_dispatchers;
+	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch", cb);
+	register_trace_callback("Doctrine\\Common\\EventManager::dispatchEvent", cb);
+	register_trace_callback("Enlight_Event_EventManager::filter", cb);
+	register_trace_callback("Enlight_Event_EventManager::notify", cb);
+	register_trace_callback("Enlight_Event_EventManager::notifyUntil", cb);
+	register_trace_callback("Zend\\EventManager\\EventManager::trigger", cb);
+	register_trace_callback("do_action", cb);
+	register_trace_callback("apply_filters", cb);
+	register_trace_callback("drupal_alter", cb);
+	register_trace_callback("Mage::dispatchEvent", cb);
+
+	cb = tw_trace_callback_twig_template;
+	register_trace_callback("Twig_Template::render", cb);
+	register_trace_callback("Twig_Template::display", cb);
+
+	cb = tw_trace_callback_smarty2_template;
+	register_trace_callback("Smarty::fetch", cb);
+
+	cb = tw_trace_callback_smarty3_template;
+	register_trace_callback("Smarty_Internal_TemplateBase::fetch", cb);
 }
 
 /**
@@ -1524,6 +1521,18 @@ static void hp_clean_profiler_options_state()
 	hp_exception_function_clear();
 	hp_transaction_function_clear();
 	hp_transaction_name_clear();
+
+	if (hp_globals.trace_callbacks) {
+		zend_hash_destroy(hp_globals.trace_callbacks);
+		FREE_HASHTABLE(hp_globals.trace_callbacks);
+		hp_globals.trace_callbacks = NULL;
+	}
+
+	if (hp_globals.span_cache) {
+		zend_hash_destroy(hp_globals.span_cache);
+		FREE_HASHTABLE(hp_globals.span_cache);
+		hp_globals.span_cache = NULL;
+	}
 }
 
 /*
