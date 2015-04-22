@@ -241,6 +241,7 @@ typedef struct hp_global_t {
 
 	HashTable *trace_callbacks;
 	HashTable *span_cache;
+	int slow_php_call_treshold;
 
 	/* Table of functions which allow custom tracing */
 	char **trace_function_names;
@@ -784,6 +785,7 @@ PHP_MINIT_FUNCTION(tideways)
 	/* Get the number of available logical CPUs. */
 	hp_globals.cpu_num = sysconf(_SC_NPROCESSORS_CONF);
 	hp_globals.invariant_tsc = is_invariant_tsc();
+	hp_globals.slow_php_call_treshold = 50000; // 50ms
 
 	/* Get the cpu affinity mask. */
 #ifndef __APPLE__
@@ -1343,6 +1345,11 @@ static void hp_parse_options_from_arg(zval *args)
 
 	if (zresult != NULL) {
 		hp_globals.exception_function = hp_zval_to_string(zresult);
+	}
+
+	zresult = hp_zval_at_key("slow_php_call_treshold", args);
+	if (zresult != NULL && Z_TYPE_P(zresult) == IS_LONG && Z_LVAL_P(zresult) >= 0) {
+		hp_globals.slow_php_call_treshold = Z_LVAL_P(zresult);
 	}
 }
 
@@ -2541,9 +2548,10 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 
 	/* Get end tsc counter */
 	tsc_end = cycle_timer();
+	wt = get_us_from_tsc(tsc_end - top->tsc_start, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
-		if (data != NULL && zend_hash_find(hp_globals.trace_callbacks, top->name_hprof, strlen(top->name_hprof)+1, (void **)&callback) == SUCCESS) {
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0 && data != NULL) {
+		if (zend_hash_find(hp_globals.trace_callbacks, top->name_hprof, strlen(top->name_hprof)+1, (void **)&callback) == SUCCESS) {
 			void **args =  hp_get_execute_arguments(data);
 			int arg_count = (int)(zend_uintptr_t) *args;
 			zval *obj = data->object;
@@ -2551,6 +2559,14 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 			double end = get_us_from_tsc(tsc_end - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 
 			(*callback)(top->name_hprof, args, arg_count, obj, start, end TSRMLS_CC);
+		} else if (wt > hp_globals.slow_php_call_treshold) {
+			void **args =  hp_get_execute_arguments(data);
+			int arg_count = (int)(zend_uintptr_t) *args;
+			zval *obj = data->object;
+			double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
+			double end = get_us_from_tsc(tsc_end - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
+
+			tw_trace_callback_php_call(top->name_hprof, args, arg_count, obj, start, end TSRMLS_CC);
 		}
 	}
 
@@ -2565,8 +2581,6 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 	if (!(counts = hp_hash_lookup(hp_globals.stats_count, symbol TSRMLS_CC))) {
 		return;
 	}
-
-	wt = get_us_from_tsc(tsc_end - top->tsc_start, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 
 	/* Bump stats in the counts hashtable */
 	hp_inc_count(counts, "ct", 1  TSRMLS_CC);
