@@ -5,10 +5,10 @@ namespace Symfony\Component\EventDispatcher {
     {
         public function dispatch($eventName, Event $event)
         {
-            $this->doDispatch($eventName, $event);
+            $this->doDispatch(array(), $eventName, $event);
         }
 
-        protected function doDispatch($eventName, $event)
+        protected function doDispatch(array $listeners, $eventName, $event)
         {
         }
     }

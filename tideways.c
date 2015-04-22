@@ -1044,6 +1044,24 @@ void tw_trace_callback_event_dispatchers(char *symbol, void **args, int args_len
 	}
 }
 
+void tw_trace_callback_event_dispatchers_arg2(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx, *idx_ptr;
+	zval *argument_element = *(args-args_len+1);
+
+	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
+		if (zend_hash_find(hp_globals.span_cache, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element)+1, (void **)&idx_ptr) == SUCCESS) {
+			idx = *idx_ptr;
+		} else {
+			idx = tw_span_create("event", 5);
+			zend_hash_update(hp_globals.span_cache, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element)+1, &idx, sizeof(long), NULL);
+		}
+
+		tw_span_record_duration(idx, start, end);
+		tw_span_annotate_string(idx, "title", Z_STRVAL_P(argument_element), 1);
+	}
+}
+
 void tw_trace_callback_pdo_stmt_execute(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx, *idx_ptr;
@@ -1484,7 +1502,6 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("pg_execute", cb);
 
 	cb = tw_trace_callback_event_dispatchers;
-	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::doDispatch", cb);
 	register_trace_callback("Doctrine\\Common\\EventManager::dispatchEvent", cb);
 	register_trace_callback("Enlight_Event_EventManager::filter", cb);
 	register_trace_callback("Enlight_Event_EventManager::notify", cb);
@@ -1493,6 +1510,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("do_action", cb);
 	register_trace_callback("drupal_alter", cb);
 	register_trace_callback("Mage::dispatchEvent", cb);
+
+	cb = tw_trace_callback_event_dispatchers_arg2;
+	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::doDispatch", cb);
 
 	cb = tw_trace_callback_twig_template;
 	register_trace_callback("Twig_Template::render", cb);
