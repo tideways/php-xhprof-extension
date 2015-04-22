@@ -270,7 +270,7 @@ typedef struct hp_curl_t {
 #endif
 #endif
 
-typedef void (*tw_trace_callback)(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC);
+typedef void (*tw_trace_callback)(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC);
 
 /**
  * ***********************
@@ -839,7 +839,7 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	return SUCCESS;
 }
 
-void tw_trace_callback_session(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC)
+void tw_trace_callback_session(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx;
 
@@ -848,7 +848,7 @@ void tw_trace_callback_session(char *symbol, void **args, int args_len, zval *ob
 	tw_span_annotate_string(idx, "title", symbol, 1);
 }
 
-void tw_trace_callback_php_call(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC)
+void tw_trace_callback_php_call(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx;
 
@@ -857,7 +857,7 @@ void tw_trace_callback_php_call(char *symbol, void **args, int args_len, zval *o
 	tw_span_annotate_string(idx, "title", symbol, 1);
 }
 
-void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC)
+void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx, *idx_ptr;
 	zval *argument_element = *(args-args_len);
@@ -878,7 +878,7 @@ void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_le
 	}
 }
 
-void tw_trace_callback_wordpress(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC)
+void tw_trace_callback_wordpress(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx;
 
@@ -887,7 +887,7 @@ void tw_trace_callback_wordpress(char *symbol, void **args, int args_len, zval *
 	tw_span_annotate_string(idx, "title", symbol, 1);
 }
 
-void tw_trace_callback_symfony(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC)
+void tw_trace_callback_symfony(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx;
 
@@ -896,7 +896,7 @@ void tw_trace_callback_symfony(char *symbol, void **args, int args_len, zval *ob
 	tw_span_annotate_string(idx, "title", symbol, 1);
 }
 
-void tw_trace_callback_pgsql_execute(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC)
+void tw_trace_callback_pgsql_execute(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx, *idx_ptr;
 	zval *argument_element;
@@ -924,7 +924,7 @@ void tw_trace_callback_pgsql_execute(char *symbol, void **args, int args_len, zv
 	}
 }
 
-void tw_trace_callback_pgsql_query(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC)
+void tw_trace_callback_pgsql_query(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx, *idx_ptr;
 	zval *argument_element;
@@ -951,7 +951,7 @@ void tw_trace_callback_pgsql_query(char *symbol, void **args, int args_len, zval
 	}
 }
 
-void tw_trace_callback_smarty2_template(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC)
+void tw_trace_callback_smarty2_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx, *idx_ptr;
 	zval *argument_element = *(args-args_len);
@@ -969,7 +969,7 @@ void tw_trace_callback_smarty2_template(char *symbol, void **args, int args_len,
 	}
 }
 
-void tw_trace_callback_smarty3_template(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC)
+void tw_trace_callback_smarty3_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx, *idx_ptr;
 	zval *argument_element = *(args-args_len);
@@ -1000,7 +1000,7 @@ void tw_trace_callback_smarty3_template(char *symbol, void **args, int args_len,
 	tw_span_annotate_string(idx, "title", template, 1);
 }
 
-void tw_trace_callback_twig_template(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC)
+void tw_trace_callback_twig_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx, *idx_ptr;
 	zval fname, *retval_ptr;
@@ -1026,7 +1026,7 @@ void tw_trace_callback_twig_template(char *symbol, void **args, int args_len, zv
 	}
 }
 
-void tw_trace_callback_event_dispatchers(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC)
+void tw_trace_callback_event_dispatchers(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx, *idx_ptr;
 	zval *argument_element = *(args-args_len);
@@ -1044,7 +1044,7 @@ void tw_trace_callback_event_dispatchers(char *symbol, void **args, int args_len
 	}
 }
 
-void tw_trace_callback_pdo_stmt_execute(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC)
+void tw_trace_callback_pdo_stmt_execute(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx, *idx_ptr;
 	pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object_by_handle(Z_OBJ_HANDLE_P(object) TSRMLS_CC);
@@ -1061,7 +1061,7 @@ void tw_trace_callback_pdo_stmt_execute(char *symbol, void **args, int args_len,
 	tw_span_annotate_string(idx, "title", summary, 0);
 }
 
-void tw_trace_callback_sql_functions(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC)
+void tw_trace_callback_sql_functions(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *argument_element;
 	char *summary;
@@ -1090,7 +1090,7 @@ void tw_trace_callback_sql_functions(char *symbol, void **args, int args_len, zv
 	tw_span_annotate_string(idx, "title", summary, 0);
 }
 
-void tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC)
+void tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *argument = *(args-args_len);
 	zval **option;
@@ -1130,7 +1130,7 @@ void tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *
 	efree(params_array);
 }
 
-void tw_trace_callback_file_get_contents(char *symbol, void **args, int args_len, zval *object, zval **retval, double start, double end TSRMLS_DC)
+void tw_trace_callback_file_get_contents(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *argument = *(args-args_len);
 	char *summary;
@@ -2555,20 +2555,18 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 			void **args =  hp_get_execute_arguments(data);
 			int arg_count = (int)(zend_uintptr_t) *args;
 			zval *obj = data->object;
-			zval **retval = data->original_return_value;
 			double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 			double end = get_us_from_tsc(tsc_end - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 
-			(*callback)(top->name_hprof, args, arg_count, obj, retval, start, end TSRMLS_CC);
+			(*callback)(top->name_hprof, args, arg_count, obj, start, end TSRMLS_CC);
 		} else if (data->function_state.function->type == ZEND_INTERNAL_FUNCTION && wt > hp_globals.slow_php_call_treshold) {
 			void **args =  hp_get_execute_arguments(data);
 			int arg_count = (int)(zend_uintptr_t) *args;
 			zval *obj = data->object;
-			zval **retval = data->original_return_value;
 			double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 			double end = get_us_from_tsc(tsc_end - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 
-			tw_trace_callback_php_call(top->name_hprof, args, arg_count, obj, retval, start, end TSRMLS_CC);
+			tw_trace_callback_php_call(top->name_hprof, args, arg_count, obj, start, end TSRMLS_CC);
 		}
 	}
 
