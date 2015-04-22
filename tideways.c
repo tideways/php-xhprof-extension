@@ -1032,6 +1032,7 @@ void tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *
 	zval *argument = *(args-args_len);
 	zval **option;
 	zval ***params_array;
+	char *summary;
 	long idx, *idx_ptr;
 	zval fname, *retval_ptr, *opt;
 
@@ -1045,11 +1046,18 @@ void tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *
 	params_array[0] = &argument;
 
 	if (SUCCESS == call_user_function_ex(EG(function_table), NULL, &fname, &retval_ptr, 1, params_array, 1, NULL TSRMLS_CC)) {
-		idx = tw_span_create("http", 4);
-		tw_span_record_duration(idx, start, end);
-
 		if (zend_hash_find(Z_ARRVAL_P(retval_ptr), "url", sizeof("url"), (void **)&option) == SUCCESS) {
-			tw_span_annotate_string(idx, "title", hp_get_file_summary(Z_STRVAL_PP(option), Z_STRLEN_PP(option) TSRMLS_CC), 0);
+			summary = hp_get_file_summary(Z_STRVAL_PP(option), Z_STRLEN_PP(option) TSRMLS_CC);
+
+			if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
+				idx = *idx_ptr;
+			} else {
+				idx = tw_span_create("http", 4);
+				zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
+			}
+
+			tw_span_record_duration(idx, start, end);
+			tw_span_annotate_string(idx, "title", summary, 0);
 		}
 
 		zval_dtor(retval_ptr);
