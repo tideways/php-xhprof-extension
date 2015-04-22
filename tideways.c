@@ -837,6 +837,15 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	return SUCCESS;
 }
 
+void tw_trace_callback_session(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx;
+
+	idx = tw_span_create("session", 7);
+	tw_span_record_duration(idx, start, end);
+	tw_span_annotate_string(idx, "title", symbol, 1);
+}
+
 void tw_trace_callback_php_call(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx;
@@ -1433,6 +1442,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_symfony;
 	register_trace_callback("Symfony\\Component\\HttpKernel\\Kernel::boot", cb);
+
+	cb = tw_trace_callback_session;
+	register_trace_callback("session_start", cb);
 
 	cb = tw_trace_callback_wordpress;
 	register_trace_callback("get_sidebar", cb);
