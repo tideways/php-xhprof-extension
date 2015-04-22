@@ -352,6 +352,7 @@ static inline zval *hp_string_to_zval(hp_string *str);
 static inline void hp_string_clean(hp_string *str);
 static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC);
 static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC);
+static const char *hp_get_base_filename(const char *filename);
 
 static inline hp_function_map *hp_function_map_create(char **names);
 static inline void hp_function_map_clear(hp_function_map *map);
@@ -835,13 +836,43 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	return SUCCESS;
 }
 
-void tw_trace_callback_symfony_boot(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx, *idx_ptr;
+	zval *argument_element = *(args-args_len);
+	char *summary;
+
+	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
+		summary = hp_get_base_filename(Z_STRVAL_P(argument_element));
+
+		if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
+			idx = *idx_ptr;
+		} else {
+			idx = tw_span_create("view", 4);
+			zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
+		}
+
+		tw_span_record_duration(idx, start, end);
+		tw_span_annotate_string(idx, "title", summary, 1);
+	}
+}
+
+void tw_trace_callback_wordpress(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx;
+
+	idx = tw_span_create("php.wordpress", 13);
+	tw_span_record_duration(idx, start, end);
+	tw_span_annotate_string(idx, "title", symbol, 1);
+}
+
+void tw_trace_callback_symfony(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx;
 
 	idx = tw_span_create("php.symfony", 11);
 	tw_span_record_duration(idx, start, end);
-	tw_span_annotate_string(idx, "title", "boot", 1);
+	tw_span_annotate_string(idx, "title", symbol, 1);
 }
 
 void tw_trace_callback_pgsql_execute(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
@@ -1390,8 +1421,18 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	cb = tw_trace_callback_file_get_contents;
 	register_trace_callback("file_get_contents", cb);
 
-	cb = tw_trace_callback_symfony_boot;
+	cb = tw_trace_callback_symfony;
 	register_trace_callback("Symfony\\Component\\HttpKernel\\Kernel::boot", cb);
+
+	cb = tw_trace_callback_wordpress;
+	register_trace_callback("get_sidebar", cb);
+	register_trace_callback("get_header", cb);
+	register_trace_callback("get_footer", cb);
+	register_trace_callback("load_textdomain", cb);
+	register_trace_callback("setup_theme", cb);
+
+	cb = tw_trace_callback_wordpress_template;
+	register_trace_callback("load_template", cb);
 
 	cb = tw_trace_callback_curl_exec;
 	register_trace_callback("curl_exec", cb);
@@ -1421,7 +1462,6 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Enlight_Event_EventManager::notifyUntil", cb);
 	register_trace_callback("Zend\\EventManager\\EventManager::trigger", cb);
 	register_trace_callback("do_action", cb);
-	register_trace_callback("apply_filters", cb);
 	register_trace_callback("drupal_alter", cb);
 	register_trace_callback("Mage::dispatchEvent", cb);
 
@@ -2483,7 +2523,7 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 			double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 			double end = get_us_from_tsc(tsc_end - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 
-			(*callback)(symbol, args, arg_count, obj, start, end TSRMLS_CC);
+			(*callback)(top->name_hprof, args, arg_count, obj, start, end TSRMLS_CC);
 		}
 	}
 

@@ -32,14 +32,13 @@ $enlight->notifyUntil("baz", new Event());
 Mage::dispatchEvent('zoomzoom', array());
 
 do_action("foo", array("foo" => "bar"));
-apply_filters("foo", array("foo" => "bar"));
 drupal_alter("foo", 1, 2, 3, 4);
 
 $spans = tideways_get_spans();
 print_spans($spans);
 tideways_disable();
 --EXPECTF--
-event: 5 timers - title=foo
+event: 4 timers - title=foo
 event: 2 timers - title=bar
 event: 2 timers - title=baz
 event: 1 timers - title=event

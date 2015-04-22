@@ -14,4 +14,4 @@ $kernel->boot();
 print_spans(tideways_get_spans());
 tideways_disable();
 --EXPECTF--
-php.symfony: 1 timers - title=boot
+php.symfony: 1 timers - title=Symfony\Component\HttpKernel\Kernel::boot
