@@ -7,7 +7,10 @@ include __DIR__ . '/common.php';
 
 tideways_enable();
 
-usleep(60000);
+function foo() {
+    usleep(60000);
+}
+foo();
 
 print_spans(tideways_get_spans());
 tideways_disable();
