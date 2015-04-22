@@ -1,5 +1,11 @@
 --TEST--
 Tideways: curl_exec spans
+--SKIPIF--
+<?php
+if (!extension_loaded('curl')) {
+    echo "skip: curl required\n";
+    die;
+}
 --FILE--
 <?php
 
