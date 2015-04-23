@@ -2464,19 +2464,21 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC
 	/* This symbol's recursive level */
 	int    recurse_level = 0;
 
-	if (hp_globals.func_hash_counters[current->hash_code] > 0) {
-		/* Find this symbols recurse level */
-		for(p = (*entries); p; p = p->prev_hprof) {
-			if (!strcmp(current->name_hprof, p->name_hprof)) {
-				recurse_level = (p->rlvl_hprof) + 1;
-				break;
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_HIERACHICAL) == 0) {
+		if (hp_globals.func_hash_counters[current->hash_code] > 0) {
+			/* Find this symbols recurse level */
+			for(p = (*entries); p; p = p->prev_hprof) {
+				if (!strcmp(current->name_hprof, p->name_hprof)) {
+					recurse_level = (p->rlvl_hprof) + 1;
+					break;
+				}
 			}
 		}
-	}
-	hp_globals.func_hash_counters[current->hash_code]++;
+		hp_globals.func_hash_counters[current->hash_code]++;
 
-	/* Init current function's recurse level */
-	current->rlvl_hprof = recurse_level;
+		/* Init current function's recurse level */
+		current->rlvl_hprof = recurse_level;
+	}
 
 	/* Get start tsc counter */
 	current->tsc_start = cycle_timer();
