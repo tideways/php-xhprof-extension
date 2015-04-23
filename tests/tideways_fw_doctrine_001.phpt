@@ -29,6 +29,7 @@ $query->getSQL();
 print_spans(tideways_get_spans());
 tideways_disable();
 --EXPECT--
+app: 1 timers - 
 doctrine.load: 2 timers - title=Foo
 doctrine.load: 1 timers - title=Bar
 doctrine.query: 2 timers - title=select Foo\Bar\Baz

@@ -702,7 +702,7 @@ PHP_FUNCTION(tideways_span_create)
 
 PHP_FUNCTION(tideways_get_spans)
 {
-	if (hp_globals.enabled) {
+	if (hp_globals.spans) {
 		RETURN_ZVAL(hp_globals.spans, 1, 0);
 	}
 }
@@ -1510,8 +1510,6 @@ void hp_init_profiler_state(TSRMLS_D)
 	}
 	MAKE_STD_ZVAL(hp_globals.spans);
 	array_init(hp_globals.spans);
-
-	hp_globals.start_time = cycle_timer();
 
 	/* NOTE(cjiang): some fields such as cpu_frequencies take relatively longer
 	 * to initialize, (5 milisecond per logical cpu right now), therefore we
@@ -2849,6 +2847,13 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
 
 		/* start profiling from fictitious main() */
 		hp_globals.root = estrdup(ROOT_SYMBOL);
+		hp_globals.start_time = cycle_timer();
+
+		if (!(hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_HIERACHICAL)) {
+			tw_span_create("app", 3);
+			tw_span_timer_start(0);
+		}
+
 		BEGIN_PROFILING(&hp_globals.entries, hp_globals.root, hp_profile_flag, NULL);
 	}
 }
@@ -2883,6 +2888,10 @@ static void hp_stop(TSRMLS_D)
 	/* End any unfinished calls */
 	while (hp_globals.entries) {
 		END_PROFILING(&hp_globals.entries, hp_profile_flag, NULL);
+	}
+
+	if (!(hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_HIERACHICAL)) {
+		tw_span_timer_stop(0);
 	}
 
 	if (hp_globals.root) {

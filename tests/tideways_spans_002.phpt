@@ -15,11 +15,32 @@ tideways_span_timer_stop($span2);
 tideways_span_timer_start($span2);
 tideways_span_timer_stop($span2);
 
+tideways_disable();
+
 $spans = tideways_get_spans();
 var_dump($spans);
+
 --EXPECTF--
-array(2) {
+array(3) {
   [0]=>
+  array(4) {
+    ["n"]=>
+    string(3) "app"
+    ["b"]=>
+    array(1) {
+      [0]=>
+      int(%d)
+    }
+    ["e"]=>
+    array(1) {
+      [0]=>
+      int(%d)
+    }
+    ["a"]=>
+    array(0) {
+    }
+  }
+  [1]=>
   array(4) {
     ["n"]=>
     string(3) "php"
@@ -37,7 +58,7 @@ array(2) {
     array(0) {
     }
   }
-  [1]=>
+  [2]=>
   array(4) {
     ["n"]=>
     string(3) "php"

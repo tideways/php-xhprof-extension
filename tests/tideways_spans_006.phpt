@@ -38,6 +38,7 @@ $spans = tideways_get_spans();
 print_spans($spans);
 tideways_disable();
 --EXPECTF--
+app: 1 timers - 
 event: 4 timers - title=foo
 event: 2 timers - title=bar
 event: 2 timers - title=baz
