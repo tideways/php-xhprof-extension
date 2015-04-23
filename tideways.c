@@ -1044,7 +1044,7 @@ void tw_trace_callback_doctrine_query(char *symbol, void **args, int args_len, z
 		tw_span_record_duration(idx, start, end);
 		tw_span_annotate_string(idx, "title", summary, 0);
 
-		FREE_ZVAL(retval_ptr);
+		zval_ptr_dtor(&retval_ptr);
 	}
 }
 
@@ -1070,7 +1070,7 @@ void tw_trace_callback_twig_template(char *symbol, void **args, int args_len, zv
 		tw_span_record_duration(idx, start, end);
 		tw_span_annotate_string(idx, "title", Z_STRVAL_P(retval_ptr), 1);
 
-		FREE_ZVAL(retval_ptr);
+		zval_ptr_dtor(&retval_ptr);
 	}
 }
 
@@ -1194,8 +1194,7 @@ void tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *
 			tw_span_annotate_string(idx, "title", summary, 0);
 		}
 
-		zval_dtor(retval_ptr);
-		FREE_ZVAL(retval_ptr);
+		zval_ptr_dtor(&retval_ptr);
 	}
 
 	efree(params_array);
@@ -1600,15 +1599,13 @@ void hp_init_profiler_state(TSRMLS_D)
 
 	/* Init stats_count */
 	if (hp_globals.stats_count) {
-		zval_dtor(hp_globals.stats_count);
-		FREE_ZVAL(hp_globals.stats_count);
+		zval_ptr_dtor(&hp_globals.stats_count);
 	}
 	MAKE_STD_ZVAL(hp_globals.stats_count);
 	array_init(hp_globals.stats_count);
 
 	if (hp_globals.spans) {
-		zval_dtor(hp_globals.spans);
-		FREE_ZVAL(hp_globals.spans);
+		zval_ptr_dtor(&hp_globals.spans);
 	}
 	MAKE_STD_ZVAL(hp_globals.spans);
 	array_init(hp_globals.spans);
@@ -1643,13 +1640,11 @@ void hp_clean_profiler_state(TSRMLS_D)
 {
 	/* Clear globals */
 	if (hp_globals.stats_count) {
-		zval_dtor(hp_globals.stats_count);
-		FREE_ZVAL(hp_globals.stats_count);
+		zval_ptr_dtor(&hp_globals.stats_count);
 		hp_globals.stats_count = NULL;
 	}
 	if (hp_globals.spans) {
-		zval_dtor(hp_globals.spans);
-		FREE_ZVAL(hp_globals.spans);
+		zval_ptr_dtor(hp_globals.spans);
 		hp_globals.spans = NULL;
 	}
 

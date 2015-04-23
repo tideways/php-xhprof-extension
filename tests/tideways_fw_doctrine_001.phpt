@@ -19,8 +19,12 @@ $query = new \Doctrine\ORM\Query();
 $query->execute();
 $query->execute();
 
+$query->getDQL();
+
 $query = new \Doctrine\ORM\NativeQuery();
 $query->execute();
+
+$query->getSQL();
 
 print_spans(tideways_get_spans());
 tideways_disable();
