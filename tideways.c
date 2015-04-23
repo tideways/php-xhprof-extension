@@ -837,7 +837,7 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	return SUCCESS;
 }
 
-void tw_trace_callback_record_with_cache(char *category, int category_len, char *summary, int summary_len, double start, double end)
+void tw_trace_callback_record_with_cache(char *category, int category_len, char *summary, int summary_len, double start, double end, int copy)
 {
 	long idx, *idx_ptr;
 
@@ -849,7 +849,7 @@ void tw_trace_callback_record_with_cache(char *category, int category_len, char 
 	}
 
 	tw_span_record_duration(idx, start, end);
-	tw_span_annotate_string(idx, "title", summary, 1);
+	tw_span_annotate_string(idx, "title", summary, copy);
 }
 
 void tw_trace_callback_php_call(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
@@ -863,19 +863,17 @@ void tw_trace_callback_php_call(char *symbol, void **args, int args_len, zval *o
 
 void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
-	long idx, *idx_ptr;
 	zval *argument_element = *(args-args_len);
 	char *summary;
 
 	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
 		summary = hp_get_base_filename(Z_STRVAL_P(argument_element));
-		tw_trace_callback_record_with_cache("view", 4, summary, strlen(summary), start, end);
+		tw_trace_callback_record_with_cache("view", 4, summary, strlen(summary), start, end, 1);
 	}
 }
 
 void tw_trace_callback_pgsql_execute(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
-	long idx, *idx_ptr;
 	zval *argument_element;
 	char *summary;
 	int i;
@@ -887,15 +885,7 @@ void tw_trace_callback_pgsql_execute(char *symbol, void **args, int args_len, zv
 			// TODO: Introduce SQL statement cache to find the names here again.
 			summary = Z_STRVAL_P(argument_element);
 
-			if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
-				idx = *idx_ptr;
-			} else {
-				idx = tw_span_create("sql", 3);
-				zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
-			}
-
-			tw_span_record_duration(idx, start, end);
-			tw_span_annotate_string(idx, "title", summary, 1);
+			tw_trace_callback_record_with_cache("sql", 3, summary, strlen(summary), start, end, 1);
 			return;
 		}
 	}
@@ -903,7 +893,6 @@ void tw_trace_callback_pgsql_execute(char *symbol, void **args, int args_len, zv
 
 void tw_trace_callback_pgsql_query(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
-	long idx, *idx_ptr;
 	zval *argument_element;
 	char *summary;
 	int i;
@@ -914,15 +903,7 @@ void tw_trace_callback_pgsql_query(char *symbol, void **args, int args_len, zval
 		if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
 			summary = hp_get_sql_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element) TSRMLS_CC);
 
-			if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
-				idx = *idx_ptr;
-			} else {
-				idx = tw_span_create("sql", 3);
-				zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
-			}
-
-			tw_span_record_duration(idx, start, end);
-			tw_span_annotate_string(idx, "title", summary, 0);
+			tw_trace_callback_record_with_cache("sql", 3, summary, strlen(summary), start, end, 0);
 			return;
 		}
 	}
@@ -930,25 +911,15 @@ void tw_trace_callback_pgsql_query(char *symbol, void **args, int args_len, zval
 
 void tw_trace_callback_smarty2_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
-	long idx, *idx_ptr;
 	zval *argument_element = *(args-args_len);
 
 	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
-		if (zend_hash_find(hp_globals.span_cache, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element)+1, (void **)&idx_ptr) == SUCCESS) {
-			idx = *idx_ptr;
-		} else {
-			idx = tw_span_create("view", 4);
-			zend_hash_update(hp_globals.span_cache, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element)+1, &idx, sizeof(long), NULL);
-		}
-
-		tw_span_record_duration(idx, start, end);
-		tw_span_annotate_string(idx, "title", Z_STRVAL_P(argument_element), 1);
+		tw_trace_callback_record_with_cache("view", 4, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element), start, end, 1);
 	}
 }
 
 void tw_trace_callback_smarty3_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
-	long idx, *idx_ptr;
 	zval *argument_element = *(args-args_len);
 	zval *obj;
 	zend_class_entry *smarty_ce;
@@ -966,20 +937,11 @@ void tw_trace_callback_smarty3_template(char *symbol, void **args, int args_len,
 
 	template_len = Z_STRLEN_P(argument_element);
 
-	if (zend_hash_find(hp_globals.span_cache, template, template_len+1, (void **)&idx_ptr) == SUCCESS) {
-		idx = *idx_ptr;
-	} else {
-		idx = tw_span_create("view", 4);
-		zend_hash_update(hp_globals.span_cache, template, template_len+1, &idx, sizeof(long), NULL);
-	}
-
-	tw_span_record_duration(idx, start, end);
-	tw_span_annotate_string(idx, "title", template, 1);
+	tw_trace_callback_record_with_cache("view", 4, template, template_len, start, end, 1);
 }
 
 void tw_trace_callback_doctrine_persister(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
-	long idx, *idx_ptr;
 	zval *property;
 	zend_class_entry *persister_ce, *metadata_ce;
 
@@ -999,21 +961,12 @@ void tw_trace_callback_doctrine_persister(char *symbol, void **args, int args_le
 			return;
 		}
 
-		if (zend_hash_find(hp_globals.span_cache, Z_STRVAL_P(property), Z_STRLEN_P(property)+1, (void **)&idx_ptr) == SUCCESS) {
-			idx = *idx_ptr;
-		} else {
-			idx = tw_span_create("doctrine.load", 13);
-			zend_hash_update(hp_globals.span_cache, Z_STRVAL_P(property), Z_STRLEN_P(property)+1, &idx, sizeof(long), NULL);
-		}
-
-		tw_span_record_duration(idx, start, end);
-		tw_span_annotate_string(idx, "title", Z_STRVAL_P(property), 1);
+		tw_trace_callback_record_with_cache("doctrine.load", 13, Z_STRVAL_P(property), Z_STRLEN_P(property), start, end, 1);
 	}
 }
 
 void tw_trace_callback_doctrine_query(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
-	long idx, *idx_ptr;
 	zval *property;
 	zend_class_entry *query_ce;
 	zval fname, *retval_ptr;
@@ -1040,15 +993,7 @@ void tw_trace_callback_doctrine_query(char *symbol, void **args, int args_len, z
 
 		summary = hp_get_sql_summary(Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr));
 
-		if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
-			idx = *idx_ptr;
-		} else {
-			idx = tw_span_create("doctrine.query", 14);
-			zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
-		}
-
-		tw_span_record_duration(idx, start, end);
-		tw_span_annotate_string(idx, "title", summary, 0);
+		tw_trace_callback_record_with_cache("doctrine.query", 14, summary, strlen(summary), start, end, 0);
 
 		zval_ptr_dtor(&retval_ptr);
 	}
@@ -1066,15 +1011,9 @@ void tw_trace_callback_twig_template(char *symbol, void **args, int args_len, zv
 	ZVAL_STRING(&fname, "getTemplateName", 0);
 
 	if (SUCCESS == call_user_function_ex(EG(function_table), &object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
-		if (zend_hash_find(hp_globals.span_cache, Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr)+1, (void **)&idx_ptr) == SUCCESS) {
-			idx = *idx_ptr;
-		} else {
-			idx = tw_span_create("view", 4);
-			zend_hash_update(hp_globals.span_cache, Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr)+1, &idx, sizeof(long), NULL);
+		if (Z_TYPE_P(retval_ptr) == IS_STRING) {
+			tw_trace_callback_record_with_cache("view", 4, Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr), start, end, 1);
 		}
-
-		tw_span_record_duration(idx, start, end);
-		tw_span_annotate_string(idx, "title", Z_STRVAL_P(retval_ptr), 1);
 
 		zval_ptr_dtor(&retval_ptr);
 	}
@@ -1091,15 +1030,7 @@ void tw_trace_callback_event_dispatchers(char *symbol, void **args, int args_len
 	}
 
 	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
-		if (zend_hash_find(hp_globals.span_cache, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element)+1, (void **)&idx_ptr) == SUCCESS) {
-			idx = *idx_ptr;
-		} else {
-			idx = tw_span_create("event", 5);
-			zend_hash_update(hp_globals.span_cache, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element)+1, &idx, sizeof(long), NULL);
-		}
-
-		tw_span_record_duration(idx, start, end);
-		tw_span_annotate_string(idx, "title", Z_STRVAL_P(argument_element), 1);
+		tw_trace_callback_record_with_cache("event", 5, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element), start, end, 1);
 	}
 }
 
@@ -1107,17 +1038,14 @@ void tw_trace_callback_event_dispatchers_arg2(char *symbol, void **args, int arg
 {
 	long idx, *idx_ptr;
 	zval *argument_element = *(args-args_len+1);
+	double wt = end-start;
+
+	if (wt < 100) { // < 100us
+		return;
+	}
 
 	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
-		if (zend_hash_find(hp_globals.span_cache, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element)+1, (void **)&idx_ptr) == SUCCESS) {
-			idx = *idx_ptr;
-		} else {
-			idx = tw_span_create("event", 5);
-			zend_hash_update(hp_globals.span_cache, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element)+1, &idx, sizeof(long), NULL);
-		}
-
-		tw_span_record_duration(idx, start, end);
-		tw_span_annotate_string(idx, "title", Z_STRVAL_P(argument_element), 1);
+		tw_trace_callback_record_with_cache("event", 5, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element), start, end, 1);
 	}
 }
 
@@ -1127,15 +1055,7 @@ void tw_trace_callback_pdo_stmt_execute(char *symbol, void **args, int args_len,
 	pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object_by_handle(Z_OBJ_HANDLE_P(object) TSRMLS_CC);
 	char *summary = hp_get_sql_summary(stmt->query_string, stmt->query_stringlen TSRMLS_CC);
 
-	if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
-		idx = *idx_ptr;
-	} else {
-		idx = tw_span_create("sql", 3);
-		zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
-	}
-
-	tw_span_record_duration(idx, start, end);
-	tw_span_annotate_string(idx, "title", summary, 0);
+	tw_trace_callback_record_with_cache("sql", 3, summary, strlen(summary), start, end, 0);
 }
 
 void tw_trace_callback_sql_functions(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
@@ -1156,15 +1076,7 @@ void tw_trace_callback_sql_functions(char *symbol, void **args, int args_len, zv
 
 	summary = hp_get_sql_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element) TSRMLS_CC);
 
-	if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
-		idx = *idx_ptr;
-	} else {
-		idx = tw_span_create("sql", 3);
-		zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
-	}
-
-	tw_span_record_duration(idx, start, end);
-	tw_span_annotate_string(idx, "title", summary, 0);
+	tw_trace_callback_record_with_cache("sql", 3, summary, strlen(summary), start, end, 0);
 }
 
 void tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
@@ -1189,15 +1101,7 @@ void tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *
 		if (zend_hash_find(Z_ARRVAL_P(retval_ptr), "url", sizeof("url"), (void **)&option) == SUCCESS) {
 			summary = hp_get_file_summary(Z_STRVAL_PP(option), Z_STRLEN_PP(option) TSRMLS_CC);
 
-			if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
-				idx = *idx_ptr;
-			} else {
-				idx = tw_span_create("http", 4);
-				zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
-			}
-
-			tw_span_record_duration(idx, start, end);
-			tw_span_annotate_string(idx, "title", summary, 0);
+			tw_trace_callback_record_with_cache("http", 4, summary, strlen(summary), start, end, 0);
 		}
 
 		zval_ptr_dtor(&retval_ptr);
@@ -1221,16 +1125,7 @@ void tw_trace_callback_file_get_contents(char *symbol, void **args, int args_len
 	}
 
 	summary = hp_get_file_summary(Z_STRVAL_P(argument), Z_STRLEN_P(argument) TSRMLS_CC);
-
-	if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
-		idx = *idx_ptr;
-	} else {
-		idx = tw_span_create("http", 4);
-		zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
-	}
-
-	tw_span_record_duration(idx, start, end);
-	tw_span_annotate_string(idx, "title", summary, 0);
+	tw_trace_callback_record_with_cache("http", 4, summary, strlen(summary), start, end, 0);
 }
 
 /**
