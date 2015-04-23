@@ -837,6 +837,21 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	return SUCCESS;
 }
 
+void tw_trace_callback_record_with_cache(char *category, int category_len, char *summary, int summary_len, double start, double end)
+{
+	long idx, *idx_ptr;
+
+	if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
+		idx = *idx_ptr;
+	} else {
+		idx = tw_span_create(category, category_len);
+		zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
+	}
+
+	tw_span_record_duration(idx, start, end);
+	tw_span_annotate_string(idx, "title", summary, 1);
+}
+
 void tw_trace_callback_php_call(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx;
@@ -854,16 +869,7 @@ void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_le
 
 	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
 		summary = hp_get_base_filename(Z_STRVAL_P(argument_element));
-
-		if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
-			idx = *idx_ptr;
-		} else {
-			idx = tw_span_create("view", 4);
-			zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
-		}
-
-		tw_span_record_duration(idx, start, end);
-		tw_span_annotate_string(idx, "title", summary, 1);
+		tw_trace_callback_record_with_cache("view", 4, summary, strlen(summary), start, end);
 	}
 }
 
@@ -1644,7 +1650,7 @@ void hp_clean_profiler_state(TSRMLS_D)
 		hp_globals.stats_count = NULL;
 	}
 	if (hp_globals.spans) {
-		zval_ptr_dtor(hp_globals.spans);
+		zval_ptr_dtor(&hp_globals.spans);
 		hp_globals.spans = NULL;
 	}
 
