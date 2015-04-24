@@ -1114,6 +1114,12 @@ void tw_trace_callback_sql_functions(char *symbol, void **args, int args_len, zv
 	tw_trace_callback_record_with_cache("sql", 3, summary, strlen(summary), start, end, 0);
 }
 
+void tw_trace_callback_fastcgi_finish_request(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	// stop the main span, the request ended here
+	tw_span_timer_stop(0);
+}
+
 void tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *argument = *(args-args_len);
@@ -1522,6 +1528,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_smarty3_template;
 	register_trace_callback("Smarty_Internal_TemplateBase::fetch", cb);
+
+	cb = tw_trace_callback_fastcgi_finish_request;
+	register_trace_callback("fastcgi_finish_request", cb);
 }
 
 
