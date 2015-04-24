@@ -15,7 +15,7 @@ usleep(100);
 tideways_disable();
 
 var_dump(tideways_get_spans());
---EXPECTF--
+--EXPECT--
 array(1) {
   [0]=>
   array(4) {
