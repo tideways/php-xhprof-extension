@@ -1558,6 +1558,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_collect_next;
 	register_trace_callback("Symfony\\Component\\HttpKernel\\Controller\\ControllerResolver::getArguments", cb);
+	register_trace_callback("Symfony\\Component\\HttpKernel\\Controller\\TraceableControllerResolver::getArguments", cb);
 }
 
 
