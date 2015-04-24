@@ -2849,7 +2849,7 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
 		hp_globals.root = estrdup(ROOT_SYMBOL);
 		hp_globals.start_time = cycle_timer();
 
-		if (!(hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_HIERACHICAL)) {
+		if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
 			tw_span_create("app", 3);
 			tw_span_timer_start(0);
 		}
@@ -2890,7 +2890,7 @@ static void hp_stop(TSRMLS_D)
 		END_PROFILING(&hp_globals.entries, hp_profile_flag, NULL);
 	}
 
-	if (!(hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_HIERACHICAL)) {
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
 		tw_span_timer_stop(0);
 	}
 
