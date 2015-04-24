@@ -187,6 +187,7 @@ typedef struct hp_global_t {
 	/* Holds all the Tideways statistics */
 	zval            *stats_count;
 	zval			*spans;
+	int				collect_next_call;
 	uint64			start_time;
 
 	zval			*backtrace;
@@ -831,6 +832,7 @@ PHP_MINIT_FUNCTION(tideways)
 
 	hp_globals.stats_count = NULL;
 	hp_globals.spans = NULL;
+	hp_globals.collect_next_call = 0;
 	hp_globals.trace_callbacks = NULL;
 	hp_globals.span_cache = NULL;
 
@@ -880,6 +882,11 @@ void tw_trace_callback_record_with_cache(char *category, int category_len, char 
 
 	tw_span_record_duration(idx, start, end);
 	tw_span_annotate_string(idx, "title", summary, copy);
+}
+
+void tw_trace_callback_collect_next(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	hp_globals.collect_next_call = 1;
 }
 
 void tw_trace_callback_php_call(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
@@ -1114,6 +1121,23 @@ void tw_trace_callback_sql_functions(char *symbol, void **args, int args_len, zv
 	tw_trace_callback_record_with_cache("sql", 3, summary, strlen(summary), start, end, 0);
 }
 
+void tw_trace_callback_soap_client_dorequest(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	zval *argument = *(args-args_len+1);
+	char *summary;
+
+	if (Z_TYPE_P(argument) != IS_STRING) {
+		return;
+	}
+
+	if (strncmp(Z_STRVAL_P(argument), "http", 4) != 0) {
+		return;
+	}
+
+	summary = hp_get_file_summary(Z_STRVAL_P(argument), Z_STRLEN_P(argument) TSRMLS_CC);
+	tw_trace_callback_record_with_cache("http.soap", 9, summary, strlen(summary), start, end, 0);
+}
+
 void tw_trace_callback_fastcgi_finish_request(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	// stop the main span, the request ended here
@@ -1123,11 +1147,9 @@ void tw_trace_callback_fastcgi_finish_request(char *symbol, void **args, int arg
 void tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *argument = *(args-args_len);
-	zval **option;
 	zval ***params_array;
 	char *summary;
-	long idx, *idx_ptr;
-	zval fname, *retval_ptr, *opt;
+	zval fname, *retval_ptr, **option;
 
 	if (argument == NULL || Z_TYPE_P(argument) != IS_RESOURCE) {
 		return;
@@ -1155,7 +1177,6 @@ void tw_trace_callback_file_get_contents(char *symbol, void **args, int args_len
 {
 	zval *argument = *(args-args_len);
 	char *summary;
-	long idx, *idx_ptr;
 
 	if (Z_TYPE_P(argument) != IS_STRING) {
 		return;
@@ -1459,6 +1480,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	cb = tw_trace_callback_file_get_contents;
 	register_trace_callback("file_get_contents", cb);
 
+	cb = tw_trace_callback_soap_client_dorequest;
+	register_trace_callback("SoapClient::__doRequest", cb);
+
 	cb = tw_trace_callback_php_call;
 	register_trace_callback("session_start", cb);
 	// Symfony
@@ -1531,6 +1555,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_fastcgi_finish_request;
 	register_trace_callback("fastcgi_finish_request", cb);
+
+	cb = tw_trace_callback_collect_next;
+	register_trace_callback("Symfony\\Component\\HttpKernel\\Controller\\ControllerResolver::getArguments", cb);
 }
 
 
@@ -1559,6 +1586,7 @@ void hp_init_profiler_state(TSRMLS_D)
 	}
 	MAKE_STD_ZVAL(hp_globals.spans);
 	array_init(hp_globals.spans);
+	hp_globals.collect_next_call = 0;
 
 	/* NOTE(cjiang): some fields such as cpu_frequencies take relatively longer
 	 * to initialize, (5 milisecond per logical cpu right now), therefore we
@@ -2565,13 +2593,14 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 			double end = get_us_from_tsc(tsc_end - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 
 			(*callback)(top->name_hprof, args, arg_count, obj, start, end TSRMLS_CC);
-		} else if (data->function_state.function->type == ZEND_INTERNAL_FUNCTION && wt > hp_globals.slow_php_call_treshold) {
+		} else if (hp_globals.collect_next_call == 1 || data->function_state.function->type == ZEND_INTERNAL_FUNCTION && wt > hp_globals.slow_php_call_treshold) {
 			void **args =  hp_get_execute_arguments(data);
 			int arg_count = (int)(zend_uintptr_t) *args;
 			zval *obj = data->object;
 			double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 			double end = get_us_from_tsc(tsc_end - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 
+			hp_globals.collect_next_call = 0;
 			tw_trace_callback_php_call(top->name_hprof, args, arg_count, obj, start, end TSRMLS_CC);
 		}
 	}

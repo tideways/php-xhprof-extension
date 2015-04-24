@@ -7,4 +7,32 @@ namespace Symfony\Component\HttpKernel {
         {
         }
     }
+
+    class HttpKernel
+    {
+        public function handle()
+        {
+            $resolver = new \Symfony\Component\HttpKernel\Controller\ControllerResolver();
+            $controller = array(new \Acme\DemoBundle\Controller\DefaultController(), 'indexAction');
+            $args = $resolver->getArguments(null, $controller);
+
+            call_user_func_array($controller, $args);
+        }
+    }
+}
+
+namespace Symfony\Component\HttpKernel\Controller {
+    class ControllerResolver {
+        public function getArguments($request, $controller) {
+            return array();
+        }
+    }
+}
+
+namespace Acme\DemoBundle\Controller {
+    class DefaultController {
+        public function indexAction()
+        {
+        }
+    }
 }
