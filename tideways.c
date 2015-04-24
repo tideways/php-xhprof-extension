@@ -2043,40 +2043,40 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 	int                len;
 	zend_function      *curr_func;
 
-	if (data) {
-		/* shared meta data for function on the call stack */
-		curr_func = data->function_state.function;
-
-		/* extract function name from the meta info */
-		func = curr_func->common.function_name;
-
-		if (func) {
-			/* previously, the order of the tests in the "if" below was
-			 * flipped, leading to incorrect function names in profiler
-			 * reports. When a method in a super-type is invoked the
-			 * profiler should qualify the function name with the super-type
-			 * class name (not the class name based on the run-time type
-			 * of the object.
-			 */
-			if (curr_func->common.scope) {
-				cls = curr_func->common.scope->name;
-			} else if (data->object) {
-				cls = Z_OBJCE(*data->object)->name;
-			}
-
-			if (cls) {
-				char* sep = "::";
-				ret = hp_concat_char(cls, strlen(cls), func, strlen(func), sep, 2);
-			} else {
-				ret = estrdup(func);
-			}
-		} else {
-			// This branch includes execution of eval and include/require(_once) calls
-			// We assume it is not 1999 anymore and not much PHP code runs in the
-			// body of a file and if it is, we are ok with adding it to the caller's wt.
-			return NULL;
-		}
+	if (!data) {
+		return NULL;
 	}
+
+	curr_func = data->function_state.function;
+	func = curr_func->common.function_name;
+
+	if (!func) {
+		// This branch includes execution of eval and include/require(_once) calls
+		// We assume it is not 1999 anymore and not much PHP code runs in the
+		// body of a file and if it is, we are ok with adding it to the caller's wt.
+		return NULL;
+	}
+
+	/* previously, the order of the tests in the "if" below was
+	 * flipped, leading to incorrect function names in profiler
+	 * reports. When a method in a super-type is invoked the
+	 * profiler should qualify the function name with the super-type
+	 * class name (not the class name based on the run-time type
+	 * of the object.
+	 */
+	if (curr_func->common.scope) {
+		cls = curr_func->common.scope->name;
+	} else if (data->object) {
+		cls = Z_OBJCE(*data->object)->name;
+	}
+
+	if (cls) {
+		char* sep = "::";
+		ret = hp_concat_char(cls, strlen(cls), func, strlen(func), sep, 2);
+	} else {
+		ret = estrdup(func);
+	}
+
 	return ret;
 }
 
