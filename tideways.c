@@ -132,6 +132,7 @@ typedef unsigned char uint8;
 #endif
 
 #define register_trace_callback(function_name, cb) zend_hash_update(hp_globals.trace_callbacks, function_name, sizeof(function_name), &cb, sizeof(tw_trace_callback*), NULL);
+#define register_trace_callback_len(function_name, len, cb) zend_hash_update(hp_globals.trace_callbacks, function_name, len+1, &cb, sizeof(tw_trace_callback*), NULL);
 
 /**
  * *****************************
@@ -891,6 +892,15 @@ void tw_trace_callback_php_call(char *symbol, void **args, int args_len, zval *o
 	tw_span_annotate_string(idx, "title", symbol, 1);
 }
 
+void tw_trace_callback_php_controller(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	long idx;
+
+	idx = tw_span_create("php.ctrl", 8);
+	tw_span_record_duration(idx, start, end);
+	tw_span_annotate_string(idx, "title", symbol, 1);
+}
+
 void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *argument_element = *(args-args_len);
@@ -899,6 +909,58 @@ void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_le
 	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
 		summary = hp_get_base_filename(Z_STRVAL_P(argument_element));
 		tw_trace_callback_record_with_cache("view", 4, summary, strlen(summary), start, end, 1);
+	}
+}
+
+void tw_trace_callback_symfony_resolve_arguments_tx(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	zval *callback, **controller, **action;
+	const char *class_name;
+	zend_uint class_name_len;
+	const char *free_class_name = NULL;
+	char *ret = NULL;
+	int len;
+	tw_trace_callback *cb;
+
+	callback = *(args-args_len+1); // $resolver->getArguments($request, $controller);
+
+	// Only Symfony2 framework for now
+	if (Z_TYPE_P(callback) == IS_ARRAY) {
+		if (zend_hash_index_find(Z_ARRVAL_P(callback), 0, (void**)&controller) == FAILURE) {
+			return;
+		}
+
+		if (Z_TYPE_PP(controller) != IS_OBJECT) {
+			return;
+		}
+
+		if (zend_hash_index_find(Z_ARRVAL_P(callback), 1, (void**)&action) == FAILURE) {
+			return;
+		}
+
+		if (Z_TYPE_PP(action) != IS_STRING) {
+			return;
+		}
+
+		if (!zend_get_object_classname(*controller, &class_name, &class_name_len TSRMLS_CC)) {
+			free_class_name = class_name;
+		}
+
+		len = class_name_len + Z_STRLEN_PP(action) + 3;
+		ret = (char*)emalloc(len);
+		snprintf(ret, len, "%s::%s", class_name, Z_STRVAL_PP(action));
+
+		if (hp_globals.transaction_name == NULL) {
+			hp_globals.transaction_name = hp_create_string(ret, len);
+		}
+
+		cb = tw_trace_callback_php_controller;
+		register_trace_callback_len(ret, len-1, cb);
+
+		if (free_class_name) {
+			efree((char*)free_class_name);
+		}
+		efree(ret);
 	}
 }
 
@@ -1531,6 +1593,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_fastcgi_finish_request;
 	register_trace_callback("fastcgi_finish_request", cb);
+
+	cb = tw_trace_callback_symfony_resolve_arguments_tx;
+	register_trace_callback("Symfony\\Component\\HttpKernel\\Controller\\ControllerResolver::getArguments", cb);
 }
 
 
