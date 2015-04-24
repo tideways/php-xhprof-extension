@@ -912,6 +912,35 @@ void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_le
 	}
 }
 
+/* Applies to Enlight, Mage and Zend1 */
+void tw_trace_callback_zend1_dispatcher_families_tx(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	zval *argument_element = *(args-args_len);
+	int len;
+	char *ret = NULL;
+	zend_class_entry *ce;
+	tw_trace_callback *cb;
+	long idx;
+
+	if (Z_TYPE_P(argument_element) != IS_STRING) {
+		return;
+	}
+
+	ce = Z_OBJCE_P(object);
+
+	len = ce->name_length + Z_STRLEN_P(argument_element) + 3;
+	ret = (char*)emalloc(len);
+	snprintf(ret, len, "%s::%s", ce->name, Z_STRVAL_P(argument_element));
+
+	if (hp_globals.transaction_name == NULL) {
+		hp_globals.transaction_name = hp_create_string(ret, len);
+	}
+
+	idx = tw_span_create("php.ctrl", 8);
+	tw_span_record_duration(idx, start, end);
+	tw_span_annotate_string(idx, "title", ret, 0);
+}
+
 void tw_trace_callback_symfony_resolve_arguments_tx(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *callback, **controller, **action;
@@ -1617,6 +1646,11 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_symfony_resolve_arguments_tx;
 	register_trace_callback("Symfony\\Component\\HttpKernel\\Controller\\ControllerResolver::getArguments", cb);
+
+	cb = tw_trace_callback_zend1_dispatcher_families_tx;
+	register_trace_callback("Enlight_Controller_Action::dispatch", cb);
+	register_trace_callback("Mage_Core_Controller_Varien_Action::dispatch", cb);
+	register_trace_callback("Zend_Controller_Action::dispatch", cb);
 }
 
 
