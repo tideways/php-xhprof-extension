@@ -1088,6 +1088,11 @@ void tw_trace_callback_pdo_stmt_execute(char *symbol, void **args, int args_len,
 	tw_trace_callback_record_with_cache("sql", 3, summary, strlen(summary), start, end, 0);
 }
 
+void tw_trace_callback_sql_commit(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	tw_trace_callback_record_with_cache("sql", 3, "commit", 3, start, end, 1);
+}
+
 void tw_trace_callback_sql_functions(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *argument_element;
@@ -1480,6 +1485,11 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("mysqli_query", cb);
 	register_trace_callback("mysqli::query", cb);
 
+	cb = tw_trace_callback_sql_commit;
+	register_trace_callback("PDO::commit", cb);
+	register_trace_callback("mysqli::commit", cb);
+	register_trace_callback("mysqli_commit", cb);
+
 	cb = tw_trace_callback_pdo_stmt_execute;
 	register_trace_callback("PDOStatement::execute", cb);
 
@@ -1871,6 +1881,10 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 			snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
 			found = 1;
 
+			break;
+		} else if (strcmp(token, "commit") == 0) {
+			snprintf(result, result_len, "%s", token);
+			found = 1;
 			break;
 		}
 	}

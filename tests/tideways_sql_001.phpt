@@ -8,6 +8,8 @@ $queries = array(
     'UPDATE foo SET bar=baz' => 'update foo',
     'INSERT INTO bar (..) VALUES (...)' => 'insert bar',
     'DELETE FROM baz WHERE bar = 1' => 'delete baz',
+    'COMMIT' => 'commit',
+    'DROP TABLE' => 'other',
 );
 
 $i = 0;
@@ -25,3 +27,5 @@ foreach ($queries as $sql => $expectedSummary) {
 2) OK update foo
 3) OK insert bar
 4) OK delete baz
+5) OK commit
+6) OK other

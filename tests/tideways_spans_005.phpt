@@ -17,6 +17,8 @@ $pdo = new PDO('sqlite:memory:', 'root', '');
 
 $pdo->exec("CREATE TABLE baz (id INTEGER)");
 
+$pdo->beginTransaction();
+
 $stmt = $pdo->prepare("SELECT 'foo' FROM 'baz'");
 $stmt->execute();
 
@@ -32,12 +34,16 @@ $stmt->execute();
 $stmt = $pdo->query("SELECT count(*) FROM baz");
 $stmt->execute();
 
+$pdo->commit();
+
 print_spans(tideways_get_spans());
 tideways_disable();
 --EXPECTF--
+app: 1 timers - 
 sql: 1 timers - title=other
 sql: 1 timers - title=select 'baz'
 sql: 1 timers - title=insert baz
 sql: 1 timers - title=update baz
 sql: 1 timers - title=delete baz
 sql: 2 timers - title=select baz
+sql: 1 timers - title=commit

@@ -28,6 +28,7 @@ pg_execute("select bar", array());
 print_spans(tideways_get_spans());
 tideways_disable();
 --EXPECTF--
+app: 1 timers - 
 sql: 2 timers - title=select information_schema.tables
 sql: 1 timers - title=select foo
 sql: 1 timers - title=select bar
