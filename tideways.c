@@ -2003,8 +2003,6 @@ static void hp_detect_exception(char *func_name, zend_execute_data *data TSRMLS_
 
 static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS_DC)
 {
-	tw_trace_callback *cb;
-
 	if (!hp_globals.transaction_function ||
 		hp_globals.transaction_name ||
 		strcmp(ret, hp_globals.transaction_function->value) != 0) {
