@@ -9,6 +9,8 @@ $span = tideways_span_create('app');
 tideways_span_annotate($span, array('foo' => 'bar', 'bar' => 'baz'));
 tideways_disable();
 
+tideways_span_annotate($span, array('baz' => 1));
+
 var_dump(tideways_get_spans());
 --EXPECTF--
 array(2) {
@@ -41,11 +43,13 @@ array(2) {
     array(0) {
     }
     ["a"]=>
-    array(2) {
+    array(3) {
       ["foo"]=>
       string(3) "bar"
       ["bar"]=>
       string(3) "baz"
+      ["baz"]=>
+      string(1) "1"
     }
   }
 }

@@ -654,6 +654,15 @@ void tw_span_timer_stop(long spanId)
 	add_next_index_long(*stops, wt);
 }
 
+static int tw_convert_to_string(void *pDest TSRMLS_DC)
+{
+	zval **zv = (zval **) pDest;
+
+	convert_to_string_ex(zv);
+
+	return ZEND_HASH_APPLY_KEEP;
+}
+
 void tw_span_annotate(long spanId, zval *annotations)
 {
 	zval **span, **span_annotations;
@@ -665,6 +674,8 @@ void tw_span_annotate(long spanId, zval *annotations)
 	if (zend_hash_find(Z_ARRVAL_PP(span), "a", sizeof("a"), (void **) &span_annotations) == FAILURE) {
 		return;
 	}
+
+	zend_hash_apply(Z_ARRVAL_P(annotations), tw_convert_to_string TSRMLS_CC);
 
 	zend_hash_merge(Z_ARRVAL_PP(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *), 1);
 }
@@ -746,10 +757,7 @@ PHP_FUNCTION(tideways_span_annotate)
 		return;
 	}
 
-	if (hp_globals.enabled == 0) {
-		return;
-	}
-
+	// Yes, annotations are still possible when profiler is deactivated!
 	tw_span_annotate(spanId, annotations);
 }
 
