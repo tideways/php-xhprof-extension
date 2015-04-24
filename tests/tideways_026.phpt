@@ -10,9 +10,9 @@ tideways_enable();
 eval("strlen('Hello World!');");
 
 $data = tideways_disable();
-print_canonical($data);
+
+$spans = tideways_get_spans();
+echo $spans[0]['a']['cct'];
+
 --EXPECTF--
-main()                                  : ct=       1; wt=*;
-main()==>eval::tests/tideways_026.php(7) : eval()'d code: ct=       1; wt=*;
-main()==>strlen                         : ct=       1; wt=*;
-main()==>tideways_disable               : ct=       1; wt=*;
+1
