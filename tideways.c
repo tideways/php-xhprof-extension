@@ -2071,32 +2071,10 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 				ret = estrdup(func);
 			}
 		} else {
-			long     curr_op;
-			int      add_filename = 1;
-
-			/* we are dealing with a special directive/function like
-			 * include, eval, etc.
-			 */
-#if ZEND_EXTENSION_API_NO >= 220100525
-			curr_op = data->opline->extended_value;
-#else
-			curr_op = data->opline->op2.u.constant.value.lval;
-#endif
-
-			/* For some operations, we'll add the filename as part of the function
-			 * name to make the reports more useful. So rather than just "include"
-			 * you'll see something like "run_init::foo.php" in your reports.
-			 */
-			if (curr_op == ZEND_EVAL){
-				return NULL;
-			} else {
-				const char *filename;
-				int   len;
-				filename = hp_get_base_filename((curr_func->op_array).filename);
-				len      = strlen("run_init") + strlen(filename) + 3;
-				ret      = (char *)emalloc(len);
-				snprintf(ret, len, "run_init::%s", filename);
-			}
+			// This branch includes execution of eval and include/require(_once) calls
+			// We assume it is not 1999 anymore and not much PHP code runs in the
+			// body of a file and if it is, we are ok with adding it to the caller's wt.
+			return NULL;
 		}
 	}
 	return ret;

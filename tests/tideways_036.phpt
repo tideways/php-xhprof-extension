@@ -21,9 +21,7 @@ I am in foo()...
 main()                                  : ct=       1; wt=*;
 main()==>dirname                        : ct=       2; wt=*;
 main()==>evaledfoo                      : ct=       1; wt=*;
-main()==>run_init::tests/common.php     : ct=       1; wt=*;
-main()==>run_init::tests/tideways_004_inc.php: ct=       1; wt=*;
+main()==>explode                        : ct=       1; wt=*;
+main()==>foo                            : ct=       1; wt=*;
+main()==>implode                        : ct=       1; wt=*;
 main()==>tideways_disable               : ct=       1; wt=*;
-run_init::tests/tideways_004_inc.php==>explode: ct=       1; wt=*;
-run_init::tests/tideways_004_inc.php==>foo: ct=       1; wt=*;
-run_init::tests/tideways_004_inc.php==>implode: ct=       1; wt=*;
