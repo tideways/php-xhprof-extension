@@ -1213,6 +1213,24 @@ void tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *
 	efree(params_array);
 }
 
+void tw_trace_callback_soap_client_dorequest(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	zval *argument = *(args-args_len+1);
+	char *summary;
+
+	if (Z_TYPE_P(argument) != IS_STRING) {
+		return;
+	}
+
+	if (strncmp(Z_STRVAL_P(argument), "http", 4) != 0) {
+		return;
+	}
+
+	summary = hp_get_file_summary(Z_STRVAL_P(argument), Z_STRLEN_P(argument) TSRMLS_CC);
+	tw_trace_callback_record_with_cache("http.soap", 9, summary, strlen(summary), start, end, 0);
+}
+
+
 void tw_trace_callback_file_get_contents(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *argument = *(args-args_len);
@@ -1593,6 +1611,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_fastcgi_finish_request;
 	register_trace_callback("fastcgi_finish_request", cb);
+
+	cb = tw_trace_callback_soap_client_dorequest;
+	register_trace_callback("SoapClient::__doRequest", cb);
 
 	cb = tw_trace_callback_symfony_resolve_arguments_tx;
 	register_trace_callback("Symfony\\Component\\HttpKernel\\Controller\\ControllerResolver::getArguments", cb);
