@@ -15,10 +15,12 @@ function create_garbage()
 
 tideways_enable();
 create_garbage();
-$data = tideways_disable();
+tideways_disable();
 
-echo "Garbage Collection runs: " . $data['main()']['gc'] . "\n";
-echo "Garbage Collection Cycles Collected: " . $data['main()']['gcc'] . "\n";
+$spans = tideways_get_spans();
+
+echo "Garbage Collection runs: " . $spans[0]['a']['gc'] . "\n";
+echo "Garbage Collection Cycles Collected: " . $spans[0]['a']['gcc'] . "\n";
 
 --EXPECTF--
 Garbage Collection runs: 2

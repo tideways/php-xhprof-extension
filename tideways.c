@@ -155,8 +155,6 @@ typedef struct hp_entry_t {
 	struct rusage           ru_start_hprof;             /* user/sys time start */
 	struct hp_entry_t      *prev_hprof;    /* ptr to prev entry being profiled */
 	uint8                   hash_code;     /* hash_code for the function name  */
-	zend_uint				gc_runs; /* number of garbage collection runs */
-	zend_uint				gc_collected; /* number of collected items in garbage run */
 } hp_entry_t;
 
 typedef struct hp_string {
@@ -240,6 +238,9 @@ typedef struct hp_global_t {
 	HashTable *trace_callbacks;
 	HashTable *span_cache;
 	int slow_php_call_treshold;
+
+	zend_uint gc_runs; /* number of garbage collection runs */
+	zend_uint gc_collected; /* number of collected items in garbage run */
 
 	/* Table of functions which allow custom tracing */
 	char **trace_function_names;
@@ -680,9 +681,28 @@ void tw_span_annotate(long spanId, zval *annotations)
 	zend_hash_merge(Z_ARRVAL_PP(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *), 1);
 }
 
+void tw_span_annotate_long(long spanId, char *key, long value)
+{
+	zval **span, **span_annotations, *annotation_value;
+
+	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
+		return;
+	}
+
+	if (zend_hash_find(Z_ARRVAL_PP(span), "a", sizeof("a"), (void **) &span_annotations) == FAILURE) {
+		return;
+	}
+
+	MAKE_STD_ZVAL(annotation_value);
+	ZVAL_LONG(annotation_value, value);
+	convert_to_string_ex(&annotation_value);
+
+	add_assoc_zval_ex(*span_annotations, key, strlen(key)+1, annotation_value);
+}
+
 void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 {
-	zval **span, **span_annotations, *zval;
+	zval **span, **span_annotations;
 
 	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
 		return;
@@ -1536,6 +1556,9 @@ void hp_init_profiler_state(TSRMLS_D)
 	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
 		hp_init_trace_callbacks();
 	}
+
+	hp_globals.gc_runs = GC_G(gc_runs);
+	hp_globals.gc_collected = GC_G(collected);
 }
 
 /**
@@ -2488,8 +2511,6 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC
 
 	/* Get start tsc counter */
 	current->tsc_start = cycle_timer();
-	current->gc_runs = GC_G(gc_runs);
-	current->gc_collected = GC_G(collected);
 
 	/* Get CPU usage */
 	if (hp_globals.tideways_flags & TIDEWAYS_FLAGS_CPU) {
@@ -2565,11 +2586,6 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 	/* Bump stats in the counts hashtable */
 	hp_inc_count(counts, "ct", 1  TSRMLS_CC);
 	hp_inc_count(counts, "wt", wt TSRMLS_CC);
-
-	if ((GC_G(gc_runs) - top->gc_runs) > 0) {
-		hp_inc_count(counts, "gc", GC_G(gc_runs) - top->gc_runs TSRMLS_CC);
-		hp_inc_count(counts, "gcc", GC_G(collected) - top->gc_collected TSRMLS_CC);
-	}
 
 	if (hp_globals.tideways_flags & TIDEWAYS_FLAGS_CPU) {
 		/* Get CPU usage */
@@ -2900,6 +2916,11 @@ static void hp_stop(TSRMLS_D)
 
 	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
 		tw_span_timer_stop(0);
+
+		if ((GC_G(gc_runs) - hp_globals.gc_runs) > 0) {
+			tw_span_annotate_long(0, "gc", GC_G(gc_runs) - hp_globals.gc_runs TSRMLS_CC);
+			tw_span_annotate_long(0, "gcc", GC_G(collected) - hp_globals.gc_collected TSRMLS_CC);
+		}
 	}
 
 	if (hp_globals.root) {
