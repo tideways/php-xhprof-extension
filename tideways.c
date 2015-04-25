@@ -496,8 +496,8 @@ ZEND_GET_MODULE(tideways)
  */
 PHP_FUNCTION(tideways_enable)
 {
-	long  tideways_flags = 0;       /* Tideways flags */
-	zval *optional_array = NULL;         /* optional array arg: for future use */
+	long tideways_flags = 0;
+	zval *optional_array = NULL;
 
 	if (hp_globals.enabled) {
 		return;
@@ -1009,6 +1009,7 @@ void tw_trace_callback_oxid_tx(char *symbol, void **args, int args_len, zval *ob
 	}
 }
 
+/* $resolver->getArguments($request, $controller); */
 void tw_trace_callback_symfony_resolve_arguments_tx(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *callback, **controller, **action;
@@ -1019,7 +1020,7 @@ void tw_trace_callback_symfony_resolve_arguments_tx(char *symbol, void **args, i
 	int len;
 	tw_trace_callback cb;
 
-	callback = *(args-args_len+1); // $resolver->getArguments($request, $controller);
+	callback = *(args-args_len+1);
 
 	// Only Symfony2 framework for now
 	if (Z_TYPE_P(callback) == IS_ARRAY) {
@@ -1657,9 +1658,6 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	cb = tw_trace_callback_wordpress_template;
 	register_trace_callback("load_template", cb);
 
-	cb = tw_trace_callback_wordpress_tx;
-	register_trace_callback("get_query_template", cb);
-
 	cb = tw_trace_callback_curl_exec;
 	register_trace_callback("curl_exec", cb);
 
@@ -1714,22 +1712,30 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	cb = tw_trace_callback_soap_client_dorequest;
 	register_trace_callback("SoapClient::__doRequest", cb);
 
-	cb = tw_trace_callback_symfony_resolve_arguments_tx;
-	register_trace_callback("Symfony\\Component\\HttpKernel\\Controller\\ControllerResolver::getArguments", cb);
+	cb = tw_trace_callback_magento_block;
+	register_trace_callback("Mage_Core_Block_Abstract::toHtml", cb);
 
-	cb = tw_trace_callback_oxid_tx;
-	register_trace_callback("oxShopControl::_process", cb);
+	cb = tw_trace_callback_zend_view;
+	register_trace_callback("Zend_View_Abstract::render", cb);
 
 	cb = tw_trace_callback_zend1_dispatcher_families_tx;
 	register_trace_callback("Enlight_Controller_Action::dispatch", cb);
 	register_trace_callback("Mage_Core_Controller_Varien_Action::dispatch", cb);
 	register_trace_callback("Zend_Controller_Action::dispatch", cb);
 
-	cb = tw_trace_callback_magento_block;
-	register_trace_callback("Mage_Core_Block_Abstract::toHtml", cb);
+	cb = tw_trace_callback_symfony_resolve_arguments_tx;
+	register_trace_callback("Symfony\\Component\\HttpKernel\\Controller\\ControllerResolver::getArguments", cb);
 
-	cb = tw_trace_callback_zend_view;
-	register_trace_callback("Zend_View_Abstract::render", cb);
+	cb = tw_trace_callback_wordpress_tx;
+	register_trace_callback("get_query_template", cb);
+
+	cb = tw_trace_callback_oxid_tx;
+	register_trace_callback("oxShopControl::_process", cb);
+
+	hp_globals.gc_runs = GC_G(gc_runs);
+	hp_globals.gc_collected = GC_G(collected);
+	hp_globals.compile_count = 0;
+	hp_globals.compile_wt = 0;
 }
 
 
@@ -1776,11 +1782,6 @@ void hp_init_profiler_state(TSRMLS_D)
 	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
 		hp_init_trace_callbacks();
 	}
-
-	hp_globals.gc_runs = GC_G(gc_runs);
-	hp_globals.gc_collected = GC_G(collected);
-	hp_globals.compile_count = 0;
-	hp_globals.compile_wt = 0;
 }
 
 /**
