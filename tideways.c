@@ -1618,7 +1618,7 @@ static inline int hp_function_map_filter_collision(hp_function_map *map, uint8 h
 
 void hp_init_trace_callbacks(TSRMLS_D)
 {
-	tw_trace_callback *cb;
+	tw_trace_callback cb;
 
 	hp_globals.trace_callbacks = NULL;
 	hp_globals.span_cache = NULL;
