@@ -916,6 +916,7 @@ void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_le
 	}
 }
 
+/* Mage_Core_Block_Abstract::toHtml() */
 void tw_trace_callback_magento_block(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zend_class_entry *ce;
@@ -923,6 +924,18 @@ void tw_trace_callback_magento_block(char *symbol, void **args, int args_len, zv
 	ce = Z_OBJCE_P(object);
 
 	tw_trace_callback_record_with_cache("view", 4, ce->name, ce->name_length, start, end, 1);
+}
+
+/* Zend_View_Abstract::render($name); */
+void tw_trace_callback_zend_view(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	zval *name = *(args-args_len);
+
+	if (Z_TYPE_P(name) != IS_STRING) {
+		return;
+	}
+
+	tw_trace_callback_record_with_cache("view", 4, Z_STRVAL_P(name), Z_STRLEN_P(name), start, end, 1);
 }
 
 /* Applies to Enlight, Mage and Zend1 */
@@ -1700,6 +1713,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_magento_block;
 	register_trace_callback("Mage_Core_Block_Abstract::toHtml", cb);
+
+	cb = tw_trace_callback_zend_view;
+	register_trace_callback("Zend_View_Abstract::render", cb);
 }
 
 
