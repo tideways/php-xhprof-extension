@@ -899,6 +899,10 @@ void tw_trace_callback_php_controller(char *symbol, void **args, int args_len, z
 	idx = tw_span_create("php.ctrl", 8);
 	tw_span_record_duration(idx, start, end);
 	tw_span_annotate_string(idx, "title", symbol, 1);
+
+	if (hp_globals.transaction_name == NULL) {
+		hp_globals.transaction_name = hp_create_string(symbol, strlen(symbol));
+	}
 }
 
 void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
@@ -941,6 +945,36 @@ void tw_trace_callback_zend1_dispatcher_families_tx(char *symbol, void **args, i
 	tw_span_annotate_string(idx, "title", ret, 0);
 }
 
+/* oxShopControl::_process($sClass, $sFnc = null); */
+void tw_trace_callback_oxid_tx(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	zval *sClass = *(args-args_len);
+	zval *sFnc = *(args-args_len+1);
+	char *ret = NULL;
+	int len;
+
+	if (Z_TYPE_P(sClass) != IS_STRING) {
+		return;
+	}
+
+	if (hp_globals.transaction_name != NULL) {
+		// this could be more efficient at some point
+		hp_transaction_name_clear();
+	}
+
+	if (args_len > 1 && sFnc != NULL && Z_TYPE_P(sFnc) == IS_STRING) {
+		len = Z_STRLEN_P(sClass) + Z_STRLEN_P(sFnc) + 3;
+		ret = (char*)emalloc(len);
+		snprintf(ret, len, "%s::%s", Z_STRVAL_P(sClass), Z_STRVAL_P(sFnc));
+
+		hp_globals.transaction_name = hp_create_string(ret, len);
+		tw_trace_callback_record_with_cache("php.ctrl", 8, ret, len, start, end, 0);
+	} else {
+		hp_globals.transaction_name = hp_create_string(Z_STRVAL_P(sClass), Z_STRLEN_P(sClass));
+		tw_trace_callback_record_with_cache("php.ctrl", 8, Z_STRVAL_P(sClass), Z_STRLEN_P(sClass), start, end, 1);
+	}
+}
+
 void tw_trace_callback_symfony_resolve_arguments_tx(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *callback, **controller, **action;
@@ -978,10 +1012,6 @@ void tw_trace_callback_symfony_resolve_arguments_tx(char *symbol, void **args, i
 		len = class_name_len + Z_STRLEN_PP(action) + 3;
 		ret = (char*)emalloc(len);
 		snprintf(ret, len, "%s::%s", class_name, Z_STRVAL_PP(action));
-
-		if (hp_globals.transaction_name == NULL) {
-			hp_globals.transaction_name = hp_create_string(ret, len);
-		}
 
 		cb = tw_trace_callback_php_controller;
 		register_trace_callback_len(ret, len-1, cb);
@@ -1646,6 +1676,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_symfony_resolve_arguments_tx;
 	register_trace_callback("Symfony\\Component\\HttpKernel\\Controller\\ControllerResolver::getArguments", cb);
+
+	cb = tw_trace_callback_oxid_tx;
+	register_trace_callback("oxShopControl::_process", cb);
 
 	cb = tw_trace_callback_zend1_dispatcher_families_tx;
 	register_trace_callback("Enlight_Controller_Action::dispatch", cb);
