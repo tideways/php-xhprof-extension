@@ -905,6 +905,18 @@ void tw_trace_callback_php_controller(char *symbol, void **args, int args_len, z
 	}
 }
 
+/** get_query_template($type, $templates = array()) */
+void tw_trace_callback_wordpress_tx(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	zval *type = *(args-args_len);
+
+	if (!type || Z_TYPE_P(type) != IS_STRING || hp_globals.transaction_name != NULL) {
+		return;
+	}
+
+	hp_globals.transaction_name = hp_create_string(Z_STRVAL_P(type), Z_STRLEN_P(type));
+}
+
 void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *argument_element = *(args-args_len);
@@ -1645,6 +1657,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_wordpress_template;
 	register_trace_callback("load_template", cb);
+
+	cb = tw_trace_callback_wordpress_tx;
+	register_trace_callback("get_query_template", cb);
 
 	cb = tw_trace_callback_curl_exec;
 	register_trace_callback("curl_exec", cb);

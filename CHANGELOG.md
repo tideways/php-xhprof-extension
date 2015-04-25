@@ -1,3 +1,37 @@
+# Version 2.0
+
+- Add new collection mechanism using spans (See Google Dapper paper).
+  There is a large list of extensions, libraries and frameworks supported
+  automatically and an API to create spans yourself.
+
+- Added Symfony2 Support for Spans
+
+- Added Oxid Support for Spans
+
+- Added Shopware Support for Spans
+
+- Added Magento Support for Spans
+
+- Added Zend Framework 1 Support for Spans
+
+- Added span support for mysql, mysqli, PDO and pg database extensions
+
+- Added Doctrine2 ORM Support for Spans
+
+- Added Smarty2, Smarty2 and Twig Template Support for spans
+
+- Added HTTP support for spans hooking into file_get_contents, curl_exec and SoapClient
+
+- Made "transaction_function" obsolete by supporting the following
+  framework detections automatically in span code:
+
+    - Symfony2 Framework
+    - Shopware
+    - Oxid
+    - Magento
+    - Zend Framework 1
+    - Wordpress
+
 # Version 1.7.1
 
 - Reintroduce `tideways_last_fatal_error` as alias of `error_get_last()` for
