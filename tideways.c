@@ -1624,10 +1624,10 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	hp_globals.span_cache = NULL;
 
 	ALLOC_HASHTABLE(hp_globals.trace_callbacks);
-	zend_hash_init(hp_globals.trace_callbacks, 32, NULL, NULL, 0);
+	zend_hash_init(hp_globals.trace_callbacks, 255, NULL, NULL, 0);
 
 	ALLOC_HASHTABLE(hp_globals.span_cache);
-	zend_hash_init(hp_globals.span_cache, 32, NULL, NULL, 0);
+	zend_hash_init(hp_globals.span_cache, 255, NULL, NULL, 0);
 
 	cb = tw_trace_callback_file_get_contents;
 	register_trace_callback("file_get_contents", cb);
