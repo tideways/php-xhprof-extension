@@ -1017,7 +1017,7 @@ void tw_trace_callback_symfony_resolve_arguments_tx(char *symbol, void **args, i
 	const char *free_class_name = NULL;
 	char *ret = NULL;
 	int len;
-	tw_trace_callback *cb;
+	tw_trace_callback cb;
 
 	callback = *(args-args_len+1); // $resolver->getArguments($request, $controller);
 
@@ -1354,7 +1354,6 @@ PHP_RINIT_FUNCTION(tideways)
 	char *extension_dir;
 	char *profiler_file;
 	int profiler_file_len;
-	tw_trace_callback *cb;
 
 	hp_globals.prepend_overwritten = 0;
 	hp_globals.backtrace = NULL;
