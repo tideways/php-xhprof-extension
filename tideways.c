@@ -916,6 +916,15 @@ void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_le
 	}
 }
 
+void tw_trace_callback_magento_block(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	zend_class_entry *ce;
+
+	ce = Z_OBJCE_P(object);
+
+	tw_trace_callback_record_with_cache("view", 4, ce->name, ce->name_length, start, end, 1);
+}
+
 /* Applies to Enlight, Mage and Zend1 */
 void tw_trace_callback_zend1_dispatcher_families_tx(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
@@ -1610,6 +1619,10 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("setup_theme", cb);
 	// Doctrine
 	register_trace_callback("Doctrine\\ORM\\EntityManager::flush", cb);
+	// Magento
+	register_trace_callback("Mage_Core_Model_App::_initModules", cb);
+	register_trace_callback("Mage_Core_Model_Config::loadModules", cb);
+	register_trace_callback("Mage_Core_Model_Config::loadDb", cb);
 
 	cb = tw_trace_callback_doctrine_persister;
 	register_trace_callback("Doctrine\\ORM\\Persisters\\BasicEntityPersister::load", cb);
@@ -1684,6 +1697,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Enlight_Controller_Action::dispatch", cb);
 	register_trace_callback("Mage_Core_Controller_Varien_Action::dispatch", cb);
 	register_trace_callback("Zend_Controller_Action::dispatch", cb);
+
+	cb = tw_trace_callback_magento_block;
+	register_trace_callback("Mage_Core_Block_Abstract::toHtml", cb);
 }
 
 
