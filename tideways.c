@@ -114,6 +114,7 @@
 #define TIDEWAYS_FLAGS_NO_COMPILE    0x0010 /* do not profile require/include/eval */
 #define TIDEWAYS_FLAGS_NO_SPANS      0x0020
 #define TIDEWAYS_FLAGS_NO_HIERACHICAL 0x0040
+#define TIDEWAYS_FLAGS_NO_TXDETECT    0x0080
 
 /* Constant for ignoring functions, transparent to hierarchical profile */
 #define TIDEWAYS_MAX_FILTERED_FUNCTIONS  256
@@ -896,13 +897,17 @@ void tw_trace_callback_php_controller(char *symbol, void **args, int args_len, z
 {
 	long idx;
 
-	idx = tw_span_create("php.ctrl", 8);
-	tw_span_record_duration(idx, start, end);
-	tw_span_annotate_string(idx, "title", symbol, 1);
-
 	if (hp_globals.transaction_name == NULL) {
 		hp_globals.transaction_name = hp_create_string(symbol, strlen(symbol));
 	}
+
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
+		return;
+	}
+
+	idx = tw_span_create("php.ctrl", 8);
+	tw_span_record_duration(idx, start, end);
+	tw_span_annotate_string(idx, "title", symbol, 1);
 }
 
 /** get_query_template($type, $templates = array()) */
@@ -974,6 +979,10 @@ void tw_trace_callback_zend1_dispatcher_families_tx(char *symbol, void **args, i
 		hp_globals.transaction_name = hp_create_string(ret, len);
 	}
 
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
+		return;
+	}
+
 	idx = tw_span_create("php.ctrl", 8);
 	tw_span_record_duration(idx, start, end);
 	tw_span_annotate_string(idx, "title", ret, 0);
@@ -985,7 +994,7 @@ void tw_trace_callback_oxid_tx(char *symbol, void **args, int args_len, zval *ob
 	zval *sClass = *(args-args_len);
 	zval *sFnc = *(args-args_len+1);
 	char *ret = NULL;
-	int len;
+	int len, copy;
 
 	if (Z_TYPE_P(sClass) != IS_STRING) {
 		return;
@@ -1000,13 +1009,20 @@ void tw_trace_callback_oxid_tx(char *symbol, void **args, int args_len, zval *ob
 		len = Z_STRLEN_P(sClass) + Z_STRLEN_P(sFnc) + 3;
 		ret = (char*)emalloc(len);
 		snprintf(ret, len, "%s::%s", Z_STRVAL_P(sClass), Z_STRVAL_P(sFnc));
-
-		hp_globals.transaction_name = hp_create_string(ret, len);
-		tw_trace_callback_record_with_cache("php.ctrl", 8, ret, len, start, end, 0);
+		copy = 0;
 	} else {
-		hp_globals.transaction_name = hp_create_string(Z_STRVAL_P(sClass), Z_STRLEN_P(sClass));
-		tw_trace_callback_record_with_cache("php.ctrl", 8, Z_STRVAL_P(sClass), Z_STRLEN_P(sClass), start, end, 1);
+		ret = Z_STRVAL_P(sClass);
+		len = Z_STRLEN_P(sClass);
+		copy = 1;
 	}
+
+	hp_globals.transaction_name = hp_create_string(ret, len);
+
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
+		return;
+	}
+
+	tw_trace_callback_record_with_cache("php.ctrl", 8, ret, len, start, end, copy);
 }
 
 /* $resolver->getArguments($request, $controller); */
@@ -1451,6 +1467,7 @@ static void hp_register_constants(INIT_FUNC_ARGS)
 	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_COMPILE", TIDEWAYS_FLAGS_NO_COMPILE, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_SPANS", TIDEWAYS_FLAGS_NO_SPANS, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_HIERACHICAL", TIDEWAYS_FLAGS_NO_HIERACHICAL, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("TIDEWAYS_FLAGS_NO_TXDETECT", TIDEWAYS_FLAGS_NO_TXDETECT, CONST_CS | CONST_PERSISTENT);
 }
 
 /**
@@ -1629,108 +1646,112 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	ALLOC_HASHTABLE(hp_globals.span_cache);
 	zend_hash_init(hp_globals.span_cache, 255, NULL, NULL, 0);
 
-	cb = tw_trace_callback_file_get_contents;
-	register_trace_callback("file_get_contents", cb);
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
+		cb = tw_trace_callback_file_get_contents;
+		register_trace_callback("file_get_contents", cb);
 
-	cb = tw_trace_callback_php_call;
-	register_trace_callback("session_start", cb);
-	// Symfony
-	register_trace_callback("Symfony\\Component\\HttpKernel\\Kernel::boot", cb);
-	// Wordpress
-	register_trace_callback("get_sidebar", cb);
-	register_trace_callback("get_header", cb);
-	register_trace_callback("get_footer", cb);
-	register_trace_callback("load_textdomain", cb);
-	register_trace_callback("setup_theme", cb);
-	// Doctrine
-	register_trace_callback("Doctrine\\ORM\\EntityManager::flush", cb);
-	// Magento
-	register_trace_callback("Mage_Core_Model_App::_initModules", cb);
-	register_trace_callback("Mage_Core_Model_Config::loadModules", cb);
-	register_trace_callback("Mage_Core_Model_Config::loadDb", cb);
+		cb = tw_trace_callback_php_call;
+		register_trace_callback("session_start", cb);
+		// Symfony
+		register_trace_callback("Symfony\\Component\\HttpKernel\\Kernel::boot", cb);
+		// Wordpress
+		register_trace_callback("get_sidebar", cb);
+		register_trace_callback("get_header", cb);
+		register_trace_callback("get_footer", cb);
+		register_trace_callback("load_textdomain", cb);
+		register_trace_callback("setup_theme", cb);
+		// Doctrine
+		register_trace_callback("Doctrine\\ORM\\EntityManager::flush", cb);
+		// Magento
+		register_trace_callback("Mage_Core_Model_App::_initModules", cb);
+		register_trace_callback("Mage_Core_Model_Config::loadModules", cb);
+		register_trace_callback("Mage_Core_Model_Config::loadDb", cb);
 
-	cb = tw_trace_callback_doctrine_persister;
-	register_trace_callback("Doctrine\\ORM\\Persisters\\BasicEntityPersister::load", cb);
+		cb = tw_trace_callback_doctrine_persister;
+		register_trace_callback("Doctrine\\ORM\\Persisters\\BasicEntityPersister::load", cb);
 
-	cb = tw_trace_callback_doctrine_query;
-	register_trace_callback("Doctrine\\ORM\\AbstractQuery::execute", cb);
+		cb = tw_trace_callback_doctrine_query;
+		register_trace_callback("Doctrine\\ORM\\AbstractQuery::execute", cb);
 
-	cb = tw_trace_callback_wordpress_template;
-	register_trace_callback("load_template", cb);
+		cb = tw_trace_callback_wordpress_template;
+		register_trace_callback("load_template", cb);
 
-	cb = tw_trace_callback_curl_exec;
-	register_trace_callback("curl_exec", cb);
+		cb = tw_trace_callback_curl_exec;
+		register_trace_callback("curl_exec", cb);
 
-	cb = tw_trace_callback_sql_functions;
-	register_trace_callback("PDO::exec", cb);
-	register_trace_callback("PDO::query", cb);
-	register_trace_callback("mysql_query", cb);
-	register_trace_callback("mysqli_query", cb);
-	register_trace_callback("mysqli::query", cb);
+		cb = tw_trace_callback_sql_functions;
+		register_trace_callback("PDO::exec", cb);
+		register_trace_callback("PDO::query", cb);
+		register_trace_callback("mysql_query", cb);
+		register_trace_callback("mysqli_query", cb);
+		register_trace_callback("mysqli::query", cb);
 
-	cb = tw_trace_callback_sql_commit;
-	register_trace_callback("PDO::commit", cb);
-	register_trace_callback("mysqli::commit", cb);
-	register_trace_callback("mysqli_commit", cb);
+		cb = tw_trace_callback_sql_commit;
+		register_trace_callback("PDO::commit", cb);
+		register_trace_callback("mysqli::commit", cb);
+		register_trace_callback("mysqli_commit", cb);
 
-	cb = tw_trace_callback_pdo_stmt_execute;
-	register_trace_callback("PDOStatement::execute", cb);
+		cb = tw_trace_callback_pdo_stmt_execute;
+		register_trace_callback("PDOStatement::execute", cb);
 
-	cb = tw_trace_callback_pgsql_query;
-	register_trace_callback("pg_query", cb);
-	register_trace_callback("pg_query_params", cb);
+		cb = tw_trace_callback_pgsql_query;
+		register_trace_callback("pg_query", cb);
+		register_trace_callback("pg_query_params", cb);
 
-	cb = tw_trace_callback_pgsql_execute;
-	register_trace_callback("pg_execute", cb);
+		cb = tw_trace_callback_pgsql_execute;
+		register_trace_callback("pg_execute", cb);
 
-	cb = tw_trace_callback_event_dispatchers;
-	register_trace_callback("Doctrine\\Common\\EventManager::dispatchEvent", cb);
-	register_trace_callback("Enlight_Event_EventManager::filter", cb);
-	register_trace_callback("Enlight_Event_EventManager::notify", cb);
-	register_trace_callback("Enlight_Event_EventManager::notifyUntil", cb);
-	register_trace_callback("Zend\\EventManager\\EventManager::trigger", cb);
-	register_trace_callback("do_action", cb);
-	register_trace_callback("drupal_alter", cb);
-	register_trace_callback("Mage::dispatchEvent", cb);
+		cb = tw_trace_callback_event_dispatchers;
+		register_trace_callback("Doctrine\\Common\\EventManager::dispatchEvent", cb);
+		register_trace_callback("Enlight_Event_EventManager::filter", cb);
+		register_trace_callback("Enlight_Event_EventManager::notify", cb);
+		register_trace_callback("Enlight_Event_EventManager::notifyUntil", cb);
+		register_trace_callback("Zend\\EventManager\\EventManager::trigger", cb);
+		register_trace_callback("do_action", cb);
+		register_trace_callback("drupal_alter", cb);
+		register_trace_callback("Mage::dispatchEvent", cb);
 
-	cb = tw_trace_callback_event_dispatchers_arg2;
-	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::doDispatch", cb);
+		cb = tw_trace_callback_event_dispatchers_arg2;
+		register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::doDispatch", cb);
 
-	cb = tw_trace_callback_twig_template;
-	register_trace_callback("Twig_Template::render", cb);
-	register_trace_callback("Twig_Template::display", cb);
+		cb = tw_trace_callback_twig_template;
+		register_trace_callback("Twig_Template::render", cb);
+		register_trace_callback("Twig_Template::display", cb);
 
-	cb = tw_trace_callback_smarty2_template;
-	register_trace_callback("Smarty::fetch", cb);
+		cb = tw_trace_callback_smarty2_template;
+		register_trace_callback("Smarty::fetch", cb);
 
-	cb = tw_trace_callback_smarty3_template;
-	register_trace_callback("Smarty_Internal_TemplateBase::fetch", cb);
+		cb = tw_trace_callback_smarty3_template;
+		register_trace_callback("Smarty_Internal_TemplateBase::fetch", cb);
 
-	cb = tw_trace_callback_fastcgi_finish_request;
-	register_trace_callback("fastcgi_finish_request", cb);
+		cb = tw_trace_callback_fastcgi_finish_request;
+		register_trace_callback("fastcgi_finish_request", cb);
 
-	cb = tw_trace_callback_soap_client_dorequest;
-	register_trace_callback("SoapClient::__doRequest", cb);
+		cb = tw_trace_callback_soap_client_dorequest;
+		register_trace_callback("SoapClient::__doRequest", cb);
 
-	cb = tw_trace_callback_magento_block;
-	register_trace_callback("Mage_Core_Block_Abstract::toHtml", cb);
+		cb = tw_trace_callback_magento_block;
+		register_trace_callback("Mage_Core_Block_Abstract::toHtml", cb);
 
-	cb = tw_trace_callback_zend_view;
-	register_trace_callback("Zend_View_Abstract::render", cb);
+		cb = tw_trace_callback_zend_view;
+		register_trace_callback("Zend_View_Abstract::render", cb);
+	}
 
-	cb = tw_trace_callback_zend1_dispatcher_families_tx;
-	register_trace_callback("Enlight_Controller_Action::dispatch", cb);
-	register_trace_callback("Mage_Core_Controller_Varien_Action::dispatch", cb);
-	register_trace_callback("Zend_Controller_Action::dispatch", cb);
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_TXDETECT) == 0) {
+		cb = tw_trace_callback_zend1_dispatcher_families_tx;
+		register_trace_callback("Enlight_Controller_Action::dispatch", cb);
+		register_trace_callback("Mage_Core_Controller_Varien_Action::dispatch", cb);
+		register_trace_callback("Zend_Controller_Action::dispatch", cb);
 
-	cb = tw_trace_callback_symfony_resolve_arguments_tx;
-	register_trace_callback("Symfony\\Component\\HttpKernel\\Controller\\ControllerResolver::getArguments", cb);
+		cb = tw_trace_callback_symfony_resolve_arguments_tx;
+		register_trace_callback("Symfony\\Component\\HttpKernel\\Controller\\ControllerResolver::getArguments", cb);
 
-	cb = tw_trace_callback_wordpress_tx;
-	register_trace_callback("get_query_template", cb);
+		cb = tw_trace_callback_wordpress_tx;
+		register_trace_callback("get_query_template", cb);
 
-	cb = tw_trace_callback_oxid_tx;
-	register_trace_callback("oxShopControl::_process", cb);
+		cb = tw_trace_callback_oxid_tx;
+		register_trace_callback("oxShopControl::_process", cb);
+	}
 
 	hp_globals.gc_runs = GC_G(gc_runs);
 	hp_globals.gc_collected = GC_G(collected);
@@ -1779,9 +1800,7 @@ void hp_init_profiler_state(TSRMLS_D)
 	/* Set up filter of functions which may be ignored during profiling */
 	hp_transaction_name_clear();
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
-		hp_init_trace_callbacks();
-	}
+	hp_init_trace_callbacks();
 }
 
 /**
@@ -2754,7 +2773,7 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 	tsc_end = cycle_timer();
 	wt = get_us_from_tsc(tsc_end - top->tsc_start, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0 && data != NULL) {
+	if (data != NULL) {
 		if (zend_hash_find(hp_globals.trace_callbacks, top->name_hprof, strlen(top->name_hprof)+1, (void **)&callback) == SUCCESS) {
 			void **args =  hp_get_execute_arguments(data);
 			int arg_count = (int)(zend_uintptr_t) *args;
@@ -3059,10 +3078,8 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
 		hp_globals.root = estrdup(ROOT_SYMBOL);
 		hp_globals.start_time = cycle_timer();
 
-		if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
-			tw_span_create("app", 3);
-			tw_span_timer_start(0);
-		}
+		tw_span_create("app", 3);
+		tw_span_timer_start(0);
 
 		BEGIN_PROFILING(&hp_globals.entries, hp_globals.root, hp_profile_flag, NULL);
 	}
@@ -3100,20 +3117,18 @@ static void hp_stop(TSRMLS_D)
 		END_PROFILING(&hp_globals.entries, hp_profile_flag, NULL);
 	}
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
-		tw_span_timer_stop(0);
+	tw_span_timer_stop(0);
 
-		if ((GC_G(gc_runs) - hp_globals.gc_runs) > 0) {
-			tw_span_annotate_long(0, "gc", GC_G(gc_runs) - hp_globals.gc_runs TSRMLS_CC);
-			tw_span_annotate_long(0, "gcc", GC_G(collected) - hp_globals.gc_collected TSRMLS_CC);
-		}
+	if ((GC_G(gc_runs) - hp_globals.gc_runs) > 0) {
+		tw_span_annotate_long(0, "gc", GC_G(gc_runs) - hp_globals.gc_runs TSRMLS_CC);
+		tw_span_annotate_long(0, "gcc", GC_G(collected) - hp_globals.gc_collected TSRMLS_CC);
+	}
 
-		if (hp_globals.compile_count > 0) {
-			tw_span_annotate_long(0, "cct", hp_globals.compile_count);
-		}
-		if (hp_globals.compile_wt > 0) {
-			tw_span_annotate_long(0, "cwt", hp_globals.compile_wt);
-		}
+	if (hp_globals.compile_count > 0) {
+		tw_span_annotate_long(0, "cct", hp_globals.compile_count);
+	}
+	if (hp_globals.compile_wt > 0) {
+		tw_span_annotate_long(0, "cwt", hp_globals.compile_wt);
 	}
 
 	if (hp_globals.root) {
