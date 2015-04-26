@@ -474,6 +474,9 @@ PHP_INI_ENTRY("tideways.api_key", "", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.framework", "", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.sample_rate", "10", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.auto_prepend_library", "1", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("tideways.collect", "tracing", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("tideways.monitor", "basic", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("tideways.distributed_tracing_hosts", "127.0.0.1", PHP_INI_ALL, NULL)
 
 PHP_INI_END()
 
@@ -1411,6 +1414,9 @@ PHP_MINFO_FUNCTION(tideways)
 	php_info_print_table_row(2, "Framework Detection (tideways.framework)", INI_STR("tideways.framework"));
 	php_info_print_table_row(2, "Automatically Start (tideways.auto_start)", INI_INT("tideways.auto_start") ? "Yes": "No");
 	php_info_print_table_row(2, "Load PHP Library (tideways.auto_prepend_library)", INI_INT("tideways.auto_prepend_library") ? "Yes": "No");
+	php_info_print_table_row(2, "Tideways Collect Mode (tideways.collect)", INI_STR("tideways.collect"));
+	php_info_print_table_row(2, "Tideways Monitoring Mode (tideways.monitor)", INI_STR("tideways.monitor"));
+	php_info_print_table_row(2, "Allowed Distributed Tracing Hosts (tideways.distributed_tracing_hosts)", INI_STR("tideways.distributed_tracing_hosts"));
 
 	php_info_print_table_end();
 }
