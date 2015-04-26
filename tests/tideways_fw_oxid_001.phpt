@@ -72,7 +72,6 @@ tideways_enable();
 $shop->_process('alist');
 
 print_spans(tideways_get_spans());
-echo "TX: " . tideways_transaction_name();
 tideways_disable();
 
 echo "\n\n";
@@ -80,14 +79,12 @@ echo "\n\n";
 tideways_enable();
 $shop->_process('article', 'getListItem');
 print_spans(tideways_get_spans());
-echo "TX: " . tideways_transaction_name();
 
 --EXPECTF--
 app: 1 timers - 
 php.ctrl: 3 timers - title=article::getListItem
 php.ctrl: 1 timers - title=alist
-TX: alist
+
 
 app: 1 timers - 
 php.ctrl: 1 timers - title=article::getListItem
-TX: article::getListItem

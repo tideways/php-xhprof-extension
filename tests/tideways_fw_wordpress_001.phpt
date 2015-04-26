@@ -27,7 +27,6 @@ get_sidebar();
 
 tideways_disable();
 print_spans(tideways_get_spans());
-echo "TX: " . tideways_transaction_name() . "\n";
 --EXPECTF--
 app: 1 timers - 
 view: 1 timers - title=foo/bar.php
@@ -35,4 +34,3 @@ event: 1 timers - title=content
 php: 1 timers - title=get_header
 php: 1 timers - title=get_footer
 php: 1 timers - title=get_sidebar
-TX: frontpage

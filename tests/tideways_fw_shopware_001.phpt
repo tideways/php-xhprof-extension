@@ -28,9 +28,7 @@ $ctrl->dispatch('fooAction');
 $ctrl->dispatch('barAction');
 
 print_spans(tideways_get_spans());
-echo "TX: " . tideways_transaction_name() . "\n";
 --EXPECTF--
 app: 1 timers - 
 php.ctrl: 1 timers - title=ShopProxyController::fooAction
 php.ctrl: 1 timers - title=ShopProxyController::barAction
-TX: ShopProxyController::fooAction

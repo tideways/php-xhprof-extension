@@ -16,7 +16,6 @@ $httpKernel->handle('indexAction');
 $httpKernel->handle('helloAction');
 
 print_spans(tideways_get_spans());
-echo "TX: " . tideways_transaction_name() . "\n";
 
 tideways_disable();
 
@@ -25,4 +24,3 @@ app: 1 timers -
 php: 1 timers - title=Symfony\Component\HttpKernel\Kernel::boot
 php.ctrl: 1 timers - title=Acme\DemoBundle\Controller\DefaultController::indexAction
 php.ctrl: 1 timers - title=Acme\DemoBundle\Controller\DefaultController::helloAction
-TX: Acme\DemoBundle\Controller\DefaultController::indexAction
