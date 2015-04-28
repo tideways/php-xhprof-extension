@@ -904,6 +904,29 @@ void tw_trace_callback_php_controller(char *symbol, void **args, int args_len, z
 	tw_span_annotate_string(idx, "title", symbol, 1);
 }
 
+void tw_trace_callback_doctrine_couchdb_request(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	zval *method = *(args-args_len);
+	zval *path = *(args-args_len+1);
+	long idx;
+	zval title, tmp, space;
+
+	if (Z_TYPE_P(method) != IS_STRING || Z_TYPE_P(path) != IS_STRING) {
+		return;
+	}
+
+	ZVAL_STRING(&space, " ", 0);
+
+	concat_function(&tmp, method, &space TSRMLS_CC);
+	concat_function(&title, &tmp, path TSRMLS_CC);
+
+	idx = tw_span_create("http.couchdb", 12);
+	tw_span_record_duration(idx, start, end);
+	tw_span_annotate_string(idx, "title", Z_STRVAL(title), 0);
+
+	efree(Z_STRVAL(tmp));
+}
+
 void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *argument_element = *(args-args_len);
@@ -1629,6 +1652,10 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_doctrine_query;
 	register_trace_callback("Doctrine\\ORM\\AbstractQuery::execute", cb);
+
+	cb = tw_trace_callback_doctrine_couchdb_request;
+	register_trace_callback("Doctrine\\CouchDB\\HTTP\\SocketClient::request", cb);
+	register_trace_callback("Doctrine\\CouchDB\\HTTP\\StreamClient::request", cb);
 
 	cb = tw_trace_callback_wordpress_template;
 	register_trace_callback("load_template", cb);
