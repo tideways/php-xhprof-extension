@@ -895,6 +895,11 @@ void tw_trace_callback_php_call(char *symbol, void **args, int args_len, zval *o
 	tw_span_annotate_string(idx, "title", symbol, 1);
 }
 
+void tw_trace_callback_memcache(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	tw_trace_callback_record_with_cache("memcache", 8, symbol, strlen(symbol), start, end, 1);
+}
+
 void tw_trace_callback_php_controller(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx;
@@ -1315,7 +1320,6 @@ void tw_trace_callback_soap_client_dorequest(char *symbol, void **args, int args
 	tw_trace_callback_record_with_cache("http.soap", 9, summary, strlen(summary), start, end, 0);
 }
 
-
 void tw_trace_callback_file_get_contents(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *argument = *(args-args_len);
@@ -1735,6 +1739,23 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_oxid_tx;
 	register_trace_callback("oxShopControl::_process", cb);
+
+	// Different versions of Memcache Extension have either MemcachePool or Memcache class, @todo investigate
+	cb = tw_trace_callback_memcache;
+	register_trace_callback("MemcachePool::get", cb);
+	register_trace_callback("MemcachePool::set", cb);
+	register_trace_callback("MemcachePool::delete", cb);
+	register_trace_callback("MemcachePool::flush", cb);
+	register_trace_callback("MemcachePool::replace", cb);
+	register_trace_callback("MemcachePool::increment", cb);
+	register_trace_callback("MemcachePool::decrement", cb);
+	register_trace_callback("Memcache::get", cb);
+	register_trace_callback("Memcache::set", cb);
+	register_trace_callback("Memcache::delete", cb);
+	register_trace_callback("Memcache::flush", cb);
+	register_trace_callback("Memcache::replace", cb);
+	register_trace_callback("Memcache::increment", cb);
+	register_trace_callback("Memcache::decrement", cb);
 
 	hp_globals.gc_runs = GC_G(gc_runs);
 	hp_globals.gc_collected = GC_G(collected);
