@@ -1647,8 +1647,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Mage_Core_Model_App::_initModules", cb);
 	register_trace_callback("Mage_Core_Model_Config::loadModules", cb);
 	register_trace_callback("Mage_Core_Model_Config::loadDb", cb);
-	// Smarty Compiler
+	// Smarty&Twig Compiler
 	register_trace_callback("Smarty_Internal_TemplateCompilerBase::compileTemplate", cb);
+	register_trace_callback("Twig_Environment::compileSource", cb);
 	// Shopware Assets (very special, do we really need it?)
 	register_trace_callback("JSMin::minify", cb);
 	register_trace_callback("Less_Parser::getCss", cb);
