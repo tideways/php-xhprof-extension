@@ -92,7 +92,7 @@
  */
 
 /* Tideways version                           */
-#define TIDEWAYS_VERSION       "2.0.0"
+#define TIDEWAYS_VERSION       "2.0.1"
 
 /* Fictitious function name to represent top of the call tree. The paranthesis
  * in the name is to ensure we don't conflict with user function names.  */
@@ -1203,21 +1203,6 @@ void tw_trace_callback_event_dispatchers(char *symbol, void **args, int args_len
 	}
 }
 
-void tw_trace_callback_event_dispatchers_arg2(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
-{
-	long idx, *idx_ptr;
-	zval *argument_element = *(args-args_len+1);
-	double wt = end-start;
-
-	if (wt < 100) { // < 100us
-		return;
-	}
-
-	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
-		tw_trace_callback_record_with_cache("event", 5, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element), start, end, 1);
-	}
-}
-
 void tw_trace_callback_pdo_stmt_execute(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	long idx, *idx_ptr;
@@ -1682,9 +1667,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("do_action", cb);
 	register_trace_callback("drupal_alter", cb);
 	register_trace_callback("Mage::dispatchEvent", cb);
-
-	cb = tw_trace_callback_event_dispatchers_arg2;
-	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::doDispatch", cb);
+	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch", cb);
 
 	cb = tw_trace_callback_twig_template;
 	register_trace_callback("Twig_Template::render", cb);
