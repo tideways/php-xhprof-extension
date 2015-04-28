@@ -1646,6 +1646,11 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Mage_Core_Model_App::_initModules", cb);
 	register_trace_callback("Mage_Core_Model_Config::loadModules", cb);
 	register_trace_callback("Mage_Core_Model_Config::loadDb", cb);
+	// Smarty Compiler
+	register_trace_callback("Smarty_Internal_TemplateCompilerBase::compileTemplate", cb);
+	// Shopware Assets (very special, do we really need it?)
+	register_trace_callback("JSMin::minify", cb);
+	register_trace_callback("Less_Parser::getCss", cb);
 
 	cb = tw_trace_callback_doctrine_persister;
 	register_trace_callback("Doctrine\\ORM\\Persisters\\BasicEntityPersister::load", cb);
