@@ -1,5 +1,10 @@
 --TEST--
 Tideways: SoapClient::__doRequest support
+--SKIPIF--
+<?php
+if (!extension_loaded('soap')) {
+    echo "skip: soapclient needs to be installed.\n";
+}
 --FILE--
 <?php
 

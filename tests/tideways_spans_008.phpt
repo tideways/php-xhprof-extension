@@ -14,16 +14,16 @@ include_once dirname(__FILE__).'/common.php';
 tideways_enable();
 
 $conn_str = "user=postgres host=localhost port=5432";    // connection string
-$db = pg_connect($conn_str);
+$db = @pg_connect($conn_str);
 
-pg_query($db, "select * from information_schema.tables");
-pg_query("select * from information_schema.tables");
+@pg_query($db, "select * from information_schema.tables");
+@pg_query("select * from information_schema.tables");
 
-pg_prepare($db, "select foo", "select * from information_schema.tables");
-pg_execute($db, "select foo", array());
+@pg_prepare($db, "select foo", "select * from information_schema.tables");
+@pg_execute($db, "select foo", array());
 
-pg_prepare("select bar", "select * from information_schema.tables");
-pg_execute("select bar", array());
+@pg_prepare("select bar", "select * from information_schema.tables");
+@pg_execute("select bar", array());
 
 print_spans(tideways_get_spans());
 tideways_disable();
