@@ -1642,6 +1642,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("setup_theme", cb);
 	// Doctrine
 	register_trace_callback("Doctrine\\ORM\\EntityManager::flush", cb);
+	register_trace_callback("Doctrine\\ODM\\CouchDB\\DocumentManager::flush", cb);
 	// Magento
 	register_trace_callback("Mage_Core_Model_App::_initModules", cb);
 	register_trace_callback("Mage_Core_Model_Config::loadModules", cb);
