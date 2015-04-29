@@ -43,13 +43,6 @@
 #include "ext/pdo/php_pdo_driver.h"
 #include "zend_stream.h"
 
-#ifdef PHP_TIDEWAYS_HAVE_CURL
-#if PHP_VERSION_ID > 50399
-#include <curl/curl.h>
-#include <curl/easy.h>
-#endif
-#endif
-
 #ifdef __FreeBSD__
 # if __FreeBSD_version >= 700110
 #   include <sys/cpuset.h>
@@ -92,7 +85,7 @@
  */
 
 /* Tideways version                           */
-#define TIDEWAYS_VERSION       "1.7.2"
+#define TIDEWAYS_VERSION       "1.7.3"
 
 /* Fictitious function name to represent top of the call tree. The paranthesis
  * in the name is to ensure we don't conflict with user function names.  */
@@ -238,27 +231,6 @@ typedef struct hp_global_t {
 	uint8   trace_function_filter[TIDEWAYS_FILTERED_FUNCTION_SIZE];
 
 } hp_global_t;
-
-#ifdef PHP_TIDEWAYS_HAVE_CURL
-#if PHP_VERSION_ID > 50399
-typedef struct hp_curl_t {
-	struct {
-		char str[CURL_ERROR_SIZE + 1];
-		int  no;
-	} err;
-
-	void *free;
-
-	struct {
-		char *str;
-		size_t str_len;
-	} hdr;
-
-	void ***thread_ctx;
-	CURL *cp;
-} hp_curl_t;
-#endif
-#endif
 
 /**
  * ***********************
@@ -1352,28 +1324,6 @@ static char *hp_get_function_argument_summary(char *ret, zend_execute_data *data
 
 			efree(summary);
 		}
-#ifdef PHP_TIDEWAYS_HAVE_CURL
-#if PHP_VERSION_ID > 50399
-	} else if (strcmp(ret, "curl_exec#") == 0) {
-		hp_curl_t *ch;
-		int  le_curl;
-		char *s_code;
-
-		le_curl = zend_fetch_list_dtor_id("curl");
-
-		argument_element = *(p-arg_count);
-
-		if (Z_TYPE_P(argument_element) == IS_RESOURCE) {
-			ZEND_FETCH_RESOURCE_NO_RETURN(ch, hp_curl_t *, &argument_element, -1, "cURL handle", le_curl);
-
-			if (ch && curl_easy_getinfo(ch->cp, CURLINFO_EFFECTIVE_URL, &s_code) == CURLE_OK) {
-				summary = hp_get_file_summary(s_code, strlen(s_code) TSRMLS_CC);
-				snprintf(ret, len, "%s%s", ret, summary);
-				efree(summary);
-			}
-		}
-#endif
-#endif
 	} else if (strcmp(ret, "PDO::exec#") == 0 ||
 			strcmp(ret, "PDO::query#") == 0 ||
 			strcmp(ret, "mysql_query#") == 0 ||

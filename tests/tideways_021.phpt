@@ -22,7 +22,7 @@ $response = curl_exec($ch);
 print_canonical(tideways_disable());
 --EXPECTF--
 main()                                  : ct=       1; wt=*;
-main()==>curl_exec#http://localhost#%d   : ct=       1; wt=*;
+main()==>curl_exec#object               : ct=       1; wt=*;
 main()==>curl_init                      : ct=       1; wt=*;
 main()==>curl_setopt                    : ct=       1; wt=*;
 main()==>tideways_disable               : ct=       1; wt=*;
