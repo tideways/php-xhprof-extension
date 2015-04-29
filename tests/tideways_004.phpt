@@ -34,9 +34,7 @@ echo "Test for 'include_once' & 'require_once' operation\n";
 
 $spans = tideways_get_spans();
 
-echo "Includes: " . $spans[0]['a']['cct'] . "\n";
-echo "Time: " . $spans[0]['a']['cwt'] . "\n";
-echo "Exec Time: " . $spans[0]['a']['ewt'] . "\n";
+echo "Includes: " . $spans[0]['a']['cct'] . "\nTime: " . $spans[0]['a']['cwt'] . "\n";
 ?>
 --EXPECTF--
 abc,def,ghi
@@ -46,4 +44,3 @@ I am in bar()...
 Test for 'include_once' & 'require_once' operation
 Includes: 2
 Time: %d
-Exec Time: %d
