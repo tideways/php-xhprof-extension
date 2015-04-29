@@ -244,6 +244,7 @@ typedef struct hp_global_t {
 	zend_uint gc_collected; /* number of collected items in garbage run */
 	int compile_count;
 	double compile_wt;
+	double exec_wt;
 
 	/* Table of functions which allow custom tracing */
 	char **trace_function_names;
@@ -1756,11 +1757,6 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Memcache::replace", cb);
 	register_trace_callback("Memcache::increment", cb);
 	register_trace_callback("Memcache::decrement", cb);
-
-	hp_globals.gc_runs = GC_G(gc_runs);
-	hp_globals.gc_collected = GC_G(collected);
-	hp_globals.compile_count = 0;
-	hp_globals.compile_wt = 0;
 }
 
 
@@ -1803,6 +1799,12 @@ void hp_init_profiler_state(TSRMLS_D)
 
 	/* Set up filter of functions which may be ignored during profiling */
 	hp_transaction_name_clear();
+
+	hp_globals.gc_runs = GC_G(gc_runs);
+	hp_globals.gc_collected = GC_G(collected);
+	hp_globals.compile_count = 0;
+	hp_globals.compile_wt = 0;
+	hp_globals.exec_wt = 0;
 
 	hp_init_trace_callbacks();
 }
@@ -2896,14 +2898,17 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 #endif
 	char          *func = NULL;
 	int hp_profile_flag = 1;
+	uint64 start;
 
 	func = hp_get_function_name(real_execute_data TSRMLS_CC);
 	if (!func) {
+		start = cycle_timer();
 #if PHP_VERSION_ID < 50500
 		_zend_execute(ops TSRMLS_CC);
 #else
 		_zend_execute_ex(execute_data TSRMLS_CC);
 #endif
+		hp_globals.exec_wt += get_us_from_tsc(cycle_timer() - start, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 		return;
 	}
 
@@ -2962,7 +2967,6 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
 		execute_internal(execute_data, fci, ret TSRMLS_CC);
 #endif
 	} else {
-		/* call the old override */
 #if PHP_VERSION_ID < 50500
 		_zend_execute_internal(execute_data, ret TSRMLS_CC);
 #else
@@ -3134,6 +3138,9 @@ static void hp_stop(TSRMLS_D)
 		}
 		if (hp_globals.compile_wt > 0) {
 			tw_span_annotate_long(0, "cwt", hp_globals.compile_wt);
+		}
+		if (hp_globals.exec_wt > 0) {
+			tw_span_annotate_long(0, "ewt", hp_globals.exec_wt);
 		}
 	}
 
