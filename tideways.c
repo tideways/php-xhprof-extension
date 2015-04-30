@@ -150,6 +150,7 @@ typedef unsigned char uint8;
 typedef struct hp_entry_t {
 	char                   *name_hprof;                       /* function name */
 	int                     rlvl_hprof;        /* recursion level for function */
+	int						rlvl; /* recursion level of calltree */
 	uint64                  tsc_start;         /* start value for TSC counter  */
 	long int                mu_start_hprof;                    /* memory usage */
 	long int                pmu_start_hprof;              /* peak memory usage */
@@ -184,6 +185,8 @@ typedef struct hp_global_t {
 	int              ever_enabled;
 
 	int				 prepend_overwritten;
+	int			     rlvl;
+	int				 rlvl_treshold;
 
 	/* Holds all the Tideways statistics */
 	zval            *stats_count;
@@ -1542,6 +1545,13 @@ static void hp_parse_options_from_arg(zval *args)
 	if (zresult != NULL && Z_TYPE_P(zresult) == IS_LONG && Z_LVAL_P(zresult) >= 0) {
 		hp_globals.slow_php_call_treshold = Z_LVAL_P(zresult);
 	}
+
+	zresult = hp_zval_at_key("all_userland_depth", args);
+	if (zresult != NULL && Z_TYPE_P(zresult) == IS_LONG && Z_LVAL_P(zresult) >= 0) {
+		hp_globals.rlvl_treshold = Z_LVAL_P(zresult);
+	} else {
+		hp_globals.rlvl_treshold = 0;
+	}
 }
 
 static void hp_exception_function_clear() {
@@ -1632,6 +1642,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	hp_globals.trace_callbacks = NULL;
 	hp_globals.span_cache = NULL;
+	hp_globals.rlvl = -1;
 
 	ALLOC_HASHTABLE(hp_globals.trace_callbacks);
 	zend_hash_init(hp_globals.trace_callbacks, 255, NULL, NULL, 0);
@@ -2750,6 +2761,9 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current TSRMLS_DC
 		current->rlvl_hprof = recurse_level;
 	}
 
+	current->rlvl = hp_globals.rlvl;
+	hp_globals.rlvl++;
+
 	/* Get start tsc counter */
 	current->tsc_start = cycle_timer();
 
@@ -2801,7 +2815,8 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 			double end = get_us_from_tsc(tsc_end - hp_globals.start_time, hp_globals.cpu_frequencies[hp_globals.cur_cpu_id]);
 
 			(*callback)(top->name_hprof, args, arg_count, obj, start, end TSRMLS_CC);
-		} else if (data->function_state.function->type == ZEND_INTERNAL_FUNCTION && wt > hp_globals.slow_php_call_treshold) {
+		} else if (data->function_state.function->type == ZEND_INTERNAL_FUNCTION && wt > hp_globals.slow_php_call_treshold
+				|| top->rlvl < hp_globals.rlvl_treshold && data->function_state.function->type == ZEND_USER_FUNCTION) {
 			void **args =  hp_get_execute_arguments(data);
 			int arg_count = (int)(zend_uintptr_t) *args;
 			zval *obj = data->object;
@@ -2811,6 +2826,8 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 			tw_trace_callback_php_call(top->name_hprof, args, arg_count, obj, start, end TSRMLS_CC);
 		}
 	}
+
+	hp_globals.rlvl--;
 
 	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_HIERACHICAL) > 0) {
 		return;
