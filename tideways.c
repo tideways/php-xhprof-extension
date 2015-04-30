@@ -1657,6 +1657,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	// Shopware Assets (very special, do we really need it?)
 	register_trace_callback("JSMin::minify", cb);
 	register_trace_callback("Less_Parser::getCss", cb);
+	// Laravel (4+5)
+	register_trace_callback("Illuminate\\Foundation\\Application::boot", cb);
+	register_trace_callback("Illuminate\\Foundation\\Application::dispatch", cb);
 
 	cb = tw_trace_callback_doctrine_persister;
 	register_trace_callback("Doctrine\\ORM\\Persisters\\BasicEntityPersister::load", cb);
