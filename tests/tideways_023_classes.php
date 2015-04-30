@@ -17,3 +17,16 @@ namespace Zend\MVC\Controller {
         }
     }
 }
+
+namespace Illuminate\Routing {
+    abstract class Controller {
+        public function callAction($method, $parameters) {
+        }
+    }
+}
+
+namespace CachetHQ\Cachet\Http\Controllers {
+    class RssController extends \Illuminate\Routing\Controller {
+        public function indexAction() {}
+    }
+}

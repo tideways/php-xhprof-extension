@@ -98,12 +98,25 @@ function transaction_wordpress() {
     $data = tideways_disable();
 }
 
+function transaction_laravel() {
+    tideways_enable(0, array(
+        'transaction_function' => 'Illuminate\Routing\Controller::callAction',
+    ));
+
+    $ctrl = new \CachetHQ\Cachet\Http\Controllers\RssController();
+    $ctrl->callAction('indexAction', array());
+
+    echo "Laravel: " . tideways_transaction_name() . "\n";
+    $data = tideways_disable();
+}
+
 transaction_symfony2();
 transaction_zf2();
 transaction_oxid();
 transaction_shopware();
 transaction_wordpress();
 transaction_zf1();
+transaction_laravel();
 
 --EXPECTF--
 Symfony2: foo::bar
@@ -112,3 +125,4 @@ Oxid: alist
 Shopware: ShopController::listAction
 Wordpress: home
 Zend Framework 1: MyController::fooAction
+Laravel: CachetHQ\Cachet\Http\Controllers\RssController::indexAction

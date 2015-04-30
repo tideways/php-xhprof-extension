@@ -2238,7 +2238,8 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 
 	if (strcmp(ret, "Zend_Controller_Action::dispatch") == 0 ||
 			   strcmp(ret, "Enlight_Controller_Action::dispatch") == 0 ||
-			   strcmp(ret, "Mage_Core_Controller_Varien_Action::dispatch") == 0) {
+			   strcmp(ret, "Mage_Core_Controller_Varien_Action::dispatch") == 0 ||
+			   strcmp(ret, "Illuminate\\Routing\\Controller::callAction") == 0) {
 		zval *obj = data->object;
 		argument_element = *(p-arg_count);
 		const char *class_name;
