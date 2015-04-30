@@ -52,5 +52,6 @@ PHP_FUNCTION(tideways_get_spans);
 PHP_FUNCTION(tideways_span_timer_start);
 PHP_FUNCTION(tideways_span_timer_stop);
 PHP_FUNCTION(tideways_span_annotate);
+PHP_FUNCTION(tideways_span_watch);
 
 #endif	/* PHP_TIDEWAYS_H */

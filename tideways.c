@@ -411,6 +411,10 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_span_annotate, 0, 0, 0)
 	ZEND_ARG_INFO(0, annotations)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_span_watch, 0, 0, 0)
+	ZEND_ARG_INFO(0, name)
+ZEND_END_ARG_INFO()
+
 /* }}} */
 
 /**
@@ -441,6 +445,7 @@ zend_function_entry tideways_functions[] = {
 	PHP_FE(tideways_span_timer_start, arginfo_tideways_span_timer_start)
 	PHP_FE(tideways_span_timer_stop, arginfo_tideways_span_timer_stop)
 	PHP_FE(tideways_span_annotate, arginfo_tideways_span_annotate)
+	PHP_FE(tideways_span_watch, arginfo_tideways_span_watch)
 	{NULL, NULL, NULL}
 };
 
@@ -3369,3 +3374,20 @@ static inline void hp_string_clean(hp_string *str)
 	efree(str->value);
 }
 
+PHP_FUNCTION(tideways_span_watch)
+{
+	char *func;
+	int len;
+	tw_trace_callback cb;
+
+	if (!hp_globals.enabled || (hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
+		return;
+	}
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &func, &len) == FAILURE) {
+		return;
+	}
+
+	cb = tw_trace_callback_php_call;
+	register_trace_callback_len(func, len, cb);
+}
