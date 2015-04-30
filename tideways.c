@@ -1732,11 +1732,13 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_zend_view;
 	register_trace_callback("Zend_View_Abstract::render", cb);
+	register_trace_callback("Illuminate\\View\\Engines\\CompilerEngine::get", cb);
 
 	cb = tw_trace_callback_zend1_dispatcher_families_tx;
 	register_trace_callback("Enlight_Controller_Action::dispatch", cb);
 	register_trace_callback("Mage_Core_Controller_Varien_Action::dispatch", cb);
 	register_trace_callback("Zend_Controller_Action::dispatch", cb);
+	register_trace_callback("Illuminate\\Routing\\Controller::callAction", cb);
 
 	cb = tw_trace_callback_symfony_resolve_arguments_tx;
 	register_trace_callback("Symfony\\Component\\HttpKernel\\Controller\\ControllerResolver::getArguments", cb);
