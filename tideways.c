@@ -957,12 +957,15 @@ void tw_trace_callback_magento_block(char *symbol, void **args, int args_len, zv
 void tw_trace_callback_zend_view(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *name = *(args-args_len);
+	char *view;
 
 	if (Z_TYPE_P(name) != IS_STRING) {
 		return;
 	}
 
-	tw_trace_callback_record_with_cache("view", 4, Z_STRVAL_P(name), Z_STRLEN_P(name), start, end, 1);
+	view = hp_get_base_filename(Z_STRVAL_P(name));
+
+	tw_trace_callback_record_with_cache("view", 4, view, strlen(view)+1, start, end, 1);
 }
 
 /* Applies to Enlight, Mage and Zend1 */
