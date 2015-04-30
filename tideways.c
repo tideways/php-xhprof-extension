@@ -2816,7 +2816,7 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 
 			(*callback)(top->name_hprof, args, arg_count, obj, start, end TSRMLS_CC);
 		} else if (data->function_state.function->type == ZEND_INTERNAL_FUNCTION && wt > hp_globals.slow_php_call_treshold
-				|| top->rlvl < hp_globals.rlvl_treshold && data->function_state.function->type == ZEND_USER_FUNCTION) {
+				|| (top->rlvl < hp_globals.rlvl_treshold && data->function_state.function->type == ZEND_USER_FUNCTION)) {
 			void **args =  hp_get_execute_arguments(data);
 			int arg_count = (int)(zend_uintptr_t) *args;
 			zval *obj = data->object;
