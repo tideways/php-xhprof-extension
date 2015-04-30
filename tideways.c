@@ -1709,6 +1709,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("drupal_alter", cb);
 	register_trace_callback("Mage::dispatchEvent", cb);
 	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch", cb);
+	register_trace_callback("Illuminate\\Events\\Dispatcher::fire", cb);
 
 	cb = tw_trace_callback_twig_template;
 	register_trace_callback("Twig_Template::render", cb);
