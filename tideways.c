@@ -1263,7 +1263,7 @@ void tw_trace_callback_sql_functions(char *symbol, void **args, int args_len, zv
 	zval *argument_element;
 	char *summary;
 
-	if (strcmp(symbol, "mysqli_query") == 0) {
+	if (strcmp(symbol, "mysqli_query") == 0 || strcmp(symbol, "mysqli_prepare") == 0) {
 		argument_element = *(args-args_len+1);
 	} else {
 		argument_element = *(args-args_len);
