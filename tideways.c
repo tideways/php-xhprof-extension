@@ -3374,9 +3374,9 @@ PHP_FUNCTION(tideways_span_watch)
 		return;
 	}
 
-	if (strcmp(category, "view") == 0) {
+	if (category && strcmp(category, "view") == 0) {
 		cb = tw_trace_callback_view_engine;
-	} else if (strcmp(category, "event") == 0) {
+	} else if (category && strcmp(category, "event") == 0) {
 		cb = tw_trace_callback_event_dispatchers;
 	} else {
 		cb = tw_trace_callback_php_call;
