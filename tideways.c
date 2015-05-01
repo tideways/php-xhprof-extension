@@ -959,7 +959,7 @@ void tw_trace_callback_magento_block(char *symbol, void **args, int args_len, zv
 }
 
 /* Zend_View_Abstract::render($name); */
-void tw_trace_callback_zend_view(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+void tw_trace_callback_view_engine(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	zval *name = *(args-args_len);
 	char *view;
@@ -1111,15 +1111,6 @@ void tw_trace_callback_pgsql_query(char *symbol, void **args, int args_len, zval
 			tw_trace_callback_record_with_cache("sql", 3, summary, strlen(summary), start, end, 0);
 			return;
 		}
-	}
-}
-
-void tw_trace_callback_smarty2_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
-{
-	zval *argument_element = *(args-args_len);
-
-	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
-		tw_trace_callback_record_with_cache("view", 4, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element), start, end, 1);
 	}
 }
 
@@ -1733,9 +1724,6 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Twig_Template::render", cb);
 	register_trace_callback("Twig_Template::display", cb);
 
-	cb = tw_trace_callback_smarty2_template;
-	register_trace_callback("Smarty::fetch", cb);
-
 	cb = tw_trace_callback_smarty3_template;
 	register_trace_callback("Smarty_Internal_TemplateBase::fetch", cb);
 
@@ -1748,9 +1736,10 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	cb = tw_trace_callback_magento_block;
 	register_trace_callback("Mage_Core_Block_Abstract::toHtml", cb);
 
-	cb = tw_trace_callback_zend_view;
+	cb = tw_trace_callback_view_engine;
 	register_trace_callback("Zend_View_Abstract::render", cb);
 	register_trace_callback("Illuminate\\View\\Engines\\CompilerEngine::get", cb);
+	register_trace_callback("Smarty::fetch", cb);
 
 	cb = tw_trace_callback_zend1_dispatcher_families_tx;
 	register_trace_callback("Enlight_Controller_Action::dispatch", cb);
