@@ -937,17 +937,6 @@ void tw_trace_callback_doctrine_couchdb_request(char *symbol, void **args, int a
 	efree(Z_STRVAL(tmp));
 }
 
-void tw_trace_callback_wordpress_template(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
-{
-	zval *argument_element = *(args-args_len);
-	char *summary;
-
-	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
-		summary = hp_get_base_filename(Z_STRVAL_P(argument_element));
-		tw_trace_callback_record_with_cache("view", 4, summary, strlen(summary), start, end, 1);
-	}
-}
-
 /* Mage_Core_Block_Abstract::toHtml() */
 void tw_trace_callback_magento_block(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
@@ -1674,9 +1663,6 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Doctrine\\CouchDB\\HTTP\\SocketClient::request", cb);
 	register_trace_callback("Doctrine\\CouchDB\\HTTP\\StreamClient::request", cb);
 
-	cb = tw_trace_callback_wordpress_template;
-	register_trace_callback("load_template", cb);
-
 	cb = tw_trace_callback_curl_exec;
 	register_trace_callback("curl_exec", cb);
 
@@ -1740,6 +1726,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Zend_View_Abstract::render", cb);
 	register_trace_callback("Illuminate\\View\\Engines\\CompilerEngine::get", cb);
 	register_trace_callback("Smarty::fetch", cb);
+	register_trace_callback("load_template", cb);
 
 	cb = tw_trace_callback_zend1_dispatcher_families_tx;
 	register_trace_callback("Enlight_Controller_Action::dispatch", cb);
@@ -3375,18 +3362,25 @@ static inline void hp_string_clean(hp_string *str)
 
 PHP_FUNCTION(tideways_span_watch)
 {
-	char *func;
-	int len;
+	char *func, *category;
+	int func_len, category_len;
 	tw_trace_callback cb;
 
 	if (!hp_globals.enabled || (hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
 		return;
 	}
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &func, &len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &func, &func_len, &category, &category_len) == FAILURE) {
 		return;
 	}
 
-	cb = tw_trace_callback_php_call;
-	register_trace_callback_len(func, len, cb);
+	if (strcmp(category, "view") == 0) {
+		cb = tw_trace_callback_view_engine;
+	} else if (strcmp(category, "event") == 0) {
+		cb = tw_trace_callback_event_dispatchers;
+	} else {
+		cb = tw_trace_callback_php_call;
+	}
+
+	register_trace_callback_len(func, func_len, cb);
 }
