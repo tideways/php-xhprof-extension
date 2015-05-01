@@ -1248,6 +1248,11 @@ void tw_trace_callback_pdo_stmt_execute(char *symbol, void **args, int args_len,
 	tw_trace_callback_record_with_cache("sql", 3, summary, strlen(summary), start, end, 0);
 }
 
+void tw_trace_callback_mysqli_stmt_execute(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
+{
+	tw_trace_callback_record_with_cache("sql", 3, "execute", 7, start, end, 1);
+}
+
 void tw_trace_callback_sql_commit(char *symbol, void **args, int args_len, zval *object, double start, double end TSRMLS_DC)
 {
 	tw_trace_callback_record_with_cache("sql", 3, "commit", 3, start, end, 1);
@@ -1257,9 +1262,8 @@ void tw_trace_callback_sql_functions(char *symbol, void **args, int args_len, zv
 {
 	zval *argument_element;
 	char *summary;
-	long idx, *idx_ptr;
 
-	if (strcmp(symbol, "mysqli_query#") == 0) {
+	if (strcmp(symbol, "mysqli_query") == 0) {
 		argument_element = *(args-args_len+1);
 	} else {
 		argument_element = *(args-args_len);
@@ -1691,6 +1695,8 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("mysql_query", cb);
 	register_trace_callback("mysqli_query", cb);
 	register_trace_callback("mysqli::query", cb);
+	register_trace_callback("mysqli::prepare", cb);
+	register_trace_callback("mysqli_prepare", cb);
 
 	cb = tw_trace_callback_sql_commit;
 	register_trace_callback("PDO::commit", cb);
@@ -1699,6 +1705,10 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_pdo_stmt_execute;
 	register_trace_callback("PDOStatement::execute", cb);
+
+	cb = tw_trace_callback_mysqli_stmt_execute;
+	register_trace_callback("mysqli_stmt_execute", cb);
+	register_trace_callback("mysqli_stmt::execute", cb);
 
 	cb = tw_trace_callback_pgsql_query;
 	register_trace_callback("pg_query", cb);
