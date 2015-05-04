@@ -2829,15 +2829,15 @@ static void hp_stop(TSRMLS_D)
 
 	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
 		if ((GC_G(gc_runs) - hp_globals.gc_runs) > 0) {
-			tw_span_annotate_long(0, "gc", GC_G(gc_runs) - hp_globals.gc_runs TSRMLS_CC);
-			tw_span_annotate_long(0, "gcc", GC_G(collected) - hp_globals.gc_collected TSRMLS_CC);
+			tw_span_annotate_long(0, "gc", GC_G(gc_runs) - hp_globals.gc_runs);
+			tw_span_annotate_long(0, "gcc", GC_G(collected) - hp_globals.gc_collected);
 		}
 
 		if (hp_globals.compile_count > 0) {
-			tw_span_annotate_long(0, "cct", hp_globals.compile_count TSRMLS_CC);
+			tw_span_annotate_long(0, "cct", hp_globals.compile_count);
 		}
 		if (hp_globals.compile_wt > 0) {
-			tw_span_annotate_long(0, "cwt", hp_globals.compile_wt TSRMLS_CC);
+			tw_span_annotate_long(0, "cwt", hp_globals.compile_wt);
 		}
 	}
 
