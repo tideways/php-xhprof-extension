@@ -2834,10 +2834,10 @@ static void hp_stop(TSRMLS_D)
 		}
 
 		if (hp_globals.compile_count > 0) {
-			tw_span_annotate_long(0, "cct", hp_globals.compile_count);
+			tw_span_annotate_long(0, "cct", hp_globals.compile_count TSRMLS_CC);
 		}
 		if (hp_globals.compile_wt > 0) {
-			tw_span_annotate_long(0, "cwt", hp_globals.compile_wt);
+			tw_span_annotate_long(0, "cwt", hp_globals.compile_wt TSRMLS_CC);
 		}
 	}
 
