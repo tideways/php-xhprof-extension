@@ -1,6 +1,5 @@
 --TEST--
-XHPRrof: Test (direct and indirect) recursive function calls.
-Author: Kannan
+Tideways: Test (direct and indirect) recursive function calls.
 --FILE--
 <?php
 

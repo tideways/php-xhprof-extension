@@ -1,6 +1,5 @@
 --TEST--
-XHPRof: Check for Garbage Collection overhead
-Author: beberlei
+Tideways: Check for Garbage Collection overhead
 --FILE--
 <?php
 

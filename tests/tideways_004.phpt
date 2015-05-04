@@ -1,6 +1,5 @@
 --TEST--
-XHPRrof: Test Include File (load/run_init operations)
-Author: Kannan
+Tideways: Test Include File (load/run_init operations)
 --FILE--
 <?php
 
