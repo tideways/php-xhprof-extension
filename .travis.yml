@@ -4,6 +4,7 @@ sudo: true
 branches:
   only:
     - master
+    - 2.0
 
 notifications:
   email: false
