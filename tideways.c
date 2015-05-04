@@ -612,7 +612,7 @@ static int tw_convert_to_string(void *pDest TSRMLS_DC)
 	return ZEND_HASH_APPLY_KEEP;
 }
 
-void tw_span_annotate(long spanId, zval *annotations)
+void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 {
 	zval **span, **span_annotations;
 
@@ -726,7 +726,7 @@ PHP_FUNCTION(tideways_span_annotate)
 	}
 
 	// Yes, annotations are still possible when profiler is deactivated!
-	tw_span_annotate(spanId, annotations);
+	tw_span_annotate(spanId, annotations TSRMLS_CC);
 }
 
 PHP_FUNCTION(tideways_sql_minify)
@@ -738,7 +738,7 @@ PHP_FUNCTION(tideways_sql_minify)
 		return;
 	}
 
-	minified = hp_get_sql_summary(sql, len TSRMLS_DC);
+	minified = hp_get_sql_summary(sql, len TSRMLS_CC);
 
 	RETURN_STRING(minified, 0);
 }
@@ -1095,7 +1095,7 @@ void tw_trace_callback_doctrine_query(char *symbol, void **args, int args_len, z
 			return;
 		}
 
-		summary = hp_get_sql_summary(Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr));
+		summary = hp_get_sql_summary(Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr) TSRMLS_CC);
 
 		tw_trace_callback_record_with_cache("doctrine.query", 14, summary, strlen(summary), start, end, 0);
 
@@ -1691,7 +1691,7 @@ void hp_init_profiler_state(TSRMLS_D)
 	/* Set up filter of functions which may be ignored during profiling */
 	hp_transaction_name_clear();
 
-	hp_init_trace_callbacks();
+	hp_init_trace_callbacks(TSRMLS_C);
 }
 
 /**
