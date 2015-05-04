@@ -11,7 +11,7 @@ if (!extension_loaded('pdo_sqlite')) {
 
 include_once dirname(__FILE__).'/common.php';
 
-tideways_enable();
+tideways_enable(0, array('slow_php_call_treshold' => 50000000));
 
 $pdo = new PDO('sqlite:memory:', 'root', '');
 

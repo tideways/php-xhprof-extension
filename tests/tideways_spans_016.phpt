@@ -11,7 +11,7 @@ if(!extension_loaded('mysqli')) {
 
 include __DIR__ . "/common.php";
 
-tideways_enable();
+tideways_enable(0, array('slow_php_call_treshold' => 50000000));
 
 $mysql = new mysqli('127.0.0.1', 'root', '', 'information_schema');
 
