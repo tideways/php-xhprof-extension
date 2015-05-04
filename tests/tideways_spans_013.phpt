@@ -10,7 +10,7 @@ if (!extension_loaded('soap')) {
 
 include __DIR__ . '/common.php';
 
-$client = new SoapClient(NULL,array('location'=>'http://localhost', 'uri'=>'http://testuri.org'));
+$client = new SoapClient(NULL,array('location'=>'http://localhost', 'uri'=>'http://testuri.org','cache_wsdl' => WSDL_CACHE_NONE));
 
 tideways_enable(0, array('ignored_functions' => array('SoapClient::__call')));
 
