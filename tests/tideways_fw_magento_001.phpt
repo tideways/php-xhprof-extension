@@ -41,7 +41,7 @@ $block->toHtml();
 print_spans(tideways_get_spans());
 --EXPECT--
 app: 1 timers - 
+php: 1 timers - title=Mage_Core_Model_App::_initModules
 php: 1 timers - title=Mage_Core_Model_Config::loadModules
 php: 1 timers - title=Mage_Core_Model_Config::loadDb
-php: 1 timers - title=Mage_Core_Model_App::_initModules
 view: 1 timers - title=SomeView

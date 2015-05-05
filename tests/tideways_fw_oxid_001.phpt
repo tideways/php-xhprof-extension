@@ -82,8 +82,8 @@ print_spans(tideways_get_spans());
 
 --EXPECTF--
 app: 1 timers - 
-php.ctrl: 3 timers - title=article::getListItem
 php.ctrl: 1 timers - title=alist
+php.ctrl: 3 timers - title=article::getListItem
 
 
 app: 1 timers - 
