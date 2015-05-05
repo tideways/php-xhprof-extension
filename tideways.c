@@ -1556,6 +1556,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("session_start", cb);
 	// Symfony
 	register_trace_callback("Symfony\\Component\\HttpKernel\\Kernel::boot", cb);
+	register_trace_callback("Symfony\\Component\\EventDispatcher\\ContainerAwareEventDispatcher::lazyLoad", cb);
 	// Wordpress
 	register_trace_callback("get_sidebar", cb);
 	register_trace_callback("get_header", cb);
