@@ -674,7 +674,7 @@ void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 
 PHP_FUNCTION(tideways_span_create)
 {
-	char *category;
+	char *category = NULL;
 	size_t category_len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &category, &category_len) == FAILURE) {
@@ -3099,7 +3099,7 @@ static inline void hp_string_clean(hp_string *str)
 
 PHP_FUNCTION(tideways_span_watch)
 {
-	char *func, *category;
+	char *func = NULL, *category = NULL;
 	int func_len, category_len;
 	tw_trace_callback cb;
 
@@ -3107,13 +3107,13 @@ PHP_FUNCTION(tideways_span_watch)
 		return;
 	}
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &func, &func_len, &category, &category_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s!", &func, &func_len, &category, &category_len) == FAILURE) {
 		return;
 	}
 
-	if (category && strcmp(category, "view") == 0) {
+	if (category != NULL && strcmp(category, "view") == 0) {
 		cb = tw_trace_callback_view_engine;
-	} else if (category && strcmp(category, "event") == 0) {
+	} else if (category != NULL && strcmp(category, "event") == 0) {
 		cb = tw_trace_callback_event_dispatchers;
 	} else {
 		cb = tw_trace_callback_php_call;
