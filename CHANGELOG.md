@@ -1,3 +1,16 @@
+# Version 2.0.4
+
+- Fix segfault in `tideways_span_watch()`
+
+# Versoin 2.0.3
+
+- Replace TSC based profiling with clock_gettime(CLOCK_GETMONOTONIC) to
+  avoid binding process to CPUs.
+
+- Add more special support for Symfony EventDispatcher
+
+- Add Laravel support
+
 # Version 2.0
 
 - Add new collection mechanism using spans (See Google Dapper paper).
@@ -21,16 +34,6 @@
 - Added Smarty2, Smarty2 and Twig Template Support for spans
 
 - Added HTTP support for spans hooking into file_get_contents, curl_exec and SoapClient
-
-- Made "transaction_function" obsolete by supporting the following
-  framework detections automatically in span code:
-
-    - Symfony2 Framework
-    - Shopware
-    - Oxid
-    - Magento
-    - Zend Framework 1
-    - Wordpress
 
 # Version 1.7.1
 
