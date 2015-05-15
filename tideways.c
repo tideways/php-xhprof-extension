@@ -134,6 +134,11 @@ typedef struct hp_function_map {
 	uint8 filter[TIDEWAYS_FILTERED_FUNCTION_SIZE];
 } hp_function_map;
 
+typedef struct tw_watch_callback {
+	zend_fcall_info fci;
+	zend_fcall_info_cache fcic;
+} tw_watch_callback;
+
 /* Tideways's global state.
  *
  * This structure is instantiated once.  Initialize defaults for attributes in
@@ -186,6 +191,7 @@ typedef struct hp_global_t {
 
 	hp_function_map *filtered_functions;
 
+	HashTable *trace_watch_callbacks;
 	HashTable *trace_callbacks;
 	HashTable *span_cache;
 	int slow_php_call_treshold;
@@ -354,6 +360,12 @@ ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_span_watch, 0, 0, 0)
 	ZEND_ARG_INFO(0, name)
+	ZEND_ARG_INFO(1, category)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_callback_watch, 0, 0, 0)
+	ZEND_ARG_INFO(0, name)
+	ZEND_ARG_INFO(0, callback)
 ZEND_END_ARG_INFO()
 
 /* }}} */
@@ -379,6 +391,7 @@ zend_function_entry tideways_functions[] = {
 	PHP_FE(tideways_span_timer_stop, arginfo_tideways_span_timer_stop)
 	PHP_FE(tideways_span_annotate, arginfo_tideways_span_annotate)
 	PHP_FE(tideways_span_watch, arginfo_tideways_span_watch)
+	PHP_FE(tideways_callback_watch, arginfo_tideways_callback_watch)
 	{NULL, NULL, NULL}
 };
 
@@ -772,6 +785,7 @@ PHP_MINIT_FUNCTION(tideways)
 	hp_globals.stats_count = NULL;
 	hp_globals.spans = NULL;
 	hp_globals.trace_callbacks = NULL;
+	hp_globals.trace_watch_callbacks = NULL;
 	hp_globals.span_cache = NULL;
 
 	/* no free hp_entry_t structures to start with */
@@ -828,6 +842,34 @@ long tw_trace_callback_php_call(char *symbol, void **args, int args_len, zval *o
 	tw_span_annotate_string(idx, "title", symbol, 1);
 
 	return idx;
+}
+
+long tw_trace_callback_watch(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
+{
+	tw_watch_callback *twcb;
+	zval *cbargs[1], *zret_ptr = NULL;
+	cbargs[0] = (zval *)&(args[0]);
+
+	if (hp_globals.trace_watch_callbacks == NULL) {
+		return -1;
+	}
+
+	if (zend_hash_find(hp_globals.trace_watch_callbacks, symbol, strlen(symbol)+1, (void **)&twcb) == SUCCESS) {
+		twcb->fci.param_count = 1;
+		twcb->fci.size = sizeof(twcb->fci);
+		twcb->fci.retval_ptr_ptr = &zret_ptr;
+		twcb->fci.params = (zval ***)cbargs;
+
+		if (zend_call_function(&(twcb->fci), &(twcb->fcic) TSRMLS_CC) == FAILURE) {
+			zend_error(E_ERROR, "Problem in AOP Callback");
+		}
+
+		if (zret_ptr != NULL && Z_TYPE_P(zret_ptr) == IS_LONG) {
+			return Z_LVAL_P(zret_ptr);
+		}
+	}
+
+	return -1;
 }
 
 long tw_trace_callback_memcache(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
@@ -1541,6 +1583,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	}
 
 	hp_globals.trace_callbacks = NULL;
+	hp_globals.trace_watch_callbacks = NULL;
 	hp_globals.span_cache = NULL;
 
 	ALLOC_HASHTABLE(hp_globals.trace_callbacks);
@@ -1771,6 +1814,12 @@ static void hp_clean_profiler_options_state()
 		zend_hash_destroy(hp_globals.trace_callbacks);
 		FREE_HASHTABLE(hp_globals.trace_callbacks);
 		hp_globals.trace_callbacks = NULL;
+	}
+
+	if (hp_globals.trace_watch_callbacks) {
+		zend_hash_destroy(hp_globals.trace_watch_callbacks);
+		FREE_HASHTABLE(hp_globals.trace_watch_callbacks);
+		hp_globals.trace_watch_callbacks = NULL;
 	}
 
 	if (hp_globals.span_cache) {
@@ -3119,5 +3168,54 @@ PHP_FUNCTION(tideways_span_watch)
 		cb = tw_trace_callback_php_call;
 	}
 
+	register_trace_callback_len(func, func_len, cb);
+}
+
+static void free_tw_watch_callback(void *twcb)
+{
+	tw_watch_callback *_twcb = *((tw_watch_callback **)twcb);
+
+	if (_twcb->fci.function_name) {
+		zval_ptr_dtor((zval **)&_twcb->fci.function_name);
+	}
+	if (_twcb->fci.object_ptr) {
+		zval_ptr_dtor((zval **)&_twcb->fci.object_ptr);
+	}
+
+	efree(_twcb);
+}
+
+PHP_FUNCTION(tideways_callback_watch)
+{
+	zend_fcall_info fci;
+	zend_fcall_info_cache fcic= { 0, NULL, NULL, NULL, NULL };
+	char *func;
+	int func_len;
+	tw_watch_callback *twcb;
+	tw_trace_callback cb;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sf", &func, &func_len, &fci, &fcic) == FAILURE) {
+		zend_error(E_ERROR, "tideways_callback_watch() expects a string as a first and a callback as a second argument");
+		return;
+	}
+
+	if (fci.function_name) {
+		Z_ADDREF_P(fci.function_name);
+	}
+	if (fci.object_ptr) {
+		Z_ADDREF_P(fci.object_ptr);
+	}
+
+	twcb = (tw_watch_callback *)emalloc(sizeof(tw_watch_callback));
+	twcb->fci = fci;
+	twcb->fcic = fcic;
+
+	if (hp_globals.trace_watch_callbacks == NULL) {
+		ALLOC_HASHTABLE(hp_globals.trace_watch_callbacks);
+		zend_hash_init(hp_globals.trace_watch_callbacks, 255, NULL, free_tw_watch_callback, 0);
+	}
+
+	zend_hash_update(hp_globals.trace_watch_callbacks, func, func_len+1, &twcb, sizeof(tw_watch_callback*), NULL);
+	cb = tw_trace_callback_watch;
 	register_trace_callback_len(func, func_len, cb);
 }
