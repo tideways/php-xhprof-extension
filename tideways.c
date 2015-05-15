@@ -3185,26 +3185,10 @@ static void free_tw_watch_callback(void *twcb)
 	efree(_twcb);
 }
 
-PHP_FUNCTION(tideways_callback_watch)
+static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cache fcic, char *func, int func_len TSRMLS_DC)
 {
-	zend_fcall_info fci;
-	zend_fcall_info_cache fcic= { 0, NULL, NULL, NULL, NULL };
-	char *func;
-	int func_len;
 	tw_watch_callback *twcb;
 	tw_trace_callback cb;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sf", &func, &func_len, &fci, &fcic) == FAILURE) {
-		zend_error(E_ERROR, "tideways_callback_watch() expects a string as a first and a callback as a second argument");
-		return;
-	}
-
-	if (fci.function_name) {
-		Z_ADDREF_P(fci.function_name);
-	}
-	if (fci.object_ptr) {
-		Z_ADDREF_P(fci.object_ptr);
-	}
 
 	twcb = (tw_watch_callback *)emalloc(sizeof(tw_watch_callback));
 	twcb->fci = fci;
@@ -3218,4 +3202,26 @@ PHP_FUNCTION(tideways_callback_watch)
 	zend_hash_update(hp_globals.trace_watch_callbacks, func, func_len+1, &twcb, sizeof(tw_watch_callback*), NULL);
 	cb = tw_trace_callback_watch;
 	register_trace_callback_len(func, func_len, cb);
+}
+
+PHP_FUNCTION(tideways_callback_watch)
+{
+	zend_fcall_info fci;
+	zend_fcall_info_cache fcic= { 0, NULL, NULL, NULL, NULL };
+	char *func;
+	int func_len;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sf", &func, &func_len, &fci, &fcic) == FAILURE) {
+		zend_error(E_ERROR, "tideways_callback_watch() expects a string as a first and a callback as a second argument");
+		return;
+	}
+
+	if (fci.function_name) {
+		Z_ADDREF_P(fci.function_name);
+	}
+	if (fci.object_ptr) {
+		Z_ADDREF_P(fci.object_ptr);
+	}
+
+	tideways_add_callback_watch(fci, fcic, func, func_len TSRMLS_CC);
 }
