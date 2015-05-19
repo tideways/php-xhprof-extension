@@ -1334,6 +1334,10 @@ PHP_RSHUTDOWN_FUNCTION(tideways)
  */
 PHP_MINFO_FUNCTION(tideways)
 {
+	char *extension_dir;
+	char *profiler_file;
+	int profiler_file_len;
+
 	php_info_print_table_start();
 	php_info_print_table_header(2, "tideways", TIDEWAYS_VERSION);
 
@@ -1343,10 +1347,23 @@ PHP_MINFO_FUNCTION(tideways)
 	php_info_print_table_row(2, "Default Sample-Rate (tideways.sample_rate)", INI_STR("tideways.sample_rate"));
 	php_info_print_table_row(2, "Framework Detection (tideways.framework)", INI_STR("tideways.framework"));
 	php_info_print_table_row(2, "Automatically Start (tideways.auto_start)", INI_INT("tideways.auto_start") ? "Yes": "No");
-	php_info_print_table_row(2, "Load PHP Library (tideways.auto_prepend_library)", INI_INT("tideways.auto_prepend_library") ? "Yes": "No");
 	php_info_print_table_row(2, "Tideways Collect Mode (tideways.collect)", INI_STR("tideways.collect"));
 	php_info_print_table_row(2, "Tideways Monitoring Mode (tideways.monitor)", INI_STR("tideways.monitor"));
 	php_info_print_table_row(2, "Allowed Distributed Tracing Hosts (tideways.distributed_tracing_hosts)", INI_STR("tideways.distributed_tracing_hosts"));
+	php_info_print_table_row(2, "Load PHP Library (tideways.auto_prepend_library)", INI_INT("tideways.auto_prepend_library") ? "Yes": "No");
+
+	extension_dir  = INI_STR("extension_dir");
+	profiler_file_len = strlen(extension_dir) + strlen("Tideways.php") + 2;
+	profiler_file = emalloc(profiler_file_len);
+	snprintf(profiler_file, profiler_file_len, "%s/%s", extension_dir, "Tideways.php");
+
+	if (VCWD_ACCESS(profiler_file, F_OK) == 0) {
+		php_info_print_table_row(2, "Tideways.php found", "Yes");
+	} else {
+		php_info_print_table_row(2, "Tideways.php found", "No");
+	}
+
+	efree(profiler_file);
 
 	php_info_print_table_end();
 }
