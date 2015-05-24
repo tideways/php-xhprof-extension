@@ -1596,6 +1596,8 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	// Laravel (4+5)
 	register_trace_callback("Illuminate\\Foundation\\Application::boot", cb);
 	register_trace_callback("Illuminate\\Foundation\\Application::dispatch", cb);
+	// Silex
+	register_trace_callback("Silex\\Application::mount", cb);
 
 	cb = tw_trace_callback_doctrine_persister;
 	register_trace_callback("Doctrine\\ORM\\Persisters\\BasicEntityPersister::load", cb);
