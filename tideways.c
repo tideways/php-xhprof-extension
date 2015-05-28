@@ -846,27 +846,72 @@ long tw_trace_callback_php_call(char *symbol, void **args, int args_len, zval *o
 
 long tw_trace_callback_watch(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
 {
+	tw_watch_callback **temp;
 	tw_watch_callback *twcb;
-	zval *cbargs[1], *zret_ptr = NULL;
-	cbargs[0] = (zval *)&(args[0]);
+	zend_fcall_info fci = empty_fcall_info;
+	zend_fcall_info_cache fcic = empty_fcall_info_cache;
 
 	if (hp_globals.trace_watch_callbacks == NULL) {
 		return -1;
 	}
 
-	if (zend_hash_find(hp_globals.trace_watch_callbacks, symbol, strlen(symbol)+1, (void **)&twcb) == SUCCESS) {
+	if (zend_hash_find(hp_globals.trace_watch_callbacks, symbol, strlen(symbol)+1, (void **)&temp) == SUCCESS) {
+		zval *retval = NULL;
+		zval *context = NULL;
+		zval *zargs = NULL;
+		zval *params[1];
+		zend_error_handling zeh;
+		twcb = *temp;
+		int i;
+
+		MAKE_STD_ZVAL(context);
+		array_init(context);
+
+		MAKE_STD_ZVAL(zargs);
+		array_init(zargs);
+		Z_ADDREF_P(zargs);
+
+		add_assoc_string_ex(context, "fn", sizeof("fn"), symbol, 1);
+
+		if (args_len > 0) {
+			for (i = 0; i < args_len; i++) {
+				Z_ADDREF_P(*(args-args_len+i));
+				add_next_index_zval(zargs, *(args-args_len+i));
+			}
+		}
+
+		add_assoc_zval(context, "args", zargs);
+
+		if (object != NULL) {
+			Z_ADDREF_P(object);
+			add_assoc_zval(context, "object", object);
+		}
+
+		params[0] = (zval *)&(context);
+
 		twcb->fci.param_count = 1;
 		twcb->fci.size = sizeof(twcb->fci);
-		twcb->fci.retval_ptr_ptr = &zret_ptr;
-		twcb->fci.params = (zval ***)cbargs;
+		twcb->fci.retval_ptr_ptr = &retval;
+		twcb->fci.params = (zval ***)params;
 
 		if (zend_call_function(&(twcb->fci), &(twcb->fcic) TSRMLS_CC) == FAILURE) {
-			zend_error(E_ERROR, "Problem in AOP Callback");
+			zend_error(E_ERROR, "Cannot call Trace Watch Callback");
 		}
 
-		if (zret_ptr != NULL && Z_TYPE_P(zret_ptr) == IS_LONG) {
-			return Z_LVAL_P(zret_ptr);
+		zval_ptr_dtor(&context);
+		zval_ptr_dtor(&zargs);
+
+		long idx = -1;
+
+		if (retval) {
+			if (Z_TYPE_P(retval) == IS_LONG) {
+				idx = Z_LVAL_P(retval);
+			}
+
+			zval_ptr_dtor(&retval);
 		}
+
+		return idx;
 	}
 
 	return -1;
@@ -3209,7 +3254,7 @@ static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cac
 	tw_watch_callback *twcb;
 	tw_trace_callback cb;
 
-	twcb = (tw_watch_callback *)emalloc(sizeof(tw_watch_callback));
+	twcb = emalloc(sizeof(tw_watch_callback));
 	twcb->fci = fci;
 	twcb->fcic = fcic;
 
@@ -3225,8 +3270,8 @@ static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cac
 
 PHP_FUNCTION(tideways_callback_watch)
 {
-	zend_fcall_info fci;
-	zend_fcall_info_cache fcic= { 0, NULL, NULL, NULL, NULL };
+	zend_fcall_info fci = empty_fcall_info;
+	zend_fcall_info_cache fcic = empty_fcall_info_cache;
 	char *func;
 	int func_len;
 
@@ -3235,11 +3280,11 @@ PHP_FUNCTION(tideways_callback_watch)
 		return;
 	}
 
-	if (fci.function_name) {
+	if (fci.size) {
 		Z_ADDREF_P(fci.function_name);
-	}
-	if (fci.object_ptr) {
-		Z_ADDREF_P(fci.object_ptr);
+		if (fci.object_ptr) {
+			Z_ADDREF_P(fci.object_ptr);
+		}
 	}
 
 	tideways_add_callback_watch(fci, fcic, func, func_len TSRMLS_CC);
