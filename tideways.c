@@ -360,7 +360,7 @@ ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_span_watch, 0, 0, 0)
 	ZEND_ARG_INFO(0, name)
-	ZEND_ARG_INFO(1, category)
+	ZEND_ARG_INFO(0, category)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_span_callback, 0, 0, 0)
