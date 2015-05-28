@@ -363,7 +363,7 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_span_watch, 0, 0, 0)
 	ZEND_ARG_INFO(1, category)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_callback_watch, 0, 0, 0)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_span_callback, 0, 0, 0)
 	ZEND_ARG_INFO(0, name)
 	ZEND_ARG_INFO(0, callback)
 ZEND_END_ARG_INFO()
@@ -391,7 +391,7 @@ zend_function_entry tideways_functions[] = {
 	PHP_FE(tideways_span_timer_stop, arginfo_tideways_span_timer_stop)
 	PHP_FE(tideways_span_annotate, arginfo_tideways_span_annotate)
 	PHP_FE(tideways_span_watch, arginfo_tideways_span_watch)
-	PHP_FE(tideways_callback_watch, arginfo_tideways_callback_watch)
+	PHP_FE(tideways_span_callback, arginfo_tideways_span_callback)
 	{NULL, NULL, NULL}
 };
 
@@ -3268,7 +3268,7 @@ static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cac
 	register_trace_callback_len(func, func_len, cb);
 }
 
-PHP_FUNCTION(tideways_callback_watch)
+PHP_FUNCTION(tideways_span_callback)
 {
 	zend_fcall_info fci = empty_fcall_info;
 	zend_fcall_info_cache fcic = empty_fcall_info_cache;

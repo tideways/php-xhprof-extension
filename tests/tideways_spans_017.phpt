@@ -31,14 +31,14 @@ class Foo {
 }
 
 tideways_enable();
-tideways_callback_watch('foo', 'foo_cb');
-tideways_callback_watch('no_span', 'no_span_cb');
-tideways_callback_watch('throwex', 'throwex_cb');
-tideways_callback_watch('closured', function ($context) {
+tideways_span_callback('foo', 'foo_cb');
+tideways_span_callback('no_span', 'no_span_cb');
+tideways_span_callback('throwex', 'throwex_cb');
+tideways_span_callback('closured', function ($context) {
     echo "Inside Closure\n";
     var_dump($context);
 });
-tideways_callback_watch('Foo::bar', function ($context) {
+tideways_span_callback('Foo::bar', function ($context) {
     echo "With Object\n";
     var_dump($context);
 
