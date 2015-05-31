@@ -30,6 +30,11 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#if __APPLE__
+#include <mach/mach_init.h>
+#include <mach/mach_time.h>
+#endif
+
 #include "php.h"
 #include "php_ini.h"
 #include "ext/standard/info.h"
@@ -49,6 +54,7 @@
 #include <curl/easy.h>
 #endif
 #endif
+
 
 /**
  * **********************
