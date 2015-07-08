@@ -1,6 +1,5 @@
 --TEST--
-XHPRrof: Test excluding call_user_func and similar functions
-Author: mpal
+Tideways: Test excluding call_user_func and similar functions
 --FILE--
 <?php
 

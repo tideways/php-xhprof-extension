@@ -1,6 +1,5 @@
 --TEST--
-XHPRrof: Test Class Methods, Constructors, Destructors.
-Author: Kannan
+Tideways: Test Class Methods, Constructors, Destructors.
 --FILE--
 <?php
 

@@ -1,6 +1,5 @@
 --TEST--
-XHPRrof: Timer Tests
-Author: Kannan
+Tideways: Timer Tests
 --FILE--
 <?php
 

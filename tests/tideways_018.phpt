@@ -1,6 +1,5 @@
 --TEST--
-XHPRof: Exclude userland functions from profilling
-Author: beberlei
+Tideways: Exclude userland functions from profilling
 --FILE--
 <?php
 
