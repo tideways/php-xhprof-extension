@@ -1695,6 +1695,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_doctrine_persister;
 	register_trace_callback("Doctrine\\ORM\\Persisters\\BasicEntityPersister::load", cb);
+	register_trace_callback("Doctrine\\ORM\\Persisters\\BasicEntityPersister::loadAll", cb);
+	register_trace_callback("Doctrine\\ORM\\Persisters\\Entity\\BasicEntityPersister::load", cb);
+	register_trace_callback("Doctrine\\ORM\\Persisters\\Entity\\BasicEntityPersister::loadAll", cb);
 
 	cb = tw_trace_callback_doctrine_query;
 	register_trace_callback("Doctrine\\ORM\\AbstractQuery::execute", cb);
