@@ -460,7 +460,7 @@ PHP_FUNCTION(tideways_enable)
 	zval *optional_array = NULL;
 
 	if (hp_globals.enabled) {
-		return;
+		hp_stop(TSRMLS_C);
 	}
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
