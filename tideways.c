@@ -482,9 +482,6 @@ PHP_FUNCTION(tideways_enable)
  */
 PHP_FUNCTION(tideways_disable)
 {
-	zval *tmp, *value;
-	void *data;
-
 	if (!hp_globals.enabled) {
 		return;
 	}
