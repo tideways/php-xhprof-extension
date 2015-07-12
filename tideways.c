@@ -121,10 +121,10 @@ typedef unsigned char uint8;
 typedef struct hp_entry_t {
 	char                   *name_hprof;                       /* function name */
 	int                     rlvl_hprof;        /* recursion level for function */
-	uint64                  tsc_start;         /* start value for TSC counter  */
+	uint64                  tsc_start;         /* start value for wall clock timer */
+	uint64					cpu_start;		   /* start value for CPU clock timer */
 	long int                mu_start_hprof;                    /* memory usage */
 	long int                pmu_start_hprof;              /* peak memory usage */
-	struct rusage           ru_start_hprof;             /* user/sys time start */
 	struct hp_entry_t      *prev_hprof;    /* ptr to prev entry being profiled */
 	uint8                   hash_code;     /* hash_code for the function name  */
 	long int				span_id; /* span id of this entry if any, otherwise -1 */
@@ -2501,7 +2501,7 @@ void hp_trunc_time(struct timeval *tv, uint64 intr)
  */
 
 /**
- * Get time stamp counter (TSC) value via 'rdtsc' instruction.
+ * Get the current wallclock timer
  *
  * @return 64 bit unsigned integer
  * @author cjiang
@@ -2515,6 +2515,18 @@ static uint64 cycle_timer() {
 
 	return s.tv_sec * 1000000 + s.tv_nsec / 1000;
 #endif
+}
+
+/**
+ * Get the current real CPU clock timer
+ */
+static uint64 cpu_timer() {
+	struct rusage ru;
+
+	getrusage(RUSAGE_SELF, &ru);
+
+	return ru.ru_utime.tv_sec * 1000000 + ru.ru_utime.tv_usec +
+		ru.ru_stime.tv_sec * 1000000 + ru.ru_stime.tv_usec;
 }
 
 /**
@@ -2596,7 +2608,7 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 
 	/* Get CPU usage */
 	if (hp_globals.tideways_flags & TIDEWAYS_FLAGS_CPU) {
-		getrusage(RUSAGE_SELF, &(current->ru_start_hprof));
+		current->cpu_start = cpu_timer();
 	}
 
 	/* Get memory usage */
@@ -2621,17 +2633,20 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 {
 	hp_entry_t      *top = (*entries);
 	zval            *counts;
-	struct rusage    ru_end;
 	char             symbol[SCRATCH_BUF_LEN] = "";
 	long int         mu_end;
 	long int         pmu_end;
 	uint64   tsc_end;
-	double   wt;
+	double   wt, cpu;
 	tw_trace_callback *callback;
 
 	/* Get end tsc counter */
 	tsc_end = cycle_timer();
 	wt = get_us_from_tsc(tsc_end - top->tsc_start);
+
+	if (hp_globals.tideways_flags & TIDEWAYS_FLAGS_CPU) {
+		cpu = get_us_from_tsc(cpu_timer() - top->cpu_start);
+	}
 
 	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
 		if (top->span_id >= 0) {
@@ -2668,15 +2683,8 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 	hp_inc_count(counts, "wt", wt TSRMLS_CC);
 
 	if (hp_globals.tideways_flags & TIDEWAYS_FLAGS_CPU) {
-		/* Get CPU usage */
-		getrusage(RUSAGE_SELF, &ru_end);
-
 		/* Bump CPU stats in the counts hashtable */
-		hp_inc_count(counts, "cpu", (get_us_interval(&(top->ru_start_hprof.ru_utime),
-						&(ru_end.ru_utime)) +
-					get_us_interval(&(top->ru_start_hprof.ru_stime),
-						&(ru_end.ru_stime)))
-				TSRMLS_CC);
+		hp_inc_count(counts, "cpu", cpu TSRMLS_CC);
 	}
 
 	if (hp_globals.tideways_flags & TIDEWAYS_FLAGS_MEMORY) {
