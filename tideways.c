@@ -2514,12 +2514,6 @@ static uint64 cycle_timer() {
 	clock_gettime(CLOCK_MONOTONIC, &s);
 
 	return s.tv_sec * 1000000 + s.tv_nsec / 1000;
-
-	uint32 __a,__d;
-	uint64 val;
-	asm volatile("rdtsc" : "=a" (__a), "=d" (__d));
-	(val) = ((uint64)__a) | (((uint64)__d)<<32);
-	return val;
 #endif
 }
 
