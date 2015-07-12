@@ -2521,12 +2521,19 @@ static uint64 cycle_timer() {
  * Get the current real CPU clock timer
  */
 static uint64 cpu_timer() {
+#if defined(CLOCK_PROCESS_CPUTIME_ID)
+	struct timespec s;
+	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &s);
+
+	return s.tv_sec * 1000000 + s.tv_nsec / 1000;
+#else
 	struct rusage ru;
 
 	getrusage(RUSAGE_SELF, &ru);
 
 	return ru.ru_utime.tv_sec * 1000000 + ru.ru_utime.tv_usec +
 		ru.ru_stime.tv_sec * 1000000 + ru.ru_stime.tv_usec;
+#endif
 }
 
 /**
