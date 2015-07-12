@@ -28,7 +28,7 @@ get_sidebar();
 tideways_disable();
 print_spans(tideways_get_spans());
 --EXPECTF--
-app: 1 timers - 
+app: 1 timers - cpu=%d
 view: 1 timers - title=foo/bar.php
 event: 1 timers - title=content
 php: 1 timers - title=get_header

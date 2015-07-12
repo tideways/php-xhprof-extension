@@ -206,6 +206,7 @@ typedef struct hp_global_t {
 	zend_uint gc_collected; /* number of collected items in garbage run */
 	int compile_count;
 	double compile_wt;
+	uint64 cpu_start;
 } hp_global_t;
 
 #ifdef PHP_TIDEWAYS_HAVE_CURL
@@ -2951,6 +2952,10 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
 		hp_globals.root = estrdup(ROOT_SYMBOL);
 		hp_globals.start_time = cycle_timer();
 
+		if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
+			hp_globals.cpu_start = cpu_timer();
+		}
+
 		tw_span_create("app", 3);
 		tw_span_timer_start(0);
 
@@ -3004,6 +3009,8 @@ static void hp_stop(TSRMLS_D)
 		if (hp_globals.compile_wt > 0) {
 			tw_span_annotate_long(0, "cwt", hp_globals.compile_wt);
 		}
+
+		tw_span_annotate_long(0, "cpu", get_us_from_tsc(cpu_timer() - hp_globals.cpu_start));
 	}
 
 	if (hp_globals.root) {

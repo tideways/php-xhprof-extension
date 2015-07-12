@@ -29,7 +29,9 @@ array(2) {
       int(%d)
     }
     ["a"]=>
-    array(0) {
+    array(1) {
+      ["cpu"]=>
+      string(%d) "%d"
     }
   }
   [1]=>

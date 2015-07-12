@@ -31,6 +31,6 @@ try {
 $data = tideways_disable();
 
 print_Spans(tideways_get_spans());
---EXPECT--
-app: 1 timers - 
+--EXPECTF--
+app: 1 timers - cpu=%d
 http.soap: 1 timers - title=http://ec.europa.eu/taxation_customs/vies/services/checkVatService

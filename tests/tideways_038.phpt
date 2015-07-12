@@ -1,5 +1,5 @@
 --TEST--
-Tideways: Test CPU Timer
+Tideways: Test CPU Timer and Main() only CPU Timer
 --FILE--
 <?php
 
@@ -15,9 +15,9 @@ foo();
 $data = tideways_disable();
 
 if (($data['main()']['wt'] - $data['main()']['cpu']) > 1000000) {
-    echo 'OK';
+    echo "OK\n";
 } else {
-    echo 'FAIL';
+    echo "FAIL\n";
 }
 --EXPECTF--
 OK
