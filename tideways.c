@@ -95,22 +95,15 @@ static zend_always_inline void zend_string_release(zend_string *s)
 
 	pefree(s->val, s->persistent);
 }
-/* compatibility macros */
-#define _RETURN_STRING(a)     RETURN_STRING(a,1)
 /* new macros */
-#define RETURN_NEW_STR(s)     RETURN_STRINGL(s->val,s->len,0);
 #define RETURN_STR_COPY(s)    RETURN_STRINGL(estrdup(s->val), s->len, 0);
-#define ZVAL_DEREF(z)
 #define Z_STR_P(z)			  zend_string_init(Z_STRVAL_P(z), Z_STRLEN_P(z), 0)
 #define ZSTR_VAL(zstr)  (zstr)->val
-#define ZSTR_LEN(zstr)  (zstr)->len
 
 #else
 typedef size_t strsize_t;
 /* removed/uneeded macros */
 #define TSRMLS_CC
-/* compatibility macros */
-#define _RETURN_STRING(a)      RETURN_STRING(a)
 #endif
 
 #ifdef PHP_TIDEWAYS_HAVE_CURL
@@ -513,7 +506,7 @@ ZEND_GET_MODULE(tideways)
  */
 PHP_FUNCTION(tideways_enable)
 {
-	long tideways_flags = 0;
+	zend_long tideways_flags = 0;
 	zval *optional_array = NULL;
 
 	if (hp_globals.enabled) {
@@ -747,7 +740,7 @@ void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 PHP_FUNCTION(tideways_span_create)
 {
 	char *category = NULL;
-	size_t category_len;
+	strsize_t category_len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &category, &category_len) == FAILURE) {
 		return;
@@ -769,7 +762,7 @@ PHP_FUNCTION(tideways_get_spans)
 
 PHP_FUNCTION(tideways_span_timer_start)
 {
-	long spanId;
+	zend_long spanId;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &spanId) == FAILURE) {
 		return;
@@ -784,7 +777,7 @@ PHP_FUNCTION(tideways_span_timer_start)
 
 PHP_FUNCTION(tideways_span_timer_stop)
 {
-	long spanId;
+	zend_long spanId;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &spanId) == FAILURE) {
 		return;
@@ -799,7 +792,7 @@ PHP_FUNCTION(tideways_span_timer_stop)
 
 PHP_FUNCTION(tideways_span_annotate)
 {
-	long spanId;
+	zend_long spanId;
 	zval *annotations;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lz", &spanId, &annotations) == FAILURE) {
@@ -813,7 +806,7 @@ PHP_FUNCTION(tideways_span_annotate)
 PHP_FUNCTION(tideways_sql_minify)
 {
 	char *sql, *minified;
-	int len;
+	strsize_t len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &sql, &len) == FAILURE) {
 		return;
@@ -3234,7 +3227,7 @@ static inline long hp_zval_to_long(zval *z)
 PHP_FUNCTION(tideways_span_watch)
 {
 	char *func = NULL, *category = NULL;
-	int func_len, category_len;
+	strsize_t func_len, category_len;
 	tw_trace_callback cb;
 
 	if (!hp_globals.enabled || (hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
@@ -3294,7 +3287,7 @@ PHP_FUNCTION(tideways_span_callback)
 	zend_fcall_info fci = empty_fcall_info;
 	zend_fcall_info_cache fcic = empty_fcall_info_cache;
 	char *func;
-	int func_len;
+	strsize_t func_len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sf", &func, &func_len, &fci, &fcic) == FAILURE) {
 		zend_error(E_ERROR, "tideways_callback_watch() expects a string as a first and a callback as a second argument");
