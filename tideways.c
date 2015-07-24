@@ -48,6 +48,71 @@
 #include "ext/pdo/php_pdo_driver.h"
 #include "zend_stream.h"
 
+#if PHP_MAJOR_VERSION < 7
+struct _zend_string {
+  char *val;
+  int   len;
+  int   persistent;
+};
+typedef struct _zend_string zend_string;
+typedef long zend_long;
+typedef int strsize_t;
+
+static zend_always_inline zend_string *zend_string_alloc(int len, int persistent)
+{
+	/* single alloc, so free the buf, will also free the struct */
+	char *buf = safe_pemalloc(sizeof(zend_string)+len+1,1,0,persistent);
+	zend_string *str = (zend_string *)(buf+len+1);
+
+	str->val = buf;
+	str->len = len;
+	str->persistent = persistent;
+
+	return str;
+}
+static zend_always_inline zend_string *zend_string_init(const char *str, size_t len, int persistent)
+{
+	zend_string *ret = zend_string_alloc(len, persistent);
+
+	memcpy(ret->val, str, len);
+	ret->val[len] = '\0';
+	return ret;
+}
+static zend_always_inline void zend_string_free(zend_string *s)
+{
+	if (s == NULL) {
+		return;
+	}
+
+	pefree(s->val, s->persistent);
+}
+
+static zend_always_inline void zend_string_release(zend_string *s)
+{
+	if (s == NULL) {
+		return;
+	}
+
+	pefree(s->val, s->persistent);
+}
+/* compatibility macros */
+#define _RETURN_STRING(a)     RETURN_STRING(a,1)
+/* new macros */
+#define RETURN_NEW_STR(s)     RETURN_STRINGL(s->val,s->len,0);
+#define RETURN_STR_COPY(s)    RETURN_STRINGL(estrdup(s->val), s->len, 0);
+#define ZVAL_DEREF(z)
+#define Z_STR_P(z)			  zend_string_init(Z_STRVAL_P(z), Z_STRLEN_P(z), 0)
+#define ZSTR_VAL(zstr)  (zstr)->val
+#define ZSTR_LEN(zstr)  (zstr)->len
+
+#else
+typedef size_t strsize_t;
+/* removed/uneeded macros */
+#define TSRMLS_CC
+/* compatibility macros */
+#define _RETURN_STRING(a)      RETURN_STRING(a)
+#endif
+
 #ifdef PHP_TIDEWAYS_HAVE_CURL
 #if PHP_VERSION_ID > 50399
 #include <curl/curl.h>
@@ -130,11 +195,6 @@ typedef struct hp_entry_t {
 	long int				span_id; /* span id of this entry if any, otherwise -1 */
 } hp_entry_t;
 
-typedef struct hp_string {
-	char *value;
-	size_t length;
-} hp_string;
-
 typedef struct hp_function_map {
 	char **names;
 	uint8 filter[TIDEWAYS_FILTERED_FUNCTION_SIZE];
@@ -178,11 +238,11 @@ typedef struct hp_global_t {
 	hp_entry_t      *entry_free_list;
 
 	/* Function that determines the transaction name and callback */
-	hp_string       *transaction_function;
-	hp_string		*transaction_name;
+	zend_string       *transaction_function;
+	zend_string		*transaction_name;
 	char			*root;
 
-	hp_string		*exception_function;
+	zend_string		*exception_function;
 
 	double timebase_factor;
 
@@ -303,11 +363,7 @@ static void hp_transaction_name_clear();
 static inline zval  *hp_zval_at_key(char  *key, zval  *values);
 static inline char **hp_strings_in_zval(zval  *values);
 static inline void   hp_array_del(char **name_array);
-static inline hp_string *hp_create_string(const char *value, size_t length);
 static inline long hp_zval_to_long(zval *z);
-static inline hp_string *hp_zval_to_string(zval *z);
-static inline zval *hp_string_to_zval(hp_string *str);
-static inline void hp_string_clean(hp_string *str);
 static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC);
 static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC);
 static const char *hp_get_base_filename(const char *filename);
@@ -495,8 +551,7 @@ PHP_FUNCTION(tideways_disable)
 PHP_FUNCTION(tideways_transaction_name)
 {
 	if (hp_globals.transaction_name) {
-		zval *ret = hp_string_to_zval(hp_globals.transaction_name);
-		RETURN_ZVAL(ret, 1, 1);
+		RETURN_STR_COPY(hp_globals.transaction_name);
 	}
 }
 
@@ -1384,6 +1439,8 @@ PHP_RINIT_FUNCTION(tideways)
 	hp_globals.prepend_overwritten = 0;
 	hp_globals.backtrace = NULL;
 	hp_globals.exception = NULL;
+	hp_globals.transaction_name = NULL;
+	hp_globals.transaction_function = NULL;
 
 	if (INI_INT("tideways.auto_prepend_library") == 0) {
 		return SUCCESS;
@@ -1547,13 +1604,13 @@ static void hp_parse_options_from_arg(zval *args)
 	zresult = hp_zval_at_key("transaction_function", args);
 
 	if (zresult != NULL) {
-		hp_globals.transaction_function = hp_zval_to_string(zresult);
+		hp_globals.transaction_function = Z_STR_P(zresult);
 	}
 
 	zresult = hp_zval_at_key("exception_function", args);
 
 	if (zresult != NULL) {
-		hp_globals.exception_function = hp_zval_to_string(zresult);
+		hp_globals.exception_function = Z_STR_P(zresult);
 	}
 
 	zresult = hp_zval_at_key("slow_php_call_treshold", args);
@@ -1564,8 +1621,7 @@ static void hp_parse_options_from_arg(zval *args)
 
 static void hp_exception_function_clear() {
 	if (hp_globals.exception_function != NULL) {
-		hp_string_clean(hp_globals.exception_function);
-		efree(hp_globals.exception_function);
+		zend_string_release(hp_globals.exception_function);
 		hp_globals.exception_function = NULL;
 	}
 
@@ -1576,8 +1632,7 @@ static void hp_exception_function_clear() {
 
 static void hp_transaction_function_clear() {
 	if (hp_globals.transaction_function) {
-		hp_string_clean(hp_globals.transaction_function);
-		efree(hp_globals.transaction_function);
+		zend_string_release(hp_globals.transaction_function);
 		hp_globals.transaction_function = NULL;
 	}
 }
@@ -1831,9 +1886,6 @@ void hp_init_profiler_state(TSRMLS_D)
 	MAKE_STD_ZVAL(hp_globals.spans);
 	array_init(hp_globals.spans);
 
-	/* Set up filter of functions which may be ignored during profiling */
-	hp_transaction_name_clear();
-
 	hp_init_trace_callbacks(TSRMLS_C);
 }
 
@@ -1866,8 +1918,7 @@ void hp_clean_profiler_state(TSRMLS_D)
 static void hp_transaction_name_clear()
 {
 	if (hp_globals.transaction_name) {
-		hp_string_clean(hp_globals.transaction_name);
-		efree(hp_globals.transaction_name);
+		zend_string_release(hp_globals.transaction_name);
 		hp_globals.transaction_name = NULL;
 	}
 }
@@ -2232,6 +2283,7 @@ static char *hp_concat_char(const char *s1, size_t len1, const char *s2, size_t 
     strcpy(result, s1);
 	strcat(result, seperator);
     strcat(result, s2);
+	result[len1+len2+sep_len] = '\0';
 
     return result;
 }
@@ -2265,7 +2317,7 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 {
 	if (!hp_globals.transaction_function ||
 		hp_globals.transaction_name ||
-		strcmp(ret, hp_globals.transaction_function->value) != 0) {
+		strcmp(ret, ZSTR_VAL(hp_globals.transaction_function)) != 0) {
 		return;
 	}
 
@@ -2279,32 +2331,26 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 			   strcmp(ret, "Illuminate\\Routing\\Controller::callAction") == 0) {
 		zval *obj = data->object;
 		argument_element = *(p-arg_count);
-		const char *class_name;
-		zend_uint class_name_len;
-		const char *free_class_name = NULL;
-
-		if (!zend_get_object_classname(obj, &class_name, &class_name_len TSRMLS_CC)) {
-			free_class_name = class_name;
-		}
+		zend_class_entry *ce;
+		int len;
+		char *ctrl;
 
 		if (Z_TYPE_P(argument_element) == IS_STRING) {
-			int len = class_name_len + Z_STRLEN_P(argument_element) + 3;
-			char *ret = NULL;
-			ret = (char*)emalloc(len);
-			snprintf(ret, len, "%s::%s", class_name, Z_STRVAL_P(argument_element));
+			ce = Z_OBJCE_P(obj);
 
-			hp_globals.transaction_name = hp_create_string(ret, len);
-			efree(ret);
-		}
+			len = ce->name_length + Z_STRLEN_P(argument_element) + 3;
+			ctrl = (char*)emalloc(len);
+			snprintf(ctrl, len, "%s::%s", ce->name, Z_STRVAL_P(argument_element));
+			ctrl[len-1] = '\0';
 
-		if (free_class_name) {
-			efree((char*)free_class_name);
+			hp_globals.transaction_name = zend_string_init(ctrl, len-1, 0);
+			efree(ctrl);
 		}
 	} else {
 		argument_element = *(p-arg_count);
 
 		if (Z_TYPE_P(argument_element) == IS_STRING) {
-			hp_globals.transaction_name = hp_zval_to_string(argument_element);
+			hp_globals.transaction_name = Z_STR_P(argument_element);
 		}
 	}
 
@@ -2734,7 +2780,7 @@ ZEND_DLEXPORT void hp_detect_tx_execute_ex (zend_execute_data *execute_data TSRM
 	if (func) {
 		hp_detect_transaction_name(func, real_execute_data TSRMLS_CC);
 
-		if (hp_globals.exception_function != NULL && strcmp(func, hp_globals.exception_function->value) == 0) {
+		if (hp_globals.exception_function != NULL && strcmp(func, ZSTR_VAL(hp_globals.exception_function)) == 0) {
 			hp_detect_exception(func, real_execute_data TSRMLS_CC);
 		}
 
@@ -2779,7 +2825,7 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 
 	hp_detect_transaction_name(func, real_execute_data TSRMLS_CC);
 
-	if (hp_globals.exception_function != NULL && strcmp(func, hp_globals.exception_function->value) == 0) {
+	if (hp_globals.exception_function != NULL && strcmp(func, ZSTR_VAL(hp_globals.exception_function)) == 0) {
 		hp_detect_exception(func, real_execute_data TSRMLS_CC);
 	}
 
@@ -3176,17 +3222,6 @@ void tideways_error_cb(int type, const char *error_filename, const uint error_li
 	tideways_original_error_cb(type, error_filename, error_lineno, format, args);
 }
 
-static inline hp_string *hp_create_string(const char *value, size_t length)
-{
-	hp_string *str;
-
-	str = emalloc(sizeof(hp_string));
-	str->value = estrdup(value);
-	str->length = length;
-
-	return str;
-}
-
 static inline long hp_zval_to_long(zval *z)
 {
 	if (Z_TYPE_P(z) == IS_LONG) {
@@ -3194,42 +3229,6 @@ static inline long hp_zval_to_long(zval *z)
 	}
 
 	return 0;
-}
-
-static inline hp_string *hp_zval_to_string(zval *z)
-{
-	if (Z_TYPE_P(z) == IS_STRING) {
-		return hp_create_string(Z_STRVAL_P(z), Z_STRLEN_P(z));
-	}
-
-	return NULL;
-}
-
-static inline zval *hp_string_to_zval(hp_string *str)
-{
-	zval *ret;
-	char *val;
-
-	MAKE_STD_ZVAL(ret);
-	ZVAL_NULL(ret);
-
-	if (str == NULL) {
-		return ret;
-	}
-
-	ZVAL_STRINGL(ret, str->value, str->length, 1);
-
-	return ret;
-}
-
-
-static inline void hp_string_clean(hp_string *str)
-{
-	if (str == NULL) {
-		return;
-	}
-
-	efree(str->value);
 }
 
 PHP_FUNCTION(tideways_span_watch)
