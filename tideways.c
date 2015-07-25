@@ -859,7 +859,11 @@ PHP_FUNCTION(tideways_sql_minify)
 
 	minified = hp_get_sql_summary(sql, len TSRMLS_CC);
 
+#if PHP_MAJOR_VERSION < 7
 	RETURN_STRING(minified, 0);
+#else
+	RETURN_STRING(minified);
+#endif
 }
 
 /**
