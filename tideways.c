@@ -139,8 +139,13 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define ZEND_CALL_ARG(call, n) hp_get_execute_argument(call, n)
 #define EX_OBJ(call) call->object
 
+#define _ZCE_NAME(ce) ce->name
+#define _ZCE_NAME_LENGTH(ce) ce->name_length
+
 #else
 #define EX_OBJ(call) call->This
+#define _ZCE_NAME(ce) ce->name->val
+#define _ZCE_NAME_LENGTH(ce) ce->name->len
 typedef size_t strsize_t;
 /* removed/uneeded macros */
 #define TSRMLS_CC
@@ -1062,7 +1067,7 @@ long tw_trace_callback_magento_block(char *symbol, zend_execute_data *data TSRML
 
 	ce = Z_OBJCE_P(object);
 
-	return tw_trace_callback_record_with_cache("view", 4, ce->name, ce->name_length, 1);
+	return tw_trace_callback_record_with_cache("view", 4, _ZCE_NAME(ce), _ZCE_NAME_LENGTH(ce), 1);
 }
 
 /* Zend_View_Abstract::render($name); */
@@ -1100,9 +1105,9 @@ long tw_trace_callback_zend1_dispatcher_families_tx(char *symbol, zend_execute_d
 
 	ce = Z_OBJCE_P(object);
 
-	len = ce->name_length + Z_STRLEN_P(argument_element) + 3;
+	len = _ZCE_NAME_LENGTH(ce) + Z_STRLEN_P(argument_element) + 3;
 	ret = (char*)emalloc(len);
-	snprintf(ret, len, "%s::%s", ce->name, Z_STRVAL_P(argument_element));
+	snprintf(ret, len, "%s::%s", _ZCE_NAME(ce), Z_STRVAL_P(argument_element));
 
 	idx = tw_span_create("php.ctrl", 8);
 	tw_span_annotate_string(idx, "title", ret, 0);
@@ -1313,9 +1318,9 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 
 	query_ce = Z_OBJCE_P(object);
 
-	if (strcmp(query_ce->name, "Doctrine\\ORM\\Query") == 0) {
+	if (strcmp(_ZCE_NAME(query_ce), "Doctrine\\ORM\\Query") == 0) {
 		ZVAL_STRING(&fname, "getDQL", 0);
-	} else if (strcmp(query_ce->name, "Doctrine\\ORM\\NativeQuery") == 0) {
+	} else if (strcmp(_ZCE_NAME(query_ce), "Doctrine\\ORM\\NativeQuery") == 0) {
 		ZVAL_STRING(&fname, "getSQL", 0);
 	} else {
 		return idx;
@@ -2364,7 +2369,7 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 			   strcmp(ret, "Enlight_Controller_Action::dispatch") == 0 ||
 			   strcmp(ret, "Mage_Core_Controller_Varien_Action::dispatch") == 0 ||
 			   strcmp(ret, "Illuminate\\Routing\\Controller::callAction") == 0) {
-		zval *obj = data->object;
+		zval *obj = EX_OBJ(data);
 		argument_element = ZEND_CALL_ARG(data, 0);
 		zend_class_entry *ce;
 		int len;
@@ -2373,9 +2378,9 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 		if (Z_TYPE_P(argument_element) == IS_STRING) {
 			ce = Z_OBJCE_P(obj);
 
-			len = ce->name_length + Z_STRLEN_P(argument_element) + 3;
+			len = _ZCE_NAME_LENGTH(ce) + Z_STRLEN_P(argument_element) + 3;
 			ctrl = (char*)emalloc(len);
-			snprintf(ctrl, len, "%s::%s", ce->name, Z_STRVAL_P(argument_element));
+			snprintf(ctrl, len, "%s::%s", _ZCE_NAME(ce), Z_STRVAL_P(argument_element));
 			ctrl[len-1] = '\0';
 
 			hp_globals.transaction_name = zend_string_init(ctrl, len-1, 0);
@@ -2403,12 +2408,13 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 	const char        *func = NULL;
 	const char        *cls = NULL;
 	char              *ret = NULL;
-	int                len;
-	zend_function      *curr_func;
 
 	if (!data) {
 		return NULL;
 	}
+
+#if PHP_MAJOR_VERSION < 7
+	zend_function      *curr_func;
 
 	curr_func = data->function_state.function;
 	func = curr_func->common.function_name;
@@ -2439,6 +2445,16 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 	} else {
 		ret = estrdup(func);
 	}
+#else
+	func = curr_func->common.function_name->val;
+	if (data->called_scope != NULL) {
+		char* sep = "::";
+		cls = data->called_scope->name->val;
+		ret = hp_concat_char(cls, data->called_scope->name->len, func, curr_func->common.function_name->len, sep, 2);
+	} else {
+		ret = estrdup(func);
+	}
+#endif
 
 	return ret;
 }
@@ -2738,12 +2754,14 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 			double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time);
 			double end = get_us_from_tsc(tsc_end - hp_globals.start_time);
 			tw_span_record_duration(top->span_id, start, end);
+#if PHP_MAJOR_VERSION < 7
 		} else if (data != NULL && data->function_state.function->type == ZEND_INTERNAL_FUNCTION && wt > hp_globals.slow_php_call_treshold) {
 			long idx = tw_trace_callback_php_call(top->name_hprof, data TSRMLS_CC);
 
 			double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time);
 			double end = get_us_from_tsc(tsc_end - hp_globals.start_time);
 			tw_span_record_duration(idx, start, end);
+#endif
 		}
 	}
 
@@ -2792,7 +2810,10 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
  * For transaction name detection in layer mode we only need a very simple user function overwrite.
  * Layer mode skips profiling userland functions, so we can simplify here.
  */
-#if PHP_VERSION_ID < 50500
+#if PHP_MAJOR_VERSION == 7
+ZEND_DLEXPORT void hp_detect_tx_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
+	zend_execute_data  *real_execute_data = execute_data->prev_execute_data;
+#elif PHP_VERSION_ID < 50500
 ZEND_DLEXPORT void hp_detect_tx_execute (zend_op_array *ops TSRMLS_DC) {
 	zend_execute_data *execute_data = EG(current_execute_data);
 	zend_execute_data *real_execute_data = execute_data;
@@ -2828,7 +2849,10 @@ ZEND_DLEXPORT void hp_detect_tx_execute_ex (zend_execute_data *execute_data TSRM
  *
  * @author hzhao, kannan
  */
-#if PHP_VERSION_ID < 50500
+#if PHP_MAJOR_VERSION == 7
+ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
+	zend_execute_data *real_execute_data = execute_data->prev_execute_data;
+#elif PHP_VERSION_ID < 50500
 ZEND_DLEXPORT void hp_execute (zend_op_array *ops TSRMLS_DC) {
 	zend_execute_data *execute_data = EG(current_execute_data);
 	zend_execute_data *real_execute_data = execute_data;
@@ -2878,7 +2902,9 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
  * @author hzhao, kannan
  */
 
-#if PHP_VERSION_ID < 50500
+#if PHP_MAJOR_VERSION == 7
+ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data, zval *return_value) {
+#elif PHP_VERSION_ID < 50500
 #define EX_T(offset) (*(temp_variable *)((char *) EX(Ts) + offset))
 
 ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
@@ -2899,14 +2925,18 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
 	}
 
 	if (!_zend_execute_internal) {
-#if PHP_VERSION_ID < 50500
+#if PHP_MAJOR_VERSION == 7
+		execute_internal(execute_data, return_value TSRMLS_CC);
+#elif PHP_VERSION_ID < 50500
 		execute_internal(execute_data, ret TSRMLS_CC);
 #else
 		execute_internal(execute_data, fci, ret TSRMLS_CC);
 #endif
 	} else {
 		/* call the old override */
-#if PHP_VERSION_ID < 50500
+#if PHP_MAJOR_VERSION == 7
+		_zend_execute_internal(execute_data, return_value TSRMLS_CC);
+#elif PHP_VERSION_ID < 50500
 		_zend_execute_internal(execute_data, ret TSRMLS_CC);
 #else
 		_zend_execute_internal(execute_data, fci, ret TSRMLS_CC);
