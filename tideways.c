@@ -141,11 +141,13 @@ static zend_always_inline void zend_string_release(zend_string *s)
 
 #define _ZCE_NAME(ce) ce->name
 #define _ZCE_NAME_LENGTH(ce) ce->name_length
+#define _ZVAL_STRING(str, len) ZVAL_STRING(str, len, 0)
 
 #else
 #define EX_OBJ(call) call->This
 #define _ZCE_NAME(ce) ce->name->val
 #define _ZCE_NAME_LENGTH(ce) ce->name->len
+#define _ZVAL_STRING(str, len) ZVAL_STRING(str, len)
 typedef size_t strsize_t;
 /* removed/uneeded macros */
 #define TSRMLS_CC
@@ -1050,7 +1052,7 @@ long tw_trace_callback_doctrine_couchdb_request(char *symbol, zend_execute_data 
 		return -1;
 	}
 
-	ZVAL_STRING(&space, " ", 0);
+	_ZVAL_STRING(&space, " ");
 
 	concat_function(&tmp, method, &space TSRMLS_CC);
 	concat_function(&title, &tmp, path TSRMLS_CC);
@@ -1327,9 +1329,9 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 	query_ce = Z_OBJCE_P(object);
 
 	if (strcmp(_ZCE_NAME(query_ce), "Doctrine\\ORM\\Query") == 0) {
-		ZVAL_STRING(&fname, "getDQL", 0);
+		_ZVAL_STRING(&fname, "getDQL");
 	} else if (strcmp(_ZCE_NAME(query_ce), "Doctrine\\ORM\\NativeQuery") == 0) {
-		ZVAL_STRING(&fname, "getSQL", 0);
+		_ZVAL_STRING(&fname, "getSQL");
 	} else {
 		return idx;
 	}
@@ -1359,7 +1361,7 @@ long tw_trace_callback_twig_template(char *symbol, zend_execute_data *data TSRML
 		return idx;
 	}
 
-	ZVAL_STRING(&fname, "getTemplateName", 0);
+	_ZVAL_STRING(&fname, "getTemplateName");
 
 	if (SUCCESS == call_user_function_ex(EG(function_table), &object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
 		if (Z_TYPE_P(retval_ptr) == IS_STRING) {
@@ -1442,7 +1444,7 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 		return -1;
 	}
 
-	ZVAL_STRING(&fname, "curl_getinfo", 0);
+	_ZVAL_STRING(&fname, "curl_getinfo");
 
 	params_array = (zval ***) emalloc(sizeof(zval **));
 	params_array[0] = &argument;
