@@ -1027,12 +1027,21 @@ long tw_trace_callback_record_with_cache(char *category, int category_len, char 
 {
 	long idx, *idx_ptr = NULL;
 
+#if PHP_MAJOR_VERSION < 7
 	if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
 		idx = *idx_ptr;
 	} else {
 		idx = tw_span_create(category, category_len);
 		zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
 	}
+#else
+	if (idx_ptr = zend_hash_str_find_ptr(hp_globals.span_cache, summary, strlen(summary))) {
+		idx = *idx_ptr;
+	} else {
+		idx = tw_span_create(category, category_len);
+		zend_hash_str_update_ptr(hp_globals.span_cache, summary, strlen(summary), &idx);
+	}
+#endif
 
 	tw_span_annotate_string(idx, "title", summary, copy);
 
