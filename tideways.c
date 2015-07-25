@@ -1026,11 +1026,13 @@ long tw_trace_callback_record_with_cache(char *category, int category_len, char 
 {
 	long idx, *idx_ptr;
 
-	if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
+	idx_ptr = zend_compat_hash_find_ptr(hp_globals.span_cache, summary, strlen(summary));
+
+	if (idx_ptr) {
 		idx = *idx_ptr;
 	} else {
 		idx = tw_span_create(category, category_len);
-		zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
+		zend_compat_hash_update_ptr_const(hp_globals.span_cache, summary, strlen(summary), &idx, sizeof(long));
 	}
 
 	tw_span_annotate_string(idx, "title", summary, copy);
@@ -1050,8 +1052,7 @@ long tw_trace_callback_php_call(char *symbol, zend_execute_data *data TSRMLS_DC)
 
 long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
-	tw_watch_callback **temp;
-	tw_watch_callback *twcb;
+	tw_watch_callback *twcb = NULL;
 	zend_fcall_info fci = empty_fcall_info;
 	zend_fcall_info_cache fcic = empty_fcall_info_cache;
 	int args_len = ZEND_CALL_NUM_ARGS(data);
@@ -1061,13 +1062,14 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 		return -1;
 	}
 
-	if (zend_hash_find(hp_globals.trace_watch_callbacks, symbol, strlen(symbol)+1, (void **)&temp) == SUCCESS) {
+	twcb = zend_compat_hash_find_ptr(hp_globals.trace_watch_callbacks, symbol, strlen(symbol));
+
+	if (twcb) {
 		zval *retval = NULL;
 		zval *context = NULL;
 		zval *zargs = NULL;
 		zval *params[1];
 		zend_error_handling zeh;
-		twcb = *temp;
 		int i;
 
 		MAKE_STD_ZVAL(context);
@@ -1260,7 +1262,7 @@ long tw_trace_callback_oxid_tx(char *symbol, zend_execute_data *data TSRMLS_DC)
 /* $resolver->getArguments($request, $controller); */
 long tw_trace_callback_symfony_resolve_arguments_tx(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
-	zval *callback, **controller, **action;
+	zval *callback, *controller, *action;
 	char *ret = NULL;
 	int len;
 	tw_trace_callback cb;
@@ -1270,27 +1272,23 @@ long tw_trace_callback_symfony_resolve_arguments_tx(char *symbol, zend_execute_d
 
 	// Only Symfony2 framework for now
 	if (Z_TYPE_P(callback) == IS_ARRAY) {
-		if (zend_hash_index_find(Z_ARRVAL_P(callback), 0, (void**)&controller) == FAILURE) {
+		controller = zend_compat_hash_index_find(Z_ARRVAL_P(callback), 0);
+
+		if (controller == NULL && Z_TYPE_P(controller) != IS_OBJECT) {
 			return -1;
 		}
 
-		if (Z_TYPE_PP(controller) != IS_OBJECT) {
+		action = zend_compat_hash_index_find(Z_ARRVAL_P(callback), 1);
+
+		if (action == NULL && Z_TYPE_P(action) != IS_STRING) {
 			return -1;
 		}
 
-		if (zend_hash_index_find(Z_ARRVAL_P(callback), 1, (void**)&action) == FAILURE) {
-			return -1;
-		}
+		ce = Z_OBJCE_P(controller);
 
-		if (Z_TYPE_PP(action) != IS_STRING) {
-			return -1;
-		}
-
-		ce = Z_OBJCE_PP(controller);
-
-		len = _ZCE_NAME_LENGTH(ce) + Z_STRLEN_PP(action) + 3;
+		len = _ZCE_NAME_LENGTH(ce) + Z_STRLEN_P(action) + 3;
 		ret = (char*)emalloc(len);
-		snprintf(ret, len, "%s::%s", _ZCE_NAME(ce), Z_STRVAL_PP(action));
+		snprintf(ret, len, "%s::%s", _ZCE_NAME(ce), Z_STRVAL_P(action));
 
 		cb = tw_trace_callback_php_controller;
 		register_trace_callback_len(ret, len-1, cb);
