@@ -3154,7 +3154,7 @@ static zval *hp_zval_at_key(char  *key, zval  *values)
 {
 	zval *result = NULL;
 
-	if (values->type == IS_ARRAY) {
+	if (Z_TYPE_P(values) == IS_ARRAY) {
 		HashTable *ht;
 		zval     **value;
 		uint       len = strlen(key) + 1;
