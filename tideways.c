@@ -152,7 +152,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _add_assoc_stringl(arg, key, str, str_len, copy) add_assoc_stringl(arg, key, str, str_len, copy)
 
 #else
-#define EX_OBJ(call) call->This
+#define EX_OBJ(call) &(call->This)
 #define _ZCE_NAME(ce) ce->name->val
 #define _ZCE_NAME_LENGTH(ce) ce->name->len
 #define _ZVAL_STRING(str, len) ZVAL_STRING(str, len)
