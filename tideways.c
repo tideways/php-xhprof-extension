@@ -2054,6 +2054,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
  */
 void hp_init_profiler_state(TSRMLS_D)
 {
+	_DECLARE_ZVAL(stats_count);
+	_DECLARE_ZVAL(spans);
+
 	/* Setup globals */
 	if (!hp_globals.ever_enabled) {
 		hp_globals.ever_enabled  = 1;
@@ -2064,14 +2067,16 @@ void hp_init_profiler_state(TSRMLS_D)
 	if (hp_globals.stats_count) {
 		zval_ptr_dtor(&hp_globals.stats_count);
 	}
-	_ALLOC_INIT_ZVAL(hp_globals.stats_count);
-	array_init(hp_globals.stats_count);
+	_ALLOC_INIT_ZVAL(stats_count);
+	array_init(stats_count);
+	hp_globals.stats_count = stats_count;
 
 	if (hp_globals.spans) {
 		zval_ptr_dtor(&hp_globals.spans);
 	}
-	_ALLOC_INIT_ZVAL(hp_globals.spans);
-	array_init(hp_globals.spans);
+	_ALLOC_INIT_ZVAL(spans);
+	array_init(spans);
+	hp_globals.spans = spans;
 
 	hp_init_trace_callbacks(TSRMLS_C);
 }
