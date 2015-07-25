@@ -2311,12 +2311,15 @@ static const char *hp_get_base_filename(const char *filename)
  */
 static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 {
-	zval *parts, **data, *tmp;
+	zval *parts, **data, *val, *tmp;
 	HashTable *arrayParts;
 	pcre_cache_entry	*pce;			/* Compiled regular expression */
 	HashPosition pointer;
 	int array_count, result_len, found, found_select;
 	char *result, *token;
+	char *key;
+	int key_len;
+	long index;
 
 	found = 0;
 	found_select = 0;
@@ -2338,15 +2341,15 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 	result_len = TIDEWAYS_MAX_ARGUMENT_LEN;
 	result = emalloc(result_len);
 
+#if PHP_MAJOR_VERSION < 7
 	for(zend_hash_internal_pointer_reset_ex(arrayParts, &pointer);
 			zend_hash_get_current_data_ex(arrayParts, (void**) &data, &pointer) == SUCCESS;
 			zend_hash_move_forward_ex(arrayParts, &pointer)) {
 
-		char *key;
-		int key_len;
-		long index;
-
 		zend_hash_get_current_key_ex(arrayParts, &key, &key_len, &index, 0, &pointer);
+#else
+	ZEND_HASH_FOREACH_KEY_VAL(arrayParts, index, key, val) {
+#endif
 
 		token = Z_STRVAL_PP(data);
 		php_strtolower(token, Z_STRLEN_PP(data));
@@ -2382,7 +2385,11 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 			found = 1;
 			break;
 		}
+#if PHP_MAJOR_VERSION < 7
 	}
+#else
+	} ZEND_HASH_FOREACH_END();
+#endif
 
 	zval_ptr_dtor(&parts);
 
