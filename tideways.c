@@ -208,6 +208,20 @@ static zend_always_inline zval* zend_compat_hash_find_const(HashTable *ht, const
 #endif
 }
 
+static zend_always_inline void* zend_compat_hash_find_ptr(HashTable *ht, char *key, strsize_t len)
+{
+#if PHP_MAJOR_VERSION < 7
+	void **tmp, *result;
+	if (zend_hash_find(ht, key, len+1, (void**)&tmp) == SUCCESS) {
+		result = *tmp;
+		return result;
+	}
+	return NULL;
+#else
+	return zend_hash_str_find_ptr(ht, key, len+1);
+#endif
+}
+
 static zend_always_inline zval* zend_compat_hash_index_find(HashTable *ht, zend_ulong idx)
 {
 #if PHP_MAJOR_VERSION < 7
@@ -2616,14 +2630,22 @@ static void hp_fast_free_hprof_entry(hp_entry_t *p)
 void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
 {
 	HashTable *ht;
-	void *data;
+	zval *data;
 
-	if (!counts) return;
+	if (!counts) {
+		return;
+	}
+
 	ht = HASH_OF(counts);
-	if (!ht) return;
 
-	if (zend_hash_find(ht, name, strlen(name) + 1, &data) == SUCCESS) {
-		ZVAL_LONG(*(zval**)data, Z_LVAL_PP((zval**)data) + count);
+	if (!ht) {
+		return;
+	}
+
+	data = zend_compat_hash_find_const(ht, name, strlen(name));
+
+	if (data) {
+		ZVAL_LONG(data, Z_LVAL_P(data) + count);
 	} else {
 		add_assoc_long(counts, name, count);
 	}
@@ -2638,7 +2660,6 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
 zval * hp_hash_lookup(zval *hash, char *symbol  TSRMLS_DC)
 {
 	HashTable   *ht;
-	void        *data;
 	zval        *counts = (zval *) 0;
 
 	/* Bail if something is goofy */
@@ -2646,12 +2667,9 @@ zval * hp_hash_lookup(zval *hash, char *symbol  TSRMLS_DC)
 		return (zval *) 0;
 	}
 
-	/* Lookup our hash table */
-	if (zend_hash_find(ht, symbol, strlen(symbol) + 1, &data) == SUCCESS) {
-		/* Symbol already exists */
-		counts = *(zval **) data;
-	}
-	else {
+	counts = zend_compat_hash_find_const(ht, symbol, strlen(symbol));
+
+	if (counts == NULL) {
 		/* Add symbol to hash table */
 		MAKE_STD_ZVAL(counts);
 		array_init(counts);
@@ -2793,8 +2811,10 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 	/* Get start tsc counter */
 	current->tsc_start = cycle_timer();
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
-		if (data != NULL && zend_hash_find(hp_globals.trace_callbacks, current->name_hprof, strlen(current->name_hprof)+1, (void **)&callback) == SUCCESS) {
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0 && data != NULL) {
+		callback = zend_compat_hash_find_ptr(hp_globals.trace_callbacks, current->name_hprof, strlen(current->name_hprof)+1);
+
+		if (callback != NULL) {
 			current->span_id = (*callback)(current->name_hprof, data TSRMLS_CC);
 		}
 	}
