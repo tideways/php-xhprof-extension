@@ -150,6 +150,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _RETURN_STRING(str) RETURN_STRING(str, 0)
 #define _add_assoc_string_ex(arg, key, key_len, str, copy) add_assoc_string_ex(arg, key, key_len, str, copy)
 #define _add_assoc_stringl(arg, key, str, str_len, copy) add_assoc_stringl(arg, key, str, str_len, copy)
+#define _zend_read_property(scope, object, name, name_length, silent, zv) zend_read_property(scope, object, name, name_length, silent TSRMLS_CC)
 
 #else
 #define EX_OBJ(call) &(call->This)
@@ -159,6 +160,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _RETURN_STRING(str) RETURN_STRING(str)
 #define _add_assoc_string_ex(arg, key, key_len, str, copy) add_assoc_string_ex(arg, key, key_len, str)
 #define _add_assoc_stringl(arg, key, str, str_len, copy) add_assoc_stringl(arg, key, str, str_len)
+#define _zend_read_property(scope, object, name, name_length, silent, zv) zend_read_property(scope, object, name, name_length, silent, zv)
 
 typedef size_t strsize_t;
 /* removed/uneeded macros */
@@ -1350,7 +1352,8 @@ long tw_trace_callback_smarty3_template(char *symbol, zend_execute_data *data TS
 
 		smarty_ce = Z_OBJCE_P(object);
 
-		argument_element = zend_read_property(smarty_ce, object, "template_resource", sizeof("template_resource") - 1, 1 TSRMLS_CC);
+		zval __rv;
+		argument_element = _zend_read_property(smarty_ce, object, "template_resource", sizeof("template_resource") - 1, 1, rv);
 
 		if (Z_TYPE_P(argument_element) != IS_STRING) {
 			return -1;
@@ -1376,15 +1379,15 @@ long tw_trace_callback_doctrine_persister(char *symbol, zend_execute_data *data 
 
 	persister_ce = Z_OBJCE_P(object);
 
-	property = zend_read_property(persister_ce, object, "class", sizeof("class") - 1, 1 TSRMLS_CC);
+	property = _zend_read_property(persister_ce, object, "class", sizeof("class") - 1, 1, rv);
 	if (property == NULL) {
-		property = zend_read_property(persister_ce, object, "_class", sizeof("_class") - 1, 1 TSRMLS_CC);
+		property = _zend_read_property(persister_ce, object, "_class", sizeof("_class") - 1, 1, rv);
 	}
 
 	if (property != NULL && Z_TYPE_P(property) == IS_OBJECT) {
 		metadata_ce = Z_OBJCE_P(property);
 
-		property = zend_read_property(metadata_ce, property, "name", sizeof("name") - 1, 1 TSRMLS_CC);
+		property = _zend_read_property(metadata_ce, property, "name", sizeof("name") - 1, 1, rv);
 
 		if (property == NULL) {
 			return -1;
