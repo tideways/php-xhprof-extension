@@ -163,10 +163,12 @@ typedef size_t strsize_t;
 static zend_always_inline zval* zend_compat_hash_find_const(HashTable *ht, const char *key, strsize_t len)
 {
 #if PHP_MAJOR_VERSION < 7
-	zval **value;
-	if (zend_hash_find(ht, key, len+1, (void**)&value) == SUCCESS) {
-		return *value;
+	zval **tmp, *result;
+	if (zend_hash_find(ht, key, len+1, (void**)&tmp) == SUCCESS) {
+		result = *tmp;
+		return result;
 	}
+	return NULL;
 #else
 	zval *result;
 	zend_string *key_str = zend_string_init(key, len+1, 0);
@@ -440,7 +442,7 @@ static void hp_exception_function_clear();
 static void hp_transaction_function_clear();
 static void hp_transaction_name_clear();
 
-static inline zval  *hp_zval_at_key(char *key, strsize_t len, zval *values);
+static inline zval *hp_zval_at_key(char *key, strsize_t size, zval *values);
 static inline char **hp_strings_in_zval(zval  *values);
 static inline void   hp_array_del(char **name_array);
 static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC);
@@ -745,7 +747,7 @@ void tw_span_record_duration(long spanId, double start, double end)
 		return;
 	}
 
-	add_next_index_long(*timer, start);
+	add_next_index_long(timer, start);
 
 	timer = zend_compat_hash_find_const(Z_ARRVAL_P(span), "e", 1);
 
@@ -753,7 +755,7 @@ void tw_span_record_duration(long spanId, double start, double end)
 		return;
 	}
 
-	add_next_index_long(*timer, end);
+	add_next_index_long(timer, end);
 }
 
 void tw_span_timer_stop(long spanId)
@@ -1705,10 +1707,10 @@ static void hp_parse_options_from_arg(zval *args)
 
 	zval  *zresult = NULL;
 
-	zresult = hp_zval_at_key("ignored_functions", sizeof("ignored_functions")-1, args);
+	zresult = hp_zval_at_key("ignored_functions", sizeof("ignored_functions"), args);
 
 	if (zresult == NULL) {
-		zresult = hp_zval_at_key("functions", sizeof("functions")-1, args);
+		zresult = hp_zval_at_key("functions", sizeof("functions"), args);
 		if (zresult != NULL) {
 			hp_globals.filtered_type = 2;
 		}
@@ -1718,19 +1720,19 @@ static void hp_parse_options_from_arg(zval *args)
 
 	hp_globals.filtered_functions = hp_function_map_create(hp_strings_in_zval(zresult));
 
-	zresult = hp_zval_at_key("transaction_function", sizeof("transaction_function")-1, args);
+	zresult = hp_zval_at_key("transaction_function", sizeof("transaction_function"), args);
 
-	if (zresult != NULL) {
+	if (zresult != NULL && Z_TYPE_P(zresult) == IS_STRING) {
 		hp_globals.transaction_function = Z_STR_P(zresult);
 	}
 
-	zresult = hp_zval_at_key("exception_function", sizeof("exception_function")-1, args);
+	zresult = hp_zval_at_key("exception_function", sizeof("exception_function"), args);
 
-	if (zresult != NULL) {
+	if (zresult != NULL && Z_TYPE_P(zresult) == IS_STRING) {
 		hp_globals.exception_function = Z_STR_P(zresult);
 	}
 
-	zresult = hp_zval_at_key("slow_php_call_treshold", sizeof("slow_php_call_treshold")-1, args);
+	zresult = hp_zval_at_key("slow_php_call_treshold", sizeof("slow_php_call_treshold"), args);
 	if (zresult != NULL && Z_TYPE_P(zresult) == IS_LONG && Z_LVAL_P(zresult) >= 0) {
 		hp_globals.slow_php_call_treshold = Z_LVAL_P(zresult);
 	}
@@ -3202,12 +3204,12 @@ static void hp_stop(TSRMLS_D)
  *
  *  @author mpal
  **/
-static zval *hp_zval_at_key(char *key, strsize_t len, zval *values)
+static zval *hp_zval_at_key(char *key, strsize_t size, zval *values)
 {
 	if (Z_TYPE_P(values) == IS_ARRAY) {
 		HashTable *ht = Z_ARRVAL_P(values);
 
-		return zend_compat_hash_find_const(ht, key, len);
+		return zend_compat_hash_find_const(ht, key, size-1);
 	}
 
 	return NULL;
