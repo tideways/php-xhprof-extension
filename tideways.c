@@ -165,6 +165,14 @@ typedef size_t strsize_t;
 #define TSRMLS_CC
 #endif
 
+static zend_always_inline void zend_compat_hash_index_update(HashTable *ht, zend_ulong idx, zval *pData) {
+#if PHP_MAJOR_VERSION < 7
+	zend_hash_index_update(ht, idx, &pData, sizeof(zval*), NULL);
+#else
+	zend_hash_index_update(ht, idx, pData);
+#endif
+}
+
 static zend_always_inline void zend_compat_hash_update_ptr_const(HashTable *ht, const char *key, strsize_t len, void *ptr, size_t ptr_size)
 {
 #if PHP_MAJOR_VERSION < 7
@@ -714,7 +722,7 @@ long tw_span_create(char *category, size_t category_len)
 		add_assoc_long(span, "p", parent);
 	}
 
-	zend_hash_index_update(Z_ARRVAL_P(hp_globals.spans), idx, &span, sizeof(zval*), NULL);
+	zend_compat_hash_index_update(Z_ARRVAL_P(hp_globals.spans), idx, span);
 
 	return idx;
 }
