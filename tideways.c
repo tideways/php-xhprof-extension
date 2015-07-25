@@ -1528,7 +1528,7 @@ long tw_trace_callback_fastcgi_finish_request(char *symbol, zend_execute_data *d
 long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	zval *argument = ZEND_CALL_ARG(data, 0);
-	zval **option;
+	zval *option;
 	zval ***params_array;
 	char *summary;
 	long idx, *idx_ptr;
@@ -1544,8 +1544,10 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 	params_array[0] = &argument;
 
 	if (SUCCESS == call_user_function_ex(EG(function_table), NULL, &fname, &retval_ptr, 1, params_array, 1, NULL TSRMLS_CC)) {
-		if (zend_hash_find(Z_ARRVAL_P(retval_ptr), "url", sizeof("url"), (void **)&option) == SUCCESS) {
-			summary = hp_get_file_summary(Z_STRVAL_PP(option), Z_STRLEN_PP(option) TSRMLS_CC);
+		option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "url", sizeof("url"));
+
+		if (option && Z_TYPE_P(option) == IS_STRING) {
+			summary = hp_get_file_summary(Z_STRVAL_P(option), Z_STRLEN_P(option) TSRMLS_CC);
 
 			return tw_trace_callback_record_with_cache("http", 4, summary, strlen(summary), 0);
 		}
