@@ -174,6 +174,15 @@ static zend_always_inline void zend_compat_hash_merge(HashTable *target, HashTab
 #endif
 }
 
+static zend_always_inline int zend_compat_hash_get_current_key_ex(const HashTable *ht, char **str_index, uint *str_length, ulong *num_index, zend_bool duplicate, HashPosition *pos)
+{
+#if PHP_MAJOR_VERSION < 7
+	return zend_hash_get_current_key_ex(ht, str_index, str_length, num_index, duplicate, pos);
+#else
+	return zend_hash_get_current_key_ex(ht, str_index, str_length, num_index, pos);
+#endif
+}
+
 static zend_always_inline void zend_compat_hash_index_update(HashTable *ht, zend_ulong idx, zval *pData)
 {
 #if PHP_MAJOR_VERSION < 7
@@ -2298,7 +2307,7 @@ static const char *hp_get_base_filename(const char *filename)
  */
 static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 {
-	zval *parts, **data;
+	zval *parts, **data, *tmp;
 	HashTable *arrayParts;
 	pcre_cache_entry	*pce;			/* Compiled regular expression */
 	HashPosition pointer;
@@ -2329,7 +2338,7 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 		int key_len;
 		long index;
 
-		zend_hash_get_current_key_ex(arrayParts, &key, &key_len, &index, 0, &pointer);
+		zend_compat_hash_get_current_key_ex(arrayParts, &key, &key_len, &index, 0, &pointer);
 
 		token = Z_STRVAL_PP(data);
 		php_strtolower(token, Z_STRLEN_PP(data));
@@ -2338,16 +2347,16 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 				zend_hash_index_exists(arrayParts, index+2)) {
 			snprintf(result, result_len, "%s", token);
 
-			zend_hash_index_find(arrayParts, index+2, (void**) &data);
-			snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
+			tmp = zend_compat_hash_index_find(arrayParts, index+2);
+			snprintf(result, result_len, "%s %s", result, Z_STRVAL_P(tmp));
 			found = 1;
 
 			break;
 		} else if (strcmp(token, "update") == 0 && zend_hash_index_exists(arrayParts, index+1)) {
 			snprintf(result, result_len, "%s", token);
 
-			zend_hash_index_find(arrayParts, index+1, (void**) &data);
-			snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
+			tmp = zend_compat_hash_index_find(arrayParts, index+1);
+			snprintf(result, result_len, "%s %s", result, Z_STRVAL_P(tmp));
 			found = 1;
 
 			break;
@@ -2355,8 +2364,8 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 			snprintf(result, result_len, "%s", token);
 			found_select = 1;
 		} else if (found_select == 1 && strcmp(token, "from") == 0) {
-			zend_hash_index_find(arrayParts, index+1, (void**) &data);
-			snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
+			tmp = zend_compat_hash_index_find(arrayParts, index+1);
+			snprintf(result, result_len, "%s %s", result, Z_STRVAL_P(tmp));
 			found = 1;
 
 			break;
@@ -3290,7 +3299,7 @@ static char **hp_strings_in_zval(zval  *values)
 			int    type;
 			zval **data;
 
-			type = zend_hash_get_current_key_ex(ht, &str, &len, &idx, 0, NULL);
+			type = zend_compat_hash_get_current_key_ex(ht, &str, &len, &idx, 0, NULL);
 
 			if (type == HASH_KEY_IS_LONG) {
 				if ((zend_hash_get_current_data(ht, (void**)&data) == SUCCESS) &&
