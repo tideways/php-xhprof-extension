@@ -153,6 +153,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _zend_read_property(scope, object, name, name_length, silent, zv) zend_read_property(scope, object, name, name_length, silent TSRMLS_CC)
 #define _DECLARE_ZVAL(name) zval * name
 #define _ALLOC_INIT_ZVAL(name) ALLOC_INIT_ZVAL(name)
+#define _zval_ptr_dtor(val) zval_ptr_dtor(&val);
 
 #else
 #define EX_OBJ(call) &(call->This)
@@ -165,6 +166,8 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _zend_read_property(scope, object, name, name_length, silent, zv) zend_read_property(scope, object, name, name_length, silent, zv)
 #define _DECLARE_ZVAL(name) zval name ## _v; zval * name = &name ## _v
 #define _ALLOC_INIT_ZVAL(name) ZVAL_NULL(name)
+#define _zval_ptr_dtor(val) zval_ptr_dtor(val);
+
 
 typedef size_t strsize_t;
 /* removed/uneeded macros */
@@ -825,9 +828,15 @@ void tw_span_timer_stop(long spanId)
 	add_next_index_long(stops, wt);
 }
 
+#if PHP_MAJOR_VERSION < 7
 static int tw_convert_to_string(void *pDest TSRMLS_DC)
 {
 	zval **zv = (zval **) pDest;
+#else
+static int tw_convert_to_string(zval *pDest TSRMLS_DC)
+{
+	zval *zv = pDest;
+#endif
 
 	convert_to_string_ex(zv);
 
@@ -874,7 +883,11 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 
 	_ALLOC_INIT_ZVAL(annotation_value);
 	ZVAL_LONG(annotation_value, value);
+#if PHP_MAJOR_VERSION < 7
 	convert_to_string_ex(&annotation_value);
+#else
+	convert_to_string_ex(annotation_value);
+#endif
 
 	add_assoc_zval_ex(span_annotations, key, strlen(key)+1, annotation_value);
 }
@@ -1126,8 +1139,8 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 			zend_error(E_ERROR, "Cannot call Trace Watch Callback");
 		}
 
-		zval_ptr_dtor(&context);
-		zval_ptr_dtor(&zargs);
+		_zval_ptr_dtor(context);
+		_zval_ptr_dtor(zargs);
 
 		long idx = -1;
 
@@ -1136,7 +1149,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 				idx = Z_LVAL_P(retval);
 			}
 
-			zval_ptr_dtor(&retval);
+			_zval_ptr_dtor(retval);
 		}
 
 		return idx;
@@ -1455,7 +1468,7 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 
 		idx = tw_trace_callback_record_with_cache("doctrine.query", 14, summary, strlen(summary), 0);
 
-		zval_ptr_dtor(&retval_ptr);
+		_zval_ptr_dtor(retval_ptr);
 	}
 
 	return idx;
@@ -1478,7 +1491,7 @@ long tw_trace_callback_twig_template(char *symbol, zend_execute_data *data TSRML
 			idx = tw_trace_callback_record_with_cache("view", 4, Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr), 1);
 		}
 
-		zval_ptr_dtor(&retval_ptr);
+		_zval_ptr_dtor(retval_ptr);
 	}
 
 	return idx;
@@ -1568,7 +1581,7 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 			return tw_trace_callback_record_with_cache("http", 4, summary, strlen(summary), 0);
 		}
 
-		zval_ptr_dtor(&retval_ptr);
+		_zval_ptr_dtor(retval_ptr);
 	}
 
 	efree(params_array);
@@ -1813,7 +1826,7 @@ static void hp_exception_function_clear() {
 	}
 
 	if (hp_globals.exception != NULL) {
-		zval_ptr_dtor(&hp_globals.exception);
+		_zval_ptr_dtor(hp_globals.exception);
 	}
 }
 
@@ -2065,15 +2078,17 @@ void hp_init_profiler_state(TSRMLS_D)
 
 	/* Init stats_count */
 	if (hp_globals.stats_count) {
-		zval_ptr_dtor(&hp_globals.stats_count);
+		_zval_ptr_dtor(hp_globals.stats_count);
 	}
+
 	_ALLOC_INIT_ZVAL(stats_count);
 	array_init(stats_count);
 	hp_globals.stats_count = stats_count;
 
 	if (hp_globals.spans) {
-		zval_ptr_dtor(&hp_globals.spans);
+		_zval_ptr_dtor(hp_globals.spans);
 	}
+
 	_ALLOC_INIT_ZVAL(spans);
 	array_init(spans);
 	hp_globals.spans = spans;
@@ -2090,11 +2105,11 @@ void hp_clean_profiler_state(TSRMLS_D)
 {
 	/* Clear globals */
 	if (hp_globals.stats_count) {
-		zval_ptr_dtor(&hp_globals.stats_count);
+		_zval_ptr_dtor(hp_globals.stats_count);
 		hp_globals.stats_count = NULL;
 	}
 	if (hp_globals.spans) {
-		zval_ptr_dtor(&hp_globals.spans);
+		_zval_ptr_dtor(hp_globals.spans);
 		hp_globals.spans = NULL;
 	}
 
@@ -2369,11 +2384,12 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 			zend_hash_move_forward_ex(arrayParts, &pointer)) {
 
 		zend_hash_get_current_key_ex(arrayParts, &key, &key_len, &index, 0, &pointer);
+		token = Z_STRVAL_PP(data);
 #else
 	ZEND_HASH_FOREACH_KEY_VAL(arrayParts, index, key, val) {
+		token = Z_STRVAL_P(val);
 #endif
 
-		token = Z_STRVAL_PP(data);
 		php_strtolower(token, Z_STRLEN_PP(data));
 
 		if ((strcmp(token, "insert") == 0 || strcmp(token, "delete") == 0) &&
@@ -2413,7 +2429,7 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 	} ZEND_HASH_FOREACH_END();
 #endif
 
-	zval_ptr_dtor(&parts);
+	_zval_ptr_dtor(parts);
 
 	if (found == 0) {
 		snprintf(result, result_len, "%s", "other");
