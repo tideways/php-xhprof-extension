@@ -2323,7 +2323,11 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 	result = "";
 	MAKE_STD_ZVAL(parts);
 
+#if PHP_MAJOR_VERSION < 7
 	if ((pce = pcre_get_compiled_regex_cache("(([\\s]+))", 8 TSRMLS_CC)) == NULL) {
+#else
+	if ((pce = pcre_get_compiled_regex_cache("(([\\s]+))")) == NULL) {
+#endif
 		return "";
 	}
 
