@@ -404,7 +404,6 @@ static void hp_transaction_name_clear();
 static inline zval  *hp_zval_at_key(char  *key, zval  *values);
 static inline char **hp_strings_in_zval(zval  *values);
 static inline void   hp_array_del(char **name_array);
-static inline long hp_zval_to_long(zval *z);
 static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC);
 static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC);
 static const char *hp_get_base_filename(const char *filename);
@@ -3281,15 +3280,6 @@ void tideways_error_cb(int type, const char *error_filename, const uint error_li
 	}
 
 	tideways_original_error_cb(type, error_filename, error_lineno, format, args);
-}
-
-static inline long hp_zval_to_long(zval *z)
-{
-	if (Z_TYPE_P(z) == IS_LONG) {
-		return Z_LVAL_P(z);
-	}
-
-	return 0;
 }
 
 PHP_FUNCTION(tideways_span_watch)
