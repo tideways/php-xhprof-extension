@@ -990,7 +990,11 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 
 		twcb->fci.param_count = 1;
 		twcb->fci.size = sizeof(twcb->fci);
+#if PHP_MAJOR_VERSION < 7
 		twcb->fci.retval_ptr_ptr = &retval;
+#else
+		twcb->fci.retval = retval;
+#endif
 		twcb->fci.params = (zval ***)params;
 
 		if (zend_call_function(&(twcb->fci), &(twcb->fcic) TSRMLS_CC) == FAILURE) {
@@ -3320,9 +3324,15 @@ static void free_tw_watch_callback(void *twcb)
 	if (_twcb->fci.function_name) {
 		zval_ptr_dtor((zval **)&_twcb->fci.function_name);
 	}
+#if PHP_MAJOR_VERSION < 7
 	if (_twcb->fci.object_ptr) {
 		zval_ptr_dtor((zval **)&_twcb->fci.object_ptr);
 	}
+#else
+	if (_twcb->fci.object) {
+		zval_ptr_dtor(_twcb->fci.object);
+	}
+#endif
 
 	efree(_twcb);
 }
@@ -3360,9 +3370,15 @@ PHP_FUNCTION(tideways_span_callback)
 
 	if (fci.size) {
 		Z_ADDREF_P(fci.function_name);
+#if PHP_MAJOR_VERSION < 7
 		if (fci.object_ptr) {
 			Z_ADDREF_P(fci.object_ptr);
 		}
+#else
+		if (fci.object) {
+			Z_ADDREF_P(fci.object);
+		}
+#endif
 	}
 
 	tideways_add_callback_watch(fci, fcic, func, func_len TSRMLS_CC);
