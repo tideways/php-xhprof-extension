@@ -57,6 +57,7 @@ struct _zend_string {
 typedef struct _zend_string zend_string;
 typedef long zend_long;
 typedef int strsize_t;
+typedef zend_uint uint32_t;
 
 static inline void **hp_get_execute_arguments(zend_execute_data *data)
 {
@@ -302,8 +303,8 @@ typedef struct hp_global_t {
 	HashTable *span_cache;
 	int slow_php_call_treshold;
 
-	zend_uint gc_runs; /* number of garbage collection runs */
-	zend_uint gc_collected; /* number of collected items in garbage run */
+	uint32_t gc_runs; /* number of garbage collection runs */
+	uint32_t gc_collected; /* number of collected items in garbage run */
 	int compile_count;
 	double compile_wt;
 	uint64 cpu_start;
@@ -1160,12 +1161,10 @@ long tw_trace_callback_oxid_tx(char *symbol, zend_execute_data *data TSRMLS_DC)
 long tw_trace_callback_symfony_resolve_arguments_tx(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	zval *callback, **controller, **action;
-	const char *class_name;
-	zend_uint class_name_len;
-	const char *free_class_name = NULL;
 	char *ret = NULL;
 	int len;
 	tw_trace_callback cb;
+	zend_class_entry *ce;
 
 	callback = ZEND_CALL_ARG(data, 1);
 
@@ -1187,20 +1186,15 @@ long tw_trace_callback_symfony_resolve_arguments_tx(char *symbol, zend_execute_d
 			return -1;
 		}
 
-		if (!zend_get_object_classname(*controller, &class_name, &class_name_len TSRMLS_CC)) {
-			free_class_name = class_name;
-		}
+		ce = Z_OBJCE_PP(controller);
 
-		len = class_name_len + Z_STRLEN_PP(action) + 3;
+		len = _ZCE_NAME_LENGTH(ce) + Z_STRLEN_PP(action) + 3;
 		ret = (char*)emalloc(len);
-		snprintf(ret, len, "%s::%s", class_name, Z_STRVAL_PP(action));
+		snprintf(ret, len, "%s::%s", _ZCE_NAME(ce), Z_STRVAL_PP(action));
 
 		cb = tw_trace_callback_php_controller;
 		register_trace_callback_len(ret, len-1, cb);
 
-		if (free_class_name) {
-			efree((char*)free_class_name);
-		}
 		efree(ret);
 	}
 
@@ -2418,14 +2412,13 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 	const char        *func = NULL;
 	const char        *cls = NULL;
 	char              *ret = NULL;
+	zend_function      *curr_func;
 
 	if (!data) {
 		return NULL;
 	}
 
 #if PHP_MAJOR_VERSION < 7
-	zend_function      *curr_func;
-
 	curr_func = data->function_state.function;
 	func = curr_func->common.function_name;
 
@@ -2456,6 +2449,7 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 		ret = estrdup(func);
 	}
 #else
+	curr_func = data->func;
 	func = curr_func->common.function_name->val;
 	if (data->called_scope != NULL) {
 		char* sep = "::";
@@ -3334,10 +3328,6 @@ static void free_tw_watch_callback(void *twcb)
 	if (_twcb->fci.object_ptr) {
 		zval_ptr_dtor((zval **)&_twcb->fci.object_ptr);
 	}
-#else
-	if (_twcb->fci.object) {
-		zval_ptr_dtor(_twcb->fci.object);
-	}
 #endif
 
 	efree(_twcb);
@@ -3374,18 +3364,14 @@ PHP_FUNCTION(tideways_span_callback)
 		return;
 	}
 
+#if PHP_MAJOR_VERSION < 7
 	if (fci.size) {
 		Z_ADDREF_P(fci.function_name);
-#if PHP_MAJOR_VERSION < 7
 		if (fci.object_ptr) {
 			Z_ADDREF_P(fci.object_ptr);
 		}
-#else
-		if (fci.object) {
-			Z_ADDREF_P(fci.object);
-		}
-#endif
 	}
+#endif
 
 	tideways_add_callback_watch(fci, fcic, func, func_len TSRMLS_CC);
 }
