@@ -151,6 +151,8 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _add_assoc_string_ex(arg, key, key_len, str, copy) add_assoc_string_ex(arg, key, key_len, str, copy)
 #define _add_assoc_stringl(arg, key, str, str_len, copy) add_assoc_stringl(arg, key, str, str_len, copy)
 #define _zend_read_property(scope, object, name, name_length, silent, zv) zend_read_property(scope, object, name, name_length, silent TSRMLS_CC)
+#define _DECLARE_ZVAL(name) zval * name
+#define _ALLOC_INIT_ZVAL(name) ALLOC_INIT_ZVAL(name)
 
 #else
 #define EX_OBJ(call) &(call->This)
@@ -161,6 +163,8 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _add_assoc_string_ex(arg, key, key_len, str, copy) add_assoc_string_ex(arg, key, key_len, str)
 #define _add_assoc_stringl(arg, key, str, str_len, copy) add_assoc_stringl(arg, key, str, str_len)
 #define _zend_read_property(scope, object, name, name_length, silent, zv) zend_read_property(scope, object, name, name_length, silent, zv)
+#define _DECLARE_ZVAL(name) zval name ## _v; zval * name = &name ## _v
+#define _ALLOC_INIT_ZVAL(name) ZVAL_NULL(name)
 
 typedef size_t strsize_t;
 /* removed/uneeded macros */
@@ -710,7 +714,10 @@ PHP_FUNCTION(tideways_last_fatal_error)
 
 long tw_span_create(char *category, size_t category_len)
 {
-	zval *span, *starts, *stops, *annotations;
+	_DECLARE_ZVAL(span);
+	_DECLARE_ZVAL(starts);
+	_DECLARE_ZVAL(stops);
+	_DECLARE_ZVAL(annotations);
 
 	int idx;
 	long parent = 0;
@@ -725,10 +732,10 @@ long tw_span_create(char *category, size_t category_len)
 
 	idx = zend_hash_num_elements(Z_ARRVAL_P(hp_globals.spans));
 
-	MAKE_STD_ZVAL(span);
-	MAKE_STD_ZVAL(starts);
-	MAKE_STD_ZVAL(stops);
-	MAKE_STD_ZVAL(annotations);
+	_ALLOC_INIT_ZVAL(span);
+	_ALLOC_INIT_ZVAL(starts);
+	_ALLOC_INIT_ZVAL(stops);
+	_ALLOC_INIT_ZVAL(annotations);
 
 	array_init(span);
 	array_init(starts);
@@ -850,7 +857,8 @@ void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 
 void tw_span_annotate_long(long spanId, char *key, long value)
 {
-	zval *span, *span_annotations, *annotation_value;
+	zval *span, *span_annotations;
+	_DECLARE_ZVAL(annotation_value);
 
 	span = zend_compat_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId);
 
@@ -864,7 +872,7 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 		return;
 	}
 
-	MAKE_STD_ZVAL(annotation_value);
+	_ALLOC_INIT_ZVAL(annotation_value);
 	ZVAL_LONG(annotation_value, value);
 	convert_to_string_ex(&annotation_value);
 
@@ -1074,16 +1082,16 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 
 	if (twcb) {
 		zval *retval = NULL;
-		zval *context = NULL;
-		zval *zargs = NULL;
+		_DECLARE_ZVAL(context);
+		_DECLARE_ZVAL(zargs);
 		zval *params[1];
 		zend_error_handling zeh;
 		int i;
 
-		MAKE_STD_ZVAL(context);
+		_ALLOC_INIT_ZVAL(context);
 		array_init(context);
 
-		MAKE_STD_ZVAL(zargs);
+		_ALLOC_INIT_ZVAL(zargs);
 		array_init(zargs);
 		Z_ADDREF_P(zargs);
 
@@ -2056,13 +2064,13 @@ void hp_init_profiler_state(TSRMLS_D)
 	if (hp_globals.stats_count) {
 		zval_ptr_dtor(&hp_globals.stats_count);
 	}
-	MAKE_STD_ZVAL(hp_globals.stats_count);
+	_ALLOC_INIT_ZVAL(hp_globals.stats_count);
 	array_init(hp_globals.stats_count);
 
 	if (hp_globals.spans) {
 		zval_ptr_dtor(&hp_globals.spans);
 	}
-	MAKE_STD_ZVAL(hp_globals.spans);
+	_ALLOC_INIT_ZVAL(hp_globals.spans);
 	array_init(hp_globals.spans);
 
 	hp_init_trace_callbacks(TSRMLS_C);
@@ -2319,7 +2327,8 @@ static const char *hp_get_base_filename(const char *filename)
  */
 static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 {
-	zval *parts, **data, *val, *tmp;
+	zval **data, *val, *tmp;
+	_DECLARE_ZVAL(parts);
 	HashTable *arrayParts;
 	pcre_cache_entry	*pce;			/* Compiled regular expression */
 	HashPosition pointer;
@@ -2332,7 +2341,7 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 	found = 0;
 	found_select = 0;
 	result = "";
-	MAKE_STD_ZVAL(parts);
+	_ALLOC_INIT_ZVAL(parts);
 
 #if PHP_MAJOR_VERSION < 7
 	if ((pce = pcre_get_compiled_regex_cache("(([\\s]+))", 8 TSRMLS_CC)) == NULL) {
@@ -2679,7 +2688,7 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
 zval * hp_hash_lookup(zval *hash, char *symbol  TSRMLS_DC)
 {
 	HashTable   *ht;
-	zval        *counts = (zval *) 0;
+	_DECLARE_ZVAL(counts);
 
 	/* Bail if something is goofy */
 	if (!hash || !(ht = HASH_OF(hash))) {
@@ -2689,8 +2698,7 @@ zval * hp_hash_lookup(zval *hash, char *symbol  TSRMLS_DC)
 	counts = zend_compat_hash_find_const(ht, symbol, strlen(symbol));
 
 	if (counts == NULL) {
-		/* Add symbol to hash table */
-		MAKE_STD_ZVAL(counts);
+		_ALLOC_INIT_ZVAL(counts);
 		array_init(counts);
 		add_assoc_zval(hash, symbol, counts);
 	}
@@ -2831,11 +2839,17 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 	current->tsc_start = cycle_timer();
 
 	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0 && data != NULL) {
-		//callback = (tw_trace_callback*) zend_compat_hash_find_ptr(hp_globals.trace_callbacks, current->name_hprof, strlen(current->name_hprof));
+#if PHP_MAJOR_VERSION < 7
 		if (zend_hash_find(hp_globals.trace_callbacks, current->name_hprof, strlen(current->name_hprof)+1, (void **)&callback) == SUCCESS) {
-		//if (callback != NULL) {
 			current->span_id = (*callback)(current->name_hprof, data TSRMLS_CC);
 		}
+#else
+		callback = zend_hash_str_find_ptr(hp_globals.trace_callbacks, current->name_hprof, strlen(current->name_hprof));
+
+		if (callback) {
+			current->span_id = (*callback)(current->name_hprof, data TSRMLS_CC);
+		}
+#endif
 	}
 
 	/* Get CPU usage */
