@@ -143,12 +143,14 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _ZCE_NAME(ce) ce->name
 #define _ZCE_NAME_LENGTH(ce) ce->name_length
 #define _ZVAL_STRING(str, len) ZVAL_STRING(str, len, 0)
+#define _RETURN_STRING(str) RETURN_STRING(str, 0)
 
 #else
 #define EX_OBJ(call) call->This
 #define _ZCE_NAME(ce) ce->name->val
 #define _ZCE_NAME_LENGTH(ce) ce->name->len
 #define _ZVAL_STRING(str, len) ZVAL_STRING(str, len)
+#define _RETURN_STRING(str) RETURN_STRING(str)
 typedef size_t strsize_t;
 /* removed/uneeded macros */
 #define TSRMLS_CC
@@ -861,11 +863,7 @@ PHP_FUNCTION(tideways_sql_minify)
 
 	minified = hp_get_sql_summary(sql, len TSRMLS_CC);
 
-#if PHP_MAJOR_VERSION < 7
-	RETURN_STRING(minified, 0);
-#else
-	RETURN_STRING(minified);
-#endif
+	_RETURN_STRING(minified);
 }
 
 /**
@@ -3163,9 +3161,15 @@ static zval *hp_zval_at_key(char  *key, zval  *values)
 		uint       len = strlen(key) + 1;
 
 		ht = Z_ARRVAL_P(values);
+
+#if PHP_MAJOR_VERSION < 7
 		if (zend_hash_find(ht, key, len, (void**)&value) == SUCCESS) {
 			result = *value;
 		}
+#else
+		zend_string *key = zend_string_init(key, len, 0);
+		return zend_hash_find(ht, key);
+#endif
 	}
 
 	return result;
