@@ -480,7 +480,7 @@ static void hp_exception_function_clear();
 static void hp_transaction_function_clear();
 static void hp_transaction_name_clear();
 
-static inline zval *hp_zval_at_key(char *key, strsize_t size, zval *values);
+static inline zval *hp_zval_at_key(char *key, size_t size, zval *values);
 static inline char **hp_strings_in_zval(zval  *values);
 static inline void   hp_array_del(char **name_array);
 static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC);
@@ -711,6 +711,7 @@ PHP_FUNCTION(tideways_last_fatal_error)
 long tw_span_create(char *category, size_t category_len)
 {
 	zval *span, *starts, *stops, *annotations;
+
 	int idx;
 	long parent = 0;
 
@@ -1024,15 +1025,13 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 
 long tw_trace_callback_record_with_cache(char *category, int category_len, char *summary, int summary_len, int copy)
 {
-	long idx, *idx_ptr;
+	long idx, *idx_ptr = NULL;
 
-	idx_ptr = zend_compat_hash_find_ptr(hp_globals.span_cache, summary, strlen(summary));
-
-	if (idx_ptr) {
+	if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
 		idx = *idx_ptr;
 	} else {
 		idx = tw_span_create(category, category_len);
-		zend_compat_hash_update_ptr_const(hp_globals.span_cache, summary, strlen(summary), &idx, sizeof(long));
+		zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
 	}
 
 	tw_span_annotate_string(idx, "title", summary, copy);
@@ -1544,7 +1543,7 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 	params_array[0] = &argument;
 
 	if (SUCCESS == call_user_function_ex(EG(function_table), NULL, &fname, &retval_ptr, 1, params_array, 1, NULL TSRMLS_CC)) {
-		option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "url", sizeof("url"));
+		option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "url", sizeof("url")-1);
 
 		if (option && Z_TYPE_P(option) == IS_STRING) {
 			summary = hp_get_file_summary(Z_STRVAL_P(option), Z_STRLEN_P(option) TSRMLS_CC);
@@ -2823,9 +2822,9 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 	current->tsc_start = cycle_timer();
 
 	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0 && data != NULL) {
-		callback = zend_compat_hash_find_ptr(hp_globals.trace_callbacks, current->name_hprof, strlen(current->name_hprof)+1);
-
-		if (callback != NULL) {
+		//callback = (tw_trace_callback*) zend_compat_hash_find_ptr(hp_globals.trace_callbacks, current->name_hprof, strlen(current->name_hprof));
+		if (zend_hash_find(hp_globals.trace_callbacks, current->name_hprof, strlen(current->name_hprof)+1, (void **)&callback) == SUCCESS) {
+		//if (callback != NULL) {
 			current->span_id = (*callback)(current->name_hprof, data TSRMLS_CC);
 		}
 	}
@@ -3273,7 +3272,7 @@ static void hp_stop(TSRMLS_D)
  *
  *  @author mpal
  **/
-static zval *hp_zval_at_key(char *key, strsize_t size, zval *values)
+static zval *hp_zval_at_key(char *key, size_t size, zval *values)
 {
 	if (Z_TYPE_P(values) == IS_ARRAY) {
 		HashTable *ht = Z_ARRVAL_P(values);
@@ -3290,7 +3289,7 @@ static zval *hp_zval_at_key(char *key, strsize_t size, zval *values)
  *
  *  @author mpal
  **/
-static char **hp_strings_in_zval(zval  *values)
+static char **hp_strings_in_zval(zval *values)
 {
 	char   **result;
 	size_t   count;
