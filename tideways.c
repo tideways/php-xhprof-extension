@@ -160,6 +160,15 @@ typedef size_t strsize_t;
 #define TSRMLS_CC
 #endif
 
+static zend_always_inline void zend_compat_hash_update_ptr_const(HashTable *ht, const char *key, strsize_t len, void *ptr, size_t ptr_size)
+{
+#if PHP_MAJOR_VERSION < 7
+	zend_hash_update(ht, key, len+1, ptr, ptr_size, NULL);
+#else
+	zend_hash_str_update_ptr(ht, key, len, ptr);
+#endif
+}
+
 static zend_always_inline zval* zend_compat_hash_find_const(HashTable *ht, const char *key, strsize_t len)
 {
 #if PHP_MAJOR_VERSION < 7
@@ -170,12 +179,7 @@ static zend_always_inline zval* zend_compat_hash_find_const(HashTable *ht, const
 	}
 	return NULL;
 #else
-	zval *result;
-	zend_string *key_str = zend_string_init(key, len+1, 0);
-	result = zend_hash_find(ht, key_str);
-	zend_string_release(key_str);
-
-	return result;
+	return zend_hash_str_find(ht, key, len+1);
 #endif
 }
 
@@ -249,8 +253,8 @@ typedef unsigned int uint32;
 typedef unsigned char uint8;
 #endif
 
-#define register_trace_callback(function_name, cb) zend_hash_update(hp_globals.trace_callbacks, function_name, sizeof(function_name), &cb, sizeof(tw_trace_callback*), NULL);
-#define register_trace_callback_len(function_name, len, cb) zend_hash_update(hp_globals.trace_callbacks, function_name, len+1, &cb, sizeof(tw_trace_callback*), NULL);
+#define register_trace_callback(function_name, cb) zend_compat_hash_update_ptr_const(hp_globals.trace_callbacks, function_name, sizeof(function_name) - 1, &cb, sizeof(tw_trace_callback*));
+#define register_trace_callback_len(function_name, len, cb) zend_compat_hash_update_ptr_const(hp_globals.trace_callbacks, function_name, len, &cb, sizeof(tw_trace_callback*));
 
 /**
  * *****************************
