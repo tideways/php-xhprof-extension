@@ -3295,6 +3295,11 @@ static char **hp_strings_in_zval(zval  *values)
 	char   **result;
 	size_t   count;
 	size_t   ix = 0;
+	char  *str;
+	uint   len;
+	ulong  idx;
+	int    type;
+	zval **data, *val;
 
 	if (!values) {
 		return NULL;
@@ -3311,17 +3316,12 @@ static char **hp_strings_in_zval(zval  *values)
 			return result;
 		}
 
+#if PHP_MAJOR_VERSION < 7
 		for (zend_hash_internal_pointer_reset(ht);
 				zend_hash_has_more_elements(ht) == SUCCESS;
 				zend_hash_move_forward(ht)) {
-			char  *str;
-			uint   len;
-			ulong  idx;
-			int    type;
-			zval **data;
 
 			type = zend_hash_get_current_key_ex(ht, &str, &len, &idx, 0, NULL);
-
 			if (type == HASH_KEY_IS_LONG) {
 				if ((zend_hash_get_current_data(ht, (void**)&data) == SUCCESS) &&
 						Z_TYPE_PP(data) == IS_STRING &&
@@ -3334,6 +3334,17 @@ static char **hp_strings_in_zval(zval  *values)
 				ix++;
 			}
 		}
+#else
+		ZEND_HASH_FOREACH_KEY_VAL(ht, idx, str, val) {
+			if (str) {
+				result[ix] = estrdup(str);
+			} else {
+				result[ix] = estrdup(Z_STRVAL_P(val));
+			}
+			ix++;
+		} ZEND_HASH_FOREACH_END();
+#endif
+
 	} else if(Z_TYPE_P(values) == IS_STRING) {
 		if((result = (char**)emalloc(sizeof(char*) * 2)) == NULL) {
 			return result;
