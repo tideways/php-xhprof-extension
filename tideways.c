@@ -411,20 +411,15 @@ typedef long (*tw_trace_callback)(char *symbol, zend_execute_data *data TSRMLS_D
 /* Tideways global state */
 static hp_global_t       hp_globals;
 
-#if PHP_VERSION_ID < 50500
-/* Pointer to the original execute function */
+#if PHP_MAJOR_VERSION == 7
+static ZEND_DLEXPORT void (*_zend_execute_ex) (zend_execute_data *execute_data);
+static ZEND_DLEXPORT void (*_zend_execute_internal) (zend_execute_data *execute_data, zval *return_value);
+#elif PHP_VERSION_ID < 50500
 static ZEND_DLEXPORT void (*_zend_execute) (zend_op_array *ops TSRMLS_DC);
-
-/* Pointer to the origianl execute_internal function */
-static ZEND_DLEXPORT void (*_zend_execute_internal) (zend_execute_data *data,
-                           int ret TSRMLS_DC);
+static ZEND_DLEXPORT void (*_zend_execute_internal) (zend_execute_data *data, int ret TSRMLS_DC);
 #else
-/* Pointer to the original execute function */
 static void (*_zend_execute_ex) (zend_execute_data *execute_data TSRMLS_DC);
-
-/* Pointer to the origianl execute_internal function */
-static void (*_zend_execute_internal) (zend_execute_data *data,
-                      struct _zend_fcall_info *fci, int ret TSRMLS_DC);
+static void (*_zend_execute_internal) (zend_execute_data *data, struct _zend_fcall_info *fci, int ret TSRMLS_DC);
 #endif
 
 /* Pointer to the original compile function */
@@ -2946,7 +2941,7 @@ ZEND_DLEXPORT void hp_detect_tx_execute_ex (zend_execute_data *execute_data TSRM
  * @author hzhao, kannan
  */
 #if PHP_MAJOR_VERSION == 7
-ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
+ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data) {
 	zend_execute_data *real_execute_data = execute_data->prev_execute_data;
 #elif PHP_VERSION_ID < 50500
 ZEND_DLEXPORT void hp_execute (zend_op_array *ops TSRMLS_DC) {
@@ -2999,7 +2994,7 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
  */
 
 #if PHP_MAJOR_VERSION == 7
-ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data, zval *return_value TSRMLS_DC) {
+ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data, zval *return_value) {
 #elif PHP_VERSION_ID < 50500
 #define EX_T(offset) (*(temp_variable *)((char *) EX(Ts) + offset))
 
@@ -3397,13 +3392,15 @@ static void free_tw_watch_callback(void *twcb)
 {
 	tw_watch_callback *_twcb = *((tw_watch_callback **)twcb);
 
+#if PHP_MAJOR_VERSION < 7
 	if (_twcb->fci.function_name) {
 		zval_ptr_dtor((zval **)&_twcb->fci.function_name);
 	}
-#if PHP_MAJOR_VERSION < 7
 	if (_twcb->fci.object_ptr) {
 		zval_ptr_dtor((zval **)&_twcb->fci.object_ptr);
 	}
+#else
+	// TODO
 #endif
 
 	efree(_twcb);
@@ -3423,7 +3420,7 @@ static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cac
 		zend_hash_init(hp_globals.trace_watch_callbacks, 255, NULL, free_tw_watch_callback, 0);
 	}
 
-	zend_hash_update(hp_globals.trace_watch_callbacks, func, func_len+1, &twcb, sizeof(tw_watch_callback*), NULL);
+	zend_compat_hash_update_ptr_const(hp_globals.trace_watch_callbacks, func, func_len+1, &twcb, sizeof(tw_watch_callback*));
 	cb = tw_trace_callback_watch;
 	register_trace_callback_len(func, func_len, cb);
 }
