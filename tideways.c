@@ -165,7 +165,17 @@ typedef size_t strsize_t;
 #define TSRMLS_CC
 #endif
 
-static zend_always_inline void zend_compat_hash_index_update(HashTable *ht, zend_ulong idx, zval *pData) {
+static zend_always_inline void zend_compat_hash_merge(HashTable *target, HashTable *source, copy_ctor_func_t pCopyConstructor, zend_bool overwrite)
+{
+#if PHP_MAJOR_VERSION < 7
+	zend_hash_merge(target, source, pCopyConstructor, NULL, sizeof(*zval), overwrite);
+#else
+	zend_hash_merge(target, source, pCopyConstructor, overwrite);
+#endif
+}
+
+static zend_always_inline void zend_compat_hash_index_update(HashTable *ht, zend_ulong idx, zval *pData)
+{
 #if PHP_MAJOR_VERSION < 7
 	zend_hash_index_update(ht, idx, &pData, sizeof(zval*), NULL);
 #else
@@ -823,7 +833,7 @@ void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 
 	zend_hash_apply(Z_ARRVAL_P(annotations), tw_convert_to_string TSRMLS_CC);
 
-	zend_hash_merge(Z_ARRVAL_P(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *), 1);
+	zend_compat_hash_merge(Z_ARRVAL_P(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, 1);
 }
 
 void tw_span_annotate_long(long spanId, char *key, long value)
@@ -846,7 +856,7 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 	ZVAL_LONG(annotation_value, value);
 	convert_to_string_ex(&annotation_value);
 
-	add_assoc_zval_ex(*span_annotations, key, strlen(key)+1, annotation_value);
+	add_assoc_zval_ex(span_annotations, key, strlen(key)+1, annotation_value);
 }
 
 void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
