@@ -148,6 +148,8 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _ZCE_NAME_LENGTH(ce) ce->name_length
 #define _ZVAL_STRING(str, len) ZVAL_STRING(str, len, 0)
 #define _RETURN_STRING(str) RETURN_STRING(str, 0)
+#define _add_assoc_string_ex(arg, key, key_len, str, copy) add_assoc_string_ex(arg, key, key_len, str, copy)
+#define _add_assoc_stringl(arg, key, str, str_len, copy) add_assoc_stringl(arg, key, str, str_len, copy)
 
 #else
 #define EX_OBJ(call) call->This
@@ -155,6 +157,9 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _ZCE_NAME_LENGTH(ce) ce->name->len
 #define _ZVAL_STRING(str, len) ZVAL_STRING(str, len)
 #define _RETURN_STRING(str) RETURN_STRING(str)
+#define _add_assoc_string_ex(arg, key, key_len, str, copy) add_assoc_string_ex(arg, key, key_len, str)
+#define _add_assoc_stringl(arg, key, str, str_len, copy) add_assoc_stringl(arg, key, str, str_len)
+
 typedef size_t strsize_t;
 /* removed/uneeded macros */
 #define TSRMLS_CC
@@ -668,8 +673,8 @@ PHP_FUNCTION(tideways_last_fatal_error)
 	if (PG(last_error_message)) {
 		array_init(return_value);
 		add_assoc_long_ex(return_value, "type", sizeof("type"), PG(last_error_type));
-		add_assoc_string_ex(return_value, "message", sizeof("message"), PG(last_error_message), 1);
-		add_assoc_string_ex(return_value, "file", sizeof("file"), PG(last_error_file)?PG(last_error_file):"-", 1 );
+		_add_assoc_string_ex(return_value, "message", sizeof("message"), PG(last_error_message), 1);
+		_add_assoc_string_ex(return_value, "file", sizeof("file"), PG(last_error_file)?PG(last_error_file):"-", 1);
 		add_assoc_long_ex(return_value, "line", sizeof("line"), PG(last_error_lineno));
 	}
 }
@@ -700,7 +705,7 @@ long tw_span_create(char *category, size_t category_len)
 	array_init(stops);
 	array_init(annotations);
 
-	add_assoc_stringl(span, "n", category, category_len, 1);
+	_add_assoc_stringl(span, "n", category, category_len, 1);
 	add_assoc_zval(span, "b", starts);
 	add_assoc_zval(span, "e", stops);
 	add_assoc_zval(span, "a", annotations);
@@ -794,30 +799,38 @@ static int tw_convert_to_string(void *pDest TSRMLS_DC)
 
 void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 {
-	zval **span, **span_annotations;
+	zval *span, *span_annotations;
 
-	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
+	span = zend_compat_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId);
+
+	if (span == NULL) {
 		return;
 	}
 
-	if (zend_hash_find(Z_ARRVAL_PP(span), "a", sizeof("a"), (void **) &span_annotations) == FAILURE) {
+	span_annotations = zend_compat_hash_find_const(Z_ARRVAL_P(span), "a", sizeof("a") - 1);
+
+	if (span_annotations == NULL) {
 		return;
 	}
 
 	zend_hash_apply(Z_ARRVAL_P(annotations), tw_convert_to_string TSRMLS_CC);
 
-	zend_hash_merge(Z_ARRVAL_PP(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *), 1);
+	zend_hash_merge(Z_ARRVAL_P(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *), 1);
 }
 
 void tw_span_annotate_long(long spanId, char *key, long value)
 {
-	zval **span, **span_annotations, *annotation_value;
+	zval *span, *span_annotations, *annotation_value;
 
-	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
+	span = zend_compat_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId);
+
+	if (span == NULL) {
 		return;
 	}
 
-	if (zend_hash_find(Z_ARRVAL_PP(span), "a", sizeof("a"), (void **) &span_annotations) == FAILURE) {
+	span_annotations = zend_compat_hash_find_const(Z_ARRVAL_P(span), "a", sizeof("a") - 1);
+
+	if (span_annotations == NULL) {
 		return;
 	}
 
@@ -830,17 +843,21 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 
 void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 {
-	zval **span, **span_annotations;
+	zval *span, *span_annotations;
 
-	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
+	span = zend_compat_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId);
+
+	if (span == NULL) {
 		return;
 	}
 
-	if (zend_hash_find(Z_ARRVAL_PP(span), "a", sizeof("a"), (void **) &span_annotations) == FAILURE) {
+	span_annotations = zend_compat_hash_find_const(Z_ARRVAL_P(span), "a", sizeof("a") - 1);
+
+	if (span_annotations == NULL) {
 		return;
 	}
 
-	add_assoc_string_ex(*span_annotations, key, strlen(key)+1, value, copy);
+	_add_assoc_string_ex(span_annotations, key, strlen(key)+1, value, copy);
 }
 
 PHP_FUNCTION(tideways_span_create)
@@ -1031,7 +1048,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 		array_init(zargs);
 		Z_ADDREF_P(zargs);
 
-		add_assoc_string_ex(context, "fn", sizeof("fn"), symbol, 1);
+		_add_assoc_string_ex(context, "fn", sizeof("fn"), symbol, 1);
 
 		if (args_len > 0) {
 			for (i = 0; i < args_len; i++) {
