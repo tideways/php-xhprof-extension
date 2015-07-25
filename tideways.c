@@ -3188,7 +3188,7 @@ static char **hp_strings_in_zval(zval  *values)
 		return NULL;
 	}
 
-	if (values->type == IS_ARRAY) {
+	if (Z_TYPE_P(values) == IS_ARRAY) {
 		HashTable *ht;
 
 		ht    = Z_ARRVAL_P(values);
@@ -3222,7 +3222,7 @@ static char **hp_strings_in_zval(zval  *values)
 				ix++;
 			}
 		}
-	} else if(values->type == IS_STRING) {
+	} else if(Z_TYPE_P(values) == IS_STRING) {
 		if((result = (char**)emalloc(sizeof(char*) * 2)) == NULL) {
 			return result;
 		}
