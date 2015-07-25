@@ -174,15 +174,6 @@ static zend_always_inline void zend_compat_hash_merge(HashTable *target, HashTab
 #endif
 }
 
-static zend_always_inline int zend_compat_hash_get_current_key_ex(const HashTable *ht, char **str_index, uint *str_length, ulong *num_index, zend_bool duplicate, HashPosition *pos)
-{
-#if PHP_MAJOR_VERSION < 7
-	return zend_hash_get_current_key_ex(ht, str_index, str_length, num_index, duplicate, pos);
-#else
-	return zend_hash_get_current_key_ex(ht, str_index, str_length, num_index, pos);
-#endif
-}
-
 static zend_always_inline void zend_compat_hash_index_update(HashTable *ht, zend_ulong idx, zval *pData)
 {
 #if PHP_MAJOR_VERSION < 7
@@ -2338,7 +2329,7 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 		int key_len;
 		long index;
 
-		zend_compat_hash_get_current_key_ex(arrayParts, &key, &key_len, &index, 0, &pointer);
+		zend_hash_get_current_key_ex(arrayParts, &key, &key_len, &index, 0, &pointer);
 
 		token = Z_STRVAL_PP(data);
 		php_strtolower(token, Z_STRLEN_PP(data));
@@ -3299,7 +3290,7 @@ static char **hp_strings_in_zval(zval  *values)
 			int    type;
 			zval **data;
 
-			type = zend_compat_hash_get_current_key_ex(ht, &str, &len, &idx, 0, NULL);
+			type = zend_hash_get_current_key_ex(ht, &str, &len, &idx, 0, NULL);
 
 			if (type == HASH_KEY_IS_LONG) {
 				if ((zend_hash_get_current_data(ht, (void**)&data) == SUCCESS) &&
