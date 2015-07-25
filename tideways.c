@@ -2907,7 +2907,7 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
  */
 
 #if PHP_MAJOR_VERSION == 7
-ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data, zval *return_value) {
+ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data, zval *return_value TSRMLS_DC) {
 #elif PHP_VERSION_ID < 50500
 #define EX_T(offset) (*(temp_variable *)((char *) EX(Ts) + offset))
 
