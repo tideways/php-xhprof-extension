@@ -168,7 +168,7 @@ typedef size_t strsize_t;
 static zend_always_inline void zend_compat_hash_merge(HashTable *target, HashTable *source, copy_ctor_func_t pCopyConstructor, zend_bool overwrite)
 {
 #if PHP_MAJOR_VERSION < 7
-	zend_hash_merge(target, source, pCopyConstructor, NULL, sizeof(*zval), overwrite);
+	zend_hash_merge(target, source, pCopyConstructor, NULL, sizeof(zval*), overwrite);
 #else
 	zend_hash_merge(target, source, pCopyConstructor, overwrite);
 #endif
