@@ -48,7 +48,7 @@
 #include "ext/pdo/php_pdo_driver.h"
 #include "zend_stream.h"
 
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 struct _zend_string {
   char *val;
   int   len;
@@ -176,7 +176,7 @@ typedef size_t strsize_t;
 
 static zend_always_inline void zend_compat_hash_merge(HashTable *target, HashTable *source, copy_ctor_func_t pCopyConstructor, zend_bool overwrite)
 {
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 	zend_hash_merge(target, source, pCopyConstructor, NULL, sizeof(zval*), overwrite);
 #else
 	zend_hash_merge(target, source, pCopyConstructor, overwrite);
@@ -185,7 +185,7 @@ static zend_always_inline void zend_compat_hash_merge(HashTable *target, HashTab
 
 static zend_always_inline void zend_compat_hash_index_update(HashTable *ht, zend_ulong idx, zval *pData)
 {
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 	zend_hash_index_update(ht, idx, &pData, sizeof(zval*), NULL);
 #else
 	zend_hash_index_update(ht, idx, pData);
@@ -194,7 +194,7 @@ static zend_always_inline void zend_compat_hash_index_update(HashTable *ht, zend
 
 static zend_always_inline void zend_compat_hash_update_ptr_const(HashTable *ht, const char *key, strsize_t len, void *ptr, size_t ptr_size)
 {
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 	zend_hash_update(ht, key, len+1, ptr, ptr_size, NULL);
 #else
 	zend_hash_str_update_ptr(ht, key, len, ptr);
@@ -203,7 +203,7 @@ static zend_always_inline void zend_compat_hash_update_ptr_const(HashTable *ht, 
 
 static zend_always_inline zval* zend_compat_hash_find_const(HashTable *ht, const char *key, strsize_t len)
 {
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 	zval **tmp, *result;
 	if (zend_hash_find(ht, key, len+1, (void**)&tmp) == SUCCESS) {
 		result = *tmp;
@@ -217,7 +217,7 @@ static zend_always_inline zval* zend_compat_hash_find_const(HashTable *ht, const
 
 static zend_always_inline zval* zend_compat_hash_index_find(HashTable *ht, zend_ulong idx)
 {
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 	zval **tmp, *result;
 
 	if (zend_hash_index_find(ht, idx, (void **) &tmp) == FAILURE) {
@@ -389,7 +389,7 @@ typedef long (*tw_trace_callback)(char *symbol, zend_execute_data *data TSRMLS_D
 /* Tideways global state */
 static hp_global_t       hp_globals;
 
-#if PHP_MAJOR_VERSION == 7
+#if PHP_VERSION_ID >= 70000
 static ZEND_DLEXPORT void (*_zend_execute_ex) (zend_execute_data *execute_data);
 static ZEND_DLEXPORT void (*_zend_execute_internal) (zend_execute_data *execute_data, zval *return_value);
 #elif PHP_VERSION_ID < 50500
@@ -801,7 +801,7 @@ void tw_span_timer_stop(long spanId)
 	add_next_index_long(stops, wt);
 }
 
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 static int tw_convert_to_string(void *pDest TSRMLS_DC)
 {
 	zval **zv = (zval **) pDest;
@@ -856,7 +856,7 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 
 	_ALLOC_INIT_ZVAL(annotation_value);
 	ZVAL_LONG(annotation_value, value);
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 	convert_to_string_ex(&annotation_value);
 #else
 	convert_to_string_ex(annotation_value);
@@ -1058,7 +1058,7 @@ long tw_trace_callback_record_with_cache(char *category, int category_len, char 
 {
 	long idx, *idx_ptr = NULL;
 
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 	if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
 		idx = *idx_ptr;
 	} else {
@@ -1102,7 +1102,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 		return -1;
 	}
 
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 	if (zend_hash_find(hp_globals.trace_watch_callbacks, symbol, strlen(symbol)+1, (void **)&temp) == SUCCESS) {
 		twcb = *temp;
 #else
@@ -1144,7 +1144,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 
 		twcb->fci.param_count = 1;
 		twcb->fci.size = sizeof(twcb->fci);
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 		twcb->fci.retval_ptr_ptr = &retval;
 #else
 		twcb->fci.retval = retval;
@@ -2379,7 +2379,7 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 	result = "";
 	_ALLOC_INIT_ZVAL(parts);
 
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 	if ((pce = pcre_get_compiled_regex_cache("(([\\s]+))", 8 TSRMLS_CC)) == NULL) {
 #else
 	if ((pce = pcre_get_compiled_regex_cache("(([\\s]+))")) == NULL) {
@@ -2394,7 +2394,7 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 	result_len = TIDEWAYS_MAX_ARGUMENT_LEN;
 	result = emalloc(result_len);
 
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 	for(zend_hash_internal_pointer_reset_ex(arrayParts, &pointer);
 			zend_hash_get_current_data_ex(arrayParts, (void**) &data, &pointer) == SUCCESS;
 			zend_hash_move_forward_ex(arrayParts, &pointer)) {
@@ -2439,7 +2439,7 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 			found = 1;
 			break;
 		}
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 	}
 #else
 	} ZEND_HASH_FOREACH_END();
@@ -2585,7 +2585,7 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 		return NULL;
 	}
 
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 	curr_func = data->function_state.function;
 	func = curr_func->common.function_name;
 
@@ -2876,7 +2876,7 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 	current->tsc_start = cycle_timer();
 
 	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0 && data != NULL) {
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 		if (zend_hash_find(hp_globals.trace_callbacks, current->name_hprof, strlen(current->name_hprof)+1, (void **)&callback) == SUCCESS) {
 			current->span_id = (*callback)(current->name_hprof, data TSRMLS_CC);
 		}
@@ -2936,7 +2936,7 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 			double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time);
 			double end = get_us_from_tsc(tsc_end - hp_globals.start_time);
 			tw_span_record_duration(top->span_id, start, end);
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 		} else if (data != NULL && data->function_state.function->type == ZEND_INTERNAL_FUNCTION && wt > hp_globals.slow_php_call_treshold) {
 			long idx = tw_trace_callback_php_call(top->name_hprof, data TSRMLS_CC);
 
@@ -2988,7 +2988,6 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
  * ***************************
  */
 
-
 /**
  * Tideways enable replaced the zend_execute function with this
  * new execute function. We can do whatever profiling we need to
@@ -2996,7 +2995,7 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
  *
  * @author hzhao, kannan
  */
-#if PHP_MAJOR_VERSION == 7
+#if PHP_VERSION_ID >= 70000
 ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data) {
 	zend_execute_data *real_execute_data = execute_data->prev_execute_data;
 #elif PHP_VERSION_ID < 50500
@@ -3069,7 +3068,7 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
  * @author hzhao, kannan
  */
 
-#if PHP_MAJOR_VERSION == 7
+#if PHP_VERSION_ID >= 70000
 ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data, zval *return_value) {
 #elif PHP_VERSION_ID < 50500
 #define EX_T(offset) (*(temp_variable *)((char *) EX(Ts) + offset))
@@ -3103,7 +3102,7 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
 	}
 
 	if (!_zend_execute_internal) {
-#if PHP_MAJOR_VERSION == 7
+#if PHP_VERSION_ID >= 70000
 		execute_internal(execute_data, return_value TSRMLS_CC);
 #elif PHP_VERSION_ID < 50500
 		execute_internal(execute_data, ret TSRMLS_CC);
@@ -3112,7 +3111,7 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
 #endif
 	} else {
 		/* call the old override */
-#if PHP_MAJOR_VERSION == 7
+#if PHP_VERSION_ID >= 70000
 		_zend_execute_internal(execute_data, return_value TSRMLS_CC);
 #elif PHP_VERSION_ID < 50500
 		_zend_execute_internal(execute_data, ret TSRMLS_CC);
@@ -3324,7 +3323,7 @@ static char **hp_strings_in_zval(zval *values)
 			return result;
 		}
 
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 		for (zend_hash_internal_pointer_reset(ht);
 				zend_hash_has_more_elements(ht) == SUCCESS;
 				zend_hash_move_forward(ht)) {
@@ -3443,7 +3442,7 @@ static void free_tw_watch_callback(void *twcb)
 {
 	tw_watch_callback *_twcb = *((tw_watch_callback **)twcb);
 
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 	if (_twcb->fci.function_name) {
 		zval_ptr_dtor((zval **)&_twcb->fci.function_name);
 	}
@@ -3488,7 +3487,7 @@ PHP_FUNCTION(tideways_span_callback)
 		return;
 	}
 
-#if PHP_MAJOR_VERSION < 7
+#if PHP_VERSION_ID < 70000
 	if (fci.size) {
 		Z_ADDREF_P(fci.function_name);
 		if (fci.object_ptr) {
