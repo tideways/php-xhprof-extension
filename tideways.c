@@ -2562,7 +2562,6 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
  */
 static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 {
-	const char        *func = NULL;
 	const char        *cls = NULL;
 	char              *ret = NULL;
 	zend_function      *curr_func;
@@ -2572,6 +2571,7 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 	}
 
 #if PHP_VERSION_ID < 70000
+	const char        *func = NULL;
 	curr_func = data->function_state.function;
 	func = curr_func->common.function_name;
 
@@ -2602,12 +2602,18 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 		ret = estrdup(func);
 	}
 #else
+	zend_string *func = NULL;
 	curr_func = data->func;
-	func = curr_func->common.function_name->val;
+	func = curr_func->common.function_name;
+
+	if (!func) {
+		return NULL;
+	}
+
 	if (data->called_scope != NULL) {
 		char* sep = "::";
 		cls = data->called_scope->name->val;
-		ret = hp_concat_char(cls, data->called_scope->name->len, func, curr_func->common.function_name->len, sep, 2);
+		ret = hp_concat_char(cls, data->called_scope->name->len, func->val, func->len, sep, 2);
 	} else {
 		ret = estrdup(func);
 	}
