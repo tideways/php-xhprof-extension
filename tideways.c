@@ -231,14 +231,6 @@ static zend_always_inline zval* zend_compat_hash_index_find(HashTable *ht, zend_
 #endif
 }
 
-#ifdef PHP_TIDEWAYS_HAVE_CURL
-#if PHP_VERSION_ID > 50399
-#include <curl/curl.h>
-#include <curl/easy.h>
-#endif
-#endif
-
-
 /**
  * **********************
  * GLOBAL MACRO CONSTANTS
@@ -386,27 +378,6 @@ typedef struct hp_global_t {
 	double compile_wt;
 	uint64 cpu_start;
 } hp_global_t;
-
-#ifdef PHP_TIDEWAYS_HAVE_CURL
-#if PHP_VERSION_ID > 50399
-typedef struct hp_curl_t {
-	struct {
-		char str[CURL_ERROR_SIZE + 1];
-		int  no;
-	} err;
-
-	void *free;
-
-	struct {
-		char *str;
-		size_t str_len;
-	} hdr;
-
-	void ***thread_ctx;
-	CURL *cp;
-} hp_curl_t;
-#endif
-#endif
 
 typedef long (*tw_trace_callback)(char *symbol, zend_execute_data *data TSRMLS_DC);
 
