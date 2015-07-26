@@ -1081,6 +1081,7 @@ long tw_trace_callback_php_call(char *symbol, zend_execute_data *data TSRMLS_DC)
 
 long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
+	tw_watch_callback **temp;
 	tw_watch_callback *twcb = NULL;
 	zend_fcall_info fci = empty_fcall_info;
 	zend_fcall_info_cache fcic = empty_fcall_info_cache;
@@ -1091,9 +1092,14 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 		return -1;
 	}
 
-	twcb = zend_compat_hash_find_ptr(hp_globals.trace_watch_callbacks, symbol, strlen(symbol));
+#if PHP_MAJOR_VERSION < 7
+	if (zend_hash_find(hp_globals.trace_watch_callbacks, symbol, strlen(symbol)+1, (void **)&temp) == SUCCESS) {
+		twcb = *temp;
+#else
+	twcb = zend_hash_str_find_ptr(hp_globals.trace_watch_callbacks, symbol, strlen(symbol));
 
 	if (twcb) {
+#endif
 		zval *retval = NULL;
 		_DECLARE_ZVAL(context);
 		_DECLARE_ZVAL(zargs);
@@ -3506,7 +3512,7 @@ static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cac
 		zend_hash_init(hp_globals.trace_watch_callbacks, 255, NULL, free_tw_watch_callback, 0);
 	}
 
-	zend_compat_hash_update_ptr_const(hp_globals.trace_watch_callbacks, func, func_len+1, &twcb, sizeof(tw_watch_callback*));
+	zend_compat_hash_update_ptr_const(hp_globals.trace_watch_callbacks, func, func_len, &twcb, sizeof(tw_watch_callback*));
 	cb = tw_trace_callback_watch;
 	register_trace_callback_len(func, func_len, cb);
 }
