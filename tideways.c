@@ -153,7 +153,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _zend_read_property(scope, object, name, name_length, silent, zv) zend_read_property(scope, object, name, name_length, silent TSRMLS_CC)
 #define _DECLARE_ZVAL(name) zval * name
 #define _ALLOC_INIT_ZVAL(name) ALLOC_INIT_ZVAL(name)
-#define _zval_ptr_dtor(val) zval_ptr_dtor(&val);
+#define hp_ptr_dtor(val) zval_ptr_dtor( &val )
 
 #else
 #define EX_OBJ(call) &(call->This)
@@ -166,7 +166,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _zend_read_property(scope, object, name, name_length, silent, zv) zend_read_property(scope, object, name, name_length, silent, zv)
 #define _DECLARE_ZVAL(name) zval name ## _v; zval * name = &name ## _v
 #define _ALLOC_INIT_ZVAL(name) ZVAL_NULL(name)
-#define _zval_ptr_dtor(val) zval_ptr_dtor(val);
+#define hp_ptr_dtor(val) zval_ptr_dtor(val)
 
 
 typedef size_t strsize_t;
@@ -1139,8 +1139,8 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 			zend_error(E_ERROR, "Cannot call Trace Watch Callback");
 		}
 
-		_zval_ptr_dtor(context);
-		_zval_ptr_dtor(zargs);
+		hp_ptr_dtor(context);
+		hp_ptr_dtor(zargs);
 
 		long idx = -1;
 
@@ -1149,7 +1149,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 				idx = Z_LVAL_P(retval);
 			}
 
-			_zval_ptr_dtor(retval);
+			hp_ptr_dtor(retval);
 		}
 
 		return idx;
@@ -1468,7 +1468,7 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 
 		idx = tw_trace_callback_record_with_cache("doctrine.query", 14, summary, strlen(summary), 0);
 
-		_zval_ptr_dtor(retval_ptr);
+		hp_ptr_dtor(retval_ptr);
 	}
 
 	return idx;
@@ -1491,7 +1491,7 @@ long tw_trace_callback_twig_template(char *symbol, zend_execute_data *data TSRML
 			idx = tw_trace_callback_record_with_cache("view", 4, Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr), 1);
 		}
 
-		_zval_ptr_dtor(retval_ptr);
+		hp_ptr_dtor(retval_ptr);
 	}
 
 	return idx;
@@ -1581,7 +1581,7 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 			return tw_trace_callback_record_with_cache("http", 4, summary, strlen(summary), 0);
 		}
 
-		_zval_ptr_dtor(retval_ptr);
+		hp_ptr_dtor(retval_ptr);
 	}
 
 	efree(params_array);
@@ -1826,7 +1826,7 @@ static void hp_exception_function_clear() {
 	}
 
 	if (hp_globals.exception != NULL) {
-		_zval_ptr_dtor(hp_globals.exception);
+		hp_ptr_dtor(hp_globals.exception);
 	}
 }
 
@@ -2078,7 +2078,7 @@ void hp_init_profiler_state(TSRMLS_D)
 
 	/* Init stats_count */
 	if (hp_globals.stats_count) {
-		_zval_ptr_dtor(hp_globals.stats_count);
+		hp_ptr_dtor(hp_globals.stats_count);
 	}
 
 	_ALLOC_INIT_ZVAL(stats_count);
@@ -2086,7 +2086,7 @@ void hp_init_profiler_state(TSRMLS_D)
 	hp_globals.stats_count = stats_count;
 
 	if (hp_globals.spans) {
-		_zval_ptr_dtor(hp_globals.spans);
+		hp_ptr_dtor(hp_globals.spans);
 	}
 
 	_ALLOC_INIT_ZVAL(spans);
@@ -2105,11 +2105,11 @@ void hp_clean_profiler_state(TSRMLS_D)
 {
 	/* Clear globals */
 	if (hp_globals.stats_count) {
-		_zval_ptr_dtor(hp_globals.stats_count);
+		hp_ptr_dtor(hp_globals.stats_count);
 		hp_globals.stats_count = NULL;
 	}
 	if (hp_globals.spans) {
-		_zval_ptr_dtor(hp_globals.spans);
+		hp_ptr_dtor(hp_globals.spans);
 		hp_globals.spans = NULL;
 	}
 
@@ -2429,7 +2429,7 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 	} ZEND_HASH_FOREACH_END();
 #endif
 
-	_zval_ptr_dtor(parts);
+	hp_ptr_dtor(parts);
 
 	if (found == 0) {
 		snprintf(result, result_len, "%s", "other");
