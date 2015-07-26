@@ -3038,6 +3038,7 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 	}
 
 	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_USERLAND) > 0) {
+		efree(func);
 		return;
 	}
 
