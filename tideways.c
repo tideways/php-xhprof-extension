@@ -161,7 +161,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _ZCE_NAME_LENGTH(ce) ce->name->len
 #define _ZVAL_STRING(str, len) ZVAL_STRING(str, len)
 #define _RETURN_STRING(str) RETURN_STRING(str)
-#define _add_assoc_string_ex(arg, key, key_len, str, copy) add_assoc_string_ex(arg, key, key_len, str)
+#define _add_assoc_string_ex(arg, key, key_len, str, copy) add_assoc_string_ex(arg, key, key_len-1, str)
 #define _add_assoc_stringl(arg, key, str, str_len, copy) add_assoc_stringl(arg, key, str, str_len)
 #define _zend_read_property(scope, object, name, name_length, silent, zv) zend_read_property(scope, object, name, name_length, silent, zv)
 #define _DECLARE_ZVAL(name) zval name ## _v; zval * name = &name ## _v
@@ -665,10 +665,10 @@ PHP_FUNCTION(tideways_last_fatal_error)
 
 	if (PG(last_error_message)) {
 		array_init(return_value);
-		add_assoc_long_ex(return_value, "type", sizeof("type"), PG(last_error_type));
+		add_assoc_long_ex(return_value, "type", sizeof("type")-1, PG(last_error_type));
 		_add_assoc_string_ex(return_value, "message", sizeof("message"), PG(last_error_message), 1);
 		_add_assoc_string_ex(return_value, "file", sizeof("file"), PG(last_error_file)?PG(last_error_file):"-", 1);
-		add_assoc_long_ex(return_value, "line", sizeof("line"), PG(last_error_lineno));
+		add_assoc_long_ex(return_value, "line", sizeof("line")-1, PG(last_error_lineno));
 	}
 }
 
@@ -832,7 +832,7 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 	convert_to_string_ex(annotation_value);
 #endif
 
-	add_assoc_zval_ex(span_annotations, key, strlen(key)+1, annotation_value);
+	add_assoc_zval_ex(span_annotations, key, strlen(key), annotation_value);
 }
 
 void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
@@ -851,7 +851,7 @@ void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 		return;
 	}
 
-	_add_assoc_string_ex(span_annotations, key, strlen(key)+1, value, copy);
+	_add_assoc_string_ex(span_annotations, key, strlen(key), value, copy);
 }
 
 PHP_FUNCTION(tideways_span_create)
