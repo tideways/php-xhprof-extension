@@ -3038,6 +3038,11 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 	}
 
 	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_USERLAND) > 0) {
+#if PHP_VERSION_ID < 50500
+		_zend_execute(ops TSRMLS_CC);
+#else
+		_zend_execute_ex(execute_data TSRMLS_CC);
+#endif
 		efree(func);
 		return;
 	}
