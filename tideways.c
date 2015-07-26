@@ -215,20 +215,6 @@ static zend_always_inline zval* zend_compat_hash_find_const(HashTable *ht, const
 #endif
 }
 
-static zend_always_inline void* zend_compat_hash_find_ptr(HashTable *ht, char *key, strsize_t len)
-{
-#if PHP_MAJOR_VERSION < 7
-	void **tmp, *result;
-	if (zend_hash_find(ht, key, len+1, (void**)&tmp) == SUCCESS) {
-		result = *tmp;
-		return result;
-	}
-	return NULL;
-#else
-	return zend_hash_str_find_ptr(ht, key, len+1);
-#endif
-}
-
 static zend_always_inline zval* zend_compat_hash_index_find(HashTable *ht, zend_ulong idx)
 {
 #if PHP_MAJOR_VERSION < 7
