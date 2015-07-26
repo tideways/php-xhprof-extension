@@ -16,9 +16,11 @@ tideways_enable(TIDEWAYS_FLAGS_NO_USERLAND);
 foo("foo");
 $data = tideways_disable();
 
+echo "Output:\n";
 print_canonical($data);
 ?>
 --EXPECTF--
+Output:
 main()                                  : ct=       1; wt=*;
 main()==>strlen                         : ct=       1; wt=*;
 main()==>tideways_disable               : ct=       1; wt=*;
