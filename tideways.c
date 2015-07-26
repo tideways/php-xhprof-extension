@@ -1036,6 +1036,19 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	/* free any remaining items in the free list */
 	hp_free_the_free_list();
 
+	/* Remove proxies, restore the originals */
+#if PHP_VERSION_ID < 50500
+	zend_execute = _zend_execute;
+#else
+	zend_execute_ex = _zend_execute_ex;
+#endif
+
+	zend_execute_internal = _zend_execute_internal;
+	zend_compile_file     = _zend_compile_file;
+	zend_compile_string   = _zend_compile_string;
+
+	zend_error_cb = tideways_original_error_cb;
+
 	UNREGISTER_INI_ENTRIES();
 
 	return SUCCESS;
@@ -3245,19 +3258,6 @@ static void hp_stop(TSRMLS_D)
 		efree(hp_globals.root);
 		hp_globals.root = NULL;
 	}
-
-	/* Remove proxies, restore the originals */
-#if PHP_VERSION_ID < 50500
-	zend_execute = _zend_execute;
-#else
-	zend_execute_ex = _zend_execute_ex;
-#endif
-
-	zend_execute_internal = _zend_execute_internal;
-	zend_compile_file     = _zend_compile_file;
-	zend_compile_string   = _zend_compile_string;
-
-	zend_error_cb = tideways_original_error_cb;
 
 	/* Stop profiling */
 	hp_globals.enabled = 0;
