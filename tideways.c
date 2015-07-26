@@ -401,11 +401,15 @@ static void (*_zend_execute_internal) (zend_execute_data *data, struct _zend_fca
 #endif
 
 /* Pointer to the original compile function */
-static zend_op_array * (*_zend_compile_file) (zend_file_handle *file_handle,
-                                              int type TSRMLS_DC);
+static zend_op_array * (*_zend_compile_file) (zend_file_handle *file_handle, int type TSRMLS_DC);
 
 /* Pointer to the original compile string function (used by eval) */
 static zend_op_array * (*_zend_compile_string) (zval *source_string, char *filename TSRMLS_DC);
+
+ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int type TSRMLS_DC);
+ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filename TSRMLS_DC);
+ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data);
+ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data, zval *return_value);
 
 /* error callback replacement functions */
 void (*tideways_original_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
@@ -980,6 +984,30 @@ PHP_MINIT_FUNCTION(tideways)
 
 	hp_transaction_function_clear();
 	hp_exception_function_clear();
+
+	_zend_compile_file = zend_compile_file;
+	zend_compile_file  = hp_compile_file;
+	_zend_compile_string = zend_compile_string;
+	zend_compile_string = hp_compile_string;
+
+	//if (!(hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_COMPILE)) {
+
+	/* Replace zend_execute with our proxy */
+#if PHP_VERSION_ID < 50500
+	_zend_execute = zend_execute;
+	zend_execute  = hp_execute;
+#else
+	_zend_execute_ex = zend_execute_ex;
+	zend_execute_ex  = hp_execute_ex;
+#endif
+
+	tideways_original_error_cb = zend_error_cb;
+	zend_error_cb = tideways_error_cb;
+
+	/* Replace zend_execute_internal with our proxy */
+	_zend_execute_internal = zend_execute_internal;
+	//if (!(hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_BUILTINS)) {
+	zend_execute_internal = hp_execute_internal;
 
 #if defined(DEBUG)
 	/* To make it random number generator repeatable to ease testing. */
@@ -2935,41 +2963,6 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
  * ***************************
  */
 
-/**
- * For transaction name detection in layer mode we only need a very simple user function overwrite.
- * Layer mode skips profiling userland functions, so we can simplify here.
- */
-#if PHP_MAJOR_VERSION == 7
-ZEND_DLEXPORT void hp_detect_tx_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
-	zend_execute_data  *real_execute_data = execute_data->prev_execute_data;
-#elif PHP_VERSION_ID < 50500
-ZEND_DLEXPORT void hp_detect_tx_execute (zend_op_array *ops TSRMLS_DC) {
-	zend_execute_data *execute_data = EG(current_execute_data);
-	zend_execute_data *real_execute_data = execute_data;
-#else
-ZEND_DLEXPORT void hp_detect_tx_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
-	zend_op_array *ops = execute_data->op_array;
-	zend_execute_data    *real_execute_data = execute_data->prev_execute_data;
-#endif
-	char          *func = NULL;
-
-	func = hp_get_function_name(real_execute_data TSRMLS_CC);
-	if (func) {
-		hp_detect_transaction_name(func, real_execute_data TSRMLS_CC);
-
-		if (hp_globals.exception_function != NULL && strcmp(func, ZSTR_VAL(hp_globals.exception_function)) == 0) {
-			hp_detect_exception(func, real_execute_data TSRMLS_CC);
-		}
-
-		efree(func);
-	}
-
-#if PHP_VERSION_ID < 50500
-	_zend_execute(ops TSRMLS_CC);
-#else
-	_zend_execute_ex(execute_data TSRMLS_CC);
-#endif
-}
 
 /**
  * Tideways enable replaced the zend_execute function with this
@@ -2993,7 +2986,17 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 	char          *func = NULL;
 	int hp_profile_flag = 1;
 
+	if (!hp_globals.enabled) {
+#if PHP_VERSION_ID < 50500
+		_zend_execute(ops TSRMLS_CC);
+#else
+		_zend_execute_ex(execute_data TSRMLS_CC);
+#endif
+		return;
+	}
+
 	func = hp_get_function_name(real_execute_data TSRMLS_CC);
+
 	if (!func) {
 #if PHP_VERSION_ID < 50500
 		_zend_execute(ops TSRMLS_CC);
@@ -3007,6 +3010,10 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 
 	if (hp_globals.exception_function != NULL && strcmp(func, ZSTR_VAL(hp_globals.exception_function)) == 0) {
 		hp_detect_exception(func, real_execute_data TSRMLS_CC);
+	}
+
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_USERLAND) > 0) {
+		return;
 	}
 
 	BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag, real_execute_data);
@@ -3046,6 +3053,17 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
 #endif
 	char             *func = NULL;
 	int    hp_profile_flag = 1;
+
+	if (!hp_globals.enabled || (hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_BUILTINS) > 0) {
+#if PHP_MAJOR_VERSION == 7
+		execute_internal(execute_data, return_value TSRMLS_CC);
+#elif PHP_VERSION_ID < 50500
+		execute_internal(execute_data, ret TSRMLS_CC);
+#else
+		execute_internal(execute_data, fci, ret TSRMLS_CC);
+#endif
+		return;
+	}
 
 	func = hp_get_function_name(execute_data TSRMLS_CC);
 
@@ -3087,6 +3105,10 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
  */
 ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int type TSRMLS_DC)
 {
+	if (!hp_globals.enabled || (hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_COMPILE) > 0) {
+		return _zend_compile_file(file_handle, type TSRMLS_CC);
+	}
+
 	zend_op_array  *ret;
 	uint64 start = cycle_timer();
 
@@ -3104,6 +3126,10 @@ ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int 
  */
 ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filename TSRMLS_DC)
 {
+	if (!hp_globals.enabled || (hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_COMPILE) > 0) {
+		return _zend_compile_string(source_string, filename TSRMLS_CC);
+	}
+
 	zend_op_array  *ret;
 	uint64 start = cycle_timer();
 
@@ -3134,48 +3160,6 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
 
 		hp_globals.enabled      = 1;
 		hp_globals.tideways_flags = (uint32)tideways_flags;
-
-		/* Replace zend_compile file/string with our proxies */
-		_zend_compile_file = zend_compile_file;
-		_zend_compile_string = zend_compile_string;
-
-		if (!(hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_COMPILE)) {
-			zend_compile_file  = hp_compile_file;
-			zend_compile_string = hp_compile_string;
-		}
-
-		/* Replace zend_execute with our proxy */
-#if PHP_VERSION_ID < 50500
-		_zend_execute = zend_execute;
-#else
-		_zend_execute_ex = zend_execute_ex;
-#endif
-
-		if (!(hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_USERLAND)) {
-#if PHP_VERSION_ID < 50500
-			zend_execute  = hp_execute;
-#else
-			zend_execute_ex  = hp_execute_ex;
-#endif
-		} else if (hp_globals.transaction_function) {
-#if PHP_VERSION_ID < 50500
-			zend_execute  = hp_detect_tx_execute;
-#else
-			zend_execute_ex  = hp_detect_tx_execute_ex;
-#endif
-		}
-
-		tideways_original_error_cb = zend_error_cb;
-		zend_error_cb = tideways_error_cb;
-
-		/* Replace zend_execute_internal with our proxy */
-		_zend_execute_internal = zend_execute_internal;
-		if (!(hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_BUILTINS)) {
-			/* if NO_BUILTINS is not set (i.e. user wants to profile builtins),
-			 * then we intercept internal (builtin) function calls.
-			 */
-			zend_execute_internal = hp_execute_internal;
-		}
 
 		/* one time initializations */
 		hp_init_profiler_state(TSRMLS_C);
