@@ -2241,7 +2241,7 @@ size_t hp_get_entry_name(hp_entry_t  *entry, char *result_buf, size_t result_len
 	}
 
 	/* Force null-termination at MAX */
-	result_buf[result_len - 1] = 0;
+	result_buf[result_len - 1] = '\0';
 
 	return strlen(result_buf);
 }
@@ -2608,14 +2608,12 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 
 	if (!func) {
 		return NULL;
-	}
-
-	if (data->called_scope != NULL) {
+	} else if (data->called_scope != NULL) {
 		char* sep = "::";
 		cls = data->called_scope->name->val;
 		ret = hp_concat_char(cls, data->called_scope->name->len, func->val, func->len, sep, 2);
 	} else {
-		ret = estrdup(func);
+		ret = estrdup(func->val);
 	}
 #endif
 
@@ -3357,25 +3355,27 @@ void tideways_error_cb(int type, const char *error_filename, const uint error_li
 	error_handling_t  error_handling;
 	zval *backtrace;
 
+	if (hp_globals.enabled) {
 #if (PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION >= 3) || PHP_MAJOR_VERSION >= 6
-	error_handling  = EG(error_handling);
+		error_handling  = EG(error_handling);
 #else
-	error_handling  = PG(error_handling);
+		error_handling  = PG(error_handling);
 #endif
 
-	if (error_handling == EH_NORMAL) {
-		switch (type) {
-			case E_ERROR:
-			case E_CORE_ERROR:
-				ALLOC_INIT_ZVAL(backtrace);
+		if (error_handling == EH_NORMAL) {
+			switch (type) {
+				case E_ERROR:
+				case E_CORE_ERROR:
+					backtrace = ecalloc(sizeof(zval), 1);
 
 #if PHP_VERSION_ID <= 50399
-				zend_fetch_debug_backtrace(backtrace, 1, 0 TSRMLS_CC);
+					zend_fetch_debug_backtrace(backtrace, 1, 0 TSRMLS_CC);
 #else
-				zend_fetch_debug_backtrace(backtrace, 1, 0, 0 TSRMLS_CC);
+					zend_fetch_debug_backtrace(backtrace, 1, 0, 0 TSRMLS_CC);
 #endif
 
-				hp_globals.backtrace = backtrace;
+					hp_globals.backtrace = backtrace;
+			}
 		}
 	}
 
