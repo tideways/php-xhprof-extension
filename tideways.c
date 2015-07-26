@@ -408,8 +408,20 @@ static zend_op_array * (*_zend_compile_string) (zval *source_string, char *filen
 
 ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int type TSRMLS_DC);
 ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filename TSRMLS_DC);
+#if PHP_MAJOR_VERSION == 7
 ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data);
+#elif PHP_VERSION_ID < 50500
+ZEND_DLEXPORT void hp_execute (zend_op_array *ops TSRMLS_DC);
+#else
+ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC);
+#endif
+#if PHP_MAJOR_VERSION == 7
 ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data, zval *return_value);
+#elif PHP_VERSION_ID < 50500
+ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data, int ret TSRMLS_DC);
+#else
+ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data, struct _zend_fcall_info *fci, int ret TSRMLS_DC);
+#endif
 
 /* error callback replacement functions */
 void (*tideways_original_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
