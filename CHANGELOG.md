@@ -1,3 +1,29 @@
+# Version 2.0.9
+
+- Remove slow_php_treshold functionality that recorded arbitrary php spans as long
+  as they were 50ms and slower. This could lead to unpredictable results which are
+  hard to render in the UI.
+
+  Also fixes a potential segfault when triggered inside a generator, where parts
+  of execute_data are already NULL.
+
+# Version 2.0.8
+
+- Always measure CPU time of the main() span.
+- Cleanup CPU timer code to use `CLOCK_PROCESS_CPUTIME_ID`.
+- Increase default sample-rate configuration to 30% 
+- Multiple calls to tideways_enable() restart profiling instead of continuing
+- Fix Doctrine span watchers for ORM 2.5
+
+# Version 2.0.7
+
+- Fix Apple Build
+
+# Version 2.0.5
+
+- Introduce `tideways_span_callback()` function that takes a function and a
+  callback to start a span.
+
 # Version 2.0.4
 
 - Fix segfault in `tideways_span_watch()`
