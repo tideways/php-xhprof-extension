@@ -211,7 +211,7 @@ static zend_always_inline zval* zend_compat_hash_find_const(HashTable *ht, const
 	}
 	return NULL;
 #else
-	return zend_hash_str_find(ht, key, len+1);
+	return zend_hash_str_find(ht, key, len);
 #endif
 }
 
@@ -2702,7 +2702,7 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
 		ZVAL_LONG(data, Z_LVAL_P(data) + count);
 	} else {
 		ZVAL_LONG(&val, count);
-		zend_hash_str_update(ht, name, strlen(name)+1, &val);
+		zend_hash_str_update(ht, name, strlen(name), &val);
 	}
 }
 
@@ -2918,12 +2918,12 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 	hp_get_function_stack(top, 2, symbol, sizeof(symbol));
 
 	/* Get the stat array */
-	counts = zend_hash_str_find(hp_globals.stats_count, symbol, strlen(symbol)+1);
+	counts = zend_hash_str_find(hp_globals.stats_count, symbol, strlen(symbol));
 
 	if (counts == NULL) {
 		counts = &count_val;
 		array_init(counts);
-		zend_hash_str_update(hp_globals.stats_count, symbol, strlen(symbol)+1, counts);
+		zend_hash_str_update(hp_globals.stats_count, symbol, strlen(symbol), counts);
 	}
 
 	/* Bump stats in the counts hashtable */
