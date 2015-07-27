@@ -644,7 +644,7 @@ PHP_FUNCTION(tideways_disable)
 
 	hp_stop(TSRMLS_C);
 
-	RETURN_ARR(hp_globals.stats_count);
+	RETURN_ARR(zend_array_dup(hp_globals.stats_count));
 }
 
 PHP_FUNCTION(tideways_transaction_name)
@@ -690,30 +690,27 @@ PHP_FUNCTION(tideways_last_fatal_error)
 
 long tw_span_create(char *category, size_t category_len)
 {
-	zval *span;
-	zval starts, stops, annotations;
+	zval span, starts, stops, annotations;
 	int idx;
 	long parent = 0;
 
 	idx = zend_hash_num_elements(hp_globals.spans);
 
-	span = ecalloc(sizeof(zval), 1);
-
-	array_init(span);
+	array_init(&span);
 	array_init(&starts);
 	array_init(&stops);
 	array_init(&annotations);
 
-	_add_assoc_stringl(span, "n", category, category_len, 1);
-	add_assoc_zval(span, "b", &starts);
-	add_assoc_zval(span, "e", &stops);
-	add_assoc_zval(span, "a", &annotations);
+	_add_assoc_stringl(&span, "n", category, category_len, 1);
+	add_assoc_zval(&span, "b", &starts);
+	add_assoc_zval(&span, "e", &stops);
+	add_assoc_zval(&span, "a", &annotations);
 
 	if (parent > 0) {
-		add_assoc_long(span, "p", parent);
+		add_assoc_long(&span, "p", parent);
 	}
 
-	zend_compat_hash_index_update(hp_globals.spans, idx, span);
+	zend_compat_hash_index_update(hp_globals.spans, idx, &span);
 
 	return idx;
 }
@@ -889,7 +886,7 @@ PHP_FUNCTION(tideways_span_create)
 PHP_FUNCTION(tideways_get_spans)
 {
 	if (hp_globals.spans) {
-		RETURN_ARR(hp_globals.spans);
+		RETURN_ARR(zend_array_dup(hp_globals.spans));
 	}
 }
 
@@ -2083,7 +2080,7 @@ void hp_init_profiler_state(TSRMLS_D)
 	}
 
 	ALLOC_HASHTABLE(hp_globals.stats_count);
-	zend_hash_init(hp_globals.stats_count, 0, NULL, NULL, 0);
+	zend_hash_init(hp_globals.stats_count, 0, NULL, ZVAL_PTR_DTOR, 0);
 
 	if (hp_globals.spans) {
 		zend_hash_destroy(hp_globals.spans);
@@ -2091,7 +2088,7 @@ void hp_init_profiler_state(TSRMLS_D)
 	}
 
 	ALLOC_HASHTABLE(hp_globals.spans);
-	zend_hash_init(hp_globals.spans, 0, NULL, NULL, 0);
+	zend_hash_init(hp_globals.spans, 0, NULL, ZVAL_PTR_DTOR, 0);
 
 	hp_init_trace_callbacks(TSRMLS_C);
 }
@@ -2613,7 +2610,9 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 		cls = data->called_scope->name->val;
 		ret = hp_concat_char(cls, data->called_scope->name->len, func->val, func->len, sep, 2);
 	} else {
-		ret = estrdup(func->val);
+		ret = emalloc(ZSTR_LEN(func)+1);
+		strcpy(ret, ZSTR_VAL(func));
+		ret[ZSTR_LEN(func)] = '\0';
 	}
 #endif
 
@@ -2685,7 +2684,7 @@ static void hp_fast_free_hprof_entry(hp_entry_t *p)
 void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
 {
 	HashTable *ht;
-	zval *data;
+	zval *data, val;
 
 	if (!counts) {
 		return;
@@ -2702,7 +2701,8 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
 	if (data) {
 		ZVAL_LONG(data, Z_LVAL_P(data) + count);
 	} else {
-		add_assoc_long(counts, name, count);
+		ZVAL_LONG(&val, count);
+		zend_hash_str_update(ht, name, strlen(name)+1, &val);
 	}
 }
 
@@ -2878,7 +2878,7 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_DC)
 {
 	hp_entry_t      *top = (*entries);
-	zval            *counts;
+	zval            *counts, count_val;
 	char             symbol[SCRATCH_BUF_LEN] = "";
 	long int         mu_end;
 	long int         pmu_end;
@@ -2918,12 +2918,12 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 	hp_get_function_stack(top, 2, symbol, sizeof(symbol));
 
 	/* Get the stat array */
-	counts = zend_hash_str_find(hp_globals.stats_count, symbol, strlen(symbol));
+	counts = zend_hash_str_find(hp_globals.stats_count, symbol, strlen(symbol)+1);
 
 	if (counts == NULL) {
-		counts = ecalloc(sizeof(zval), 1);
+		counts = &count_val;
 		array_init(counts);
-		zend_symtable_str_update(hp_globals.stats_count, symbol, strlen(symbol), counts);
+		zend_hash_str_update(hp_globals.stats_count, symbol, strlen(symbol)+1, counts);
 	}
 
 	/* Bump stats in the counts hashtable */
