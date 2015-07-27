@@ -200,7 +200,6 @@ typedef struct hp_global_t {
 	HashTable *trace_watch_callbacks;
 	HashTable *trace_callbacks;
 	HashTable *span_cache;
-	int slow_php_call_treshold;
 
 	zend_uint gc_runs; /* number of garbage collection runs */
 	zend_uint gc_collected; /* number of collected items in garbage run */
@@ -783,7 +782,6 @@ PHP_MINIT_FUNCTION(tideways)
 	hp_register_constants(INIT_FUNC_ARGS_PASSTHRU);
 
 	/* Get the number of available logical CPUs. */
-	hp_globals.slow_php_call_treshold = 50000; // 50ms
 	hp_globals.timebase_factor = get_timebase_factor();
 
 	hp_globals.stats_count = NULL;
@@ -1554,11 +1552,6 @@ static void hp_parse_options_from_arg(zval *args)
 
 	if (zresult != NULL) {
 		hp_globals.exception_function = hp_zval_to_string(zresult);
-	}
-
-	zresult = hp_zval_at_key("slow_php_call_treshold", args);
-	if (zresult != NULL && Z_TYPE_P(zresult) == IS_LONG && Z_LVAL_P(zresult) >= 0) {
-		hp_globals.slow_php_call_treshold = Z_LVAL_P(zresult);
 	}
 }
 
@@ -2656,22 +2649,10 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 		cpu = get_us_from_tsc(cpu_timer() - top->cpu_start);
 	}
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
-		if (top->span_id >= 0) {
-			double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time);
-			double end = get_us_from_tsc(tsc_end - hp_globals.start_time);
-			tw_span_record_duration(top->span_id, start, end);
-		} else if (data != NULL && data->function_state.function->type == ZEND_INTERNAL_FUNCTION && wt > hp_globals.slow_php_call_treshold) {
-			void **args =  hp_get_execute_arguments(data);
-			int arg_count = (int)(zend_uintptr_t) *args;
-			zval *obj = data->object;
-
-			long idx = tw_trace_callback_php_call(top->name_hprof, args, arg_count, obj TSRMLS_CC);
-
-			double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time);
-			double end = get_us_from_tsc(tsc_end - hp_globals.start_time);
-			tw_span_record_duration(idx, start, end);
-		}
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0 && top->span_id >= 0) {
+		double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time);
+		double end = get_us_from_tsc(tsc_end - hp_globals.start_time);
+		tw_span_record_duration(top->span_id, start, end);
 	}
 
 	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_HIERACHICAL) > 0) {
