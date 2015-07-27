@@ -9,7 +9,7 @@ function foo($x) {
     return bar($x);
 }
 function bar($x) {
-    return strlen($x);
+    return substr($x);
 }
 
 tideways_enable(TIDEWAYS_FLAGS_NO_USERLAND);
@@ -22,5 +22,5 @@ print_canonical($data);
 --EXPECTF--
 Output:
 main()                                  : ct=       1; wt=*;
-main()==>strlen                         : ct=       1; wt=*;
+main()==>substr                         : ct=       1; wt=*;
 main()==>tideways_disable               : ct=       1; wt=*;

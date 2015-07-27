@@ -985,9 +985,6 @@ PHP_MINIT_FUNCTION(tideways)
 	_zend_compile_string = zend_compile_string;
 	zend_compile_string = hp_compile_string;
 
-	//if (!(hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_COMPILE)) {
-
-	/* Replace zend_execute with our proxy */
 #if PHP_VERSION_ID < 50500
 	_zend_execute = zend_execute;
 	zend_execute  = hp_execute;
@@ -999,9 +996,7 @@ PHP_MINIT_FUNCTION(tideways)
 	tideways_original_error_cb = zend_error_cb;
 	zend_error_cb = tideways_error_cb;
 
-	/* Replace zend_execute_internal with our proxy */
 	_zend_execute_internal = zend_execute_internal;
-	//if (!(hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_BUILTINS)) {
 	zend_execute_internal = hp_execute_internal;
 
 #if defined(DEBUG)
@@ -2964,7 +2959,7 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
  */
 #if PHP_VERSION_ID >= 70000
 ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data) {
-	zend_execute_data *real_execute_data = execute_data->prev_execute_data;
+	zend_execute_data *real_execute_data = execute_data;
 #elif PHP_VERSION_ID < 50500
 ZEND_DLEXPORT void hp_execute (zend_op_array *ops TSRMLS_DC) {
 	zend_execute_data *execute_data = EG(current_execute_data);
