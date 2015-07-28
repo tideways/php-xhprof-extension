@@ -1,3 +1,8 @@
+# Version 2.0.10
+
+- Fix bug in CentOS compilation, where -lrt flag is required to use ``clock_gettime`` function.
+  Research suggests this is required on some other Linux distributions as well.
+
 # Version 2.0.9
 
 - Remove slow_php_treshold functionality that recorded arbitrary php spans as long
