@@ -18,14 +18,14 @@ AC_DEFUN([AC_TIDEWAYS_CLOCK],
   if test "$have_clock_gettime" = "no"; then
     AC_MSG_CHECKING([for clock_gettime in -lrt])
 
-    SAVED_LIBS="$LIBS"
-    LIBS="$LIBS -lrt"
+    SAVED_CFLAGS="$CFLAGS"
+    CFLAGS="$CFLAGS -lrt"
 
     AC_TRY_LINK([ #include <time.h> ], [struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);], [
       have_clock_gettime=yes
       AC_MSG_RESULT([yes])
     ], [
-      LIBS="$SAVED_LIBS"
+      CFLAGS="$SAVED_CFLAGS"
       AC_MSG_RESULT([no])
     ])
   fi
@@ -74,6 +74,7 @@ AC_DEFUN([AC_TIDEWAYS_CLOCK],
 if test "$PHP_TIDEWAYS" != "no"; then
   AC_TIDEWAYS_CLOCK
 
+  PHP_SUBST([CFLAGS])
   PHP_SUBST([TIDEWAYS_SHARED_LIBADD])
   PHP_NEW_EXTENSION(tideways, tideways.c, $ext_shared)
 fi
