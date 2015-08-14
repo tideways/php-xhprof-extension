@@ -2612,10 +2612,10 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 
 	if (!func) {
 		return NULL;
-	} else if (data->called_scope != NULL) {
+	} else if (curr_func->common.scope != NULL) {
 		char* sep = "::";
-		cls = data->called_scope->name->val;
-		ret = hp_concat_char(cls, data->called_scope->name->len, func->val, func->len, sep, 2);
+		cls = curr_func->common.scope->name->val;
+		ret = hp_concat_char(cls, curr_func->common.scope->name->len, func->val, func->len, sep, 2);
 	} else {
 		ret = emalloc(ZSTR_LEN(func)+1);
 		strcpy(ret, ZSTR_VAL(func));

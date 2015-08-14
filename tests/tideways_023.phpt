@@ -30,7 +30,7 @@ function get_query_template($name) {
 }
 
 function transaction_symfony2() {
-    tideways_enable(0, array(
+    tideways_enable(TIDEWAYS_FLAGS_NO_SPANS, array(
         'transaction_function' => 'Symfony\Component\HttpKernel\Controller\ControllerResolver::createController',
     ));
 
@@ -42,7 +42,7 @@ function transaction_symfony2() {
 }
 
 function transaction_zf1() {
-    tideways_enable(0, array(
+    tideways_enable(TIDEWAYS_FLAGS_NO_SPANS, array(
         'transaction_function' => 'Zend_Controller_Action::dispatch',
     ));
     $controller = new MyController();
@@ -53,7 +53,7 @@ function transaction_zf1() {
 }
 
 function transaction_zf2() {
-    tideways_enable(0, array(
+    tideways_enable(TIDEWAYS_FLAGS_NO_SPANS, array(
         'transaction_function' => 'Zend\\MVC\\Controller\\ControllerManager::get',
     ));
     $manager = new ControllerManager();
@@ -64,7 +64,7 @@ function transaction_zf2() {
 }
 
 function transaction_oxid() {
-    tideways_enable(0, array(
+    tideways_enable(TIDEWAYS_FLAGS_NO_SPANS, array(
         'transaction_function' => 'oxView::setClassName',
     ));
 
@@ -76,7 +76,7 @@ function transaction_oxid() {
 }
 
 function transaction_shopware() {
-    tideways_enable(0, array(
+    tideways_enable(TIDEWAYS_FLAGS_NO_SPANS, array(
         'transaction_function' => 'Enlight_Controller_Action::dispatch',
     ));
 
@@ -88,7 +88,7 @@ function transaction_shopware() {
 }
 
 function transaction_wordpress() {
-    tideways_enable(0, array(
+    tideways_enable(TIDEWAYS_FLAGS_NO_SPANS, array(
         'transaction_function' => 'get_query_template',
     ));
 
@@ -99,7 +99,7 @@ function transaction_wordpress() {
 }
 
 function transaction_laravel() {
-    tideways_enable(0, array(
+    tideways_enable(TIDEWAYS_FLAGS_NO_SPANS, array(
         'transaction_function' => 'Illuminate\Routing\Controller::callAction',
     ));
 
