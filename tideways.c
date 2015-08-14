@@ -47,6 +47,7 @@
 #include "ext/standard/url.h"
 #include "ext/pdo/php_pdo_driver.h"
 #include "zend_stream.h"
+#include "zend_smart_str.h"
 
 #if PHP_VERSION_ID < 70000
 struct _zend_string {
@@ -277,7 +278,7 @@ typedef unsigned int uint32;
 typedef unsigned char uint8;
 #endif
 
-#define register_trace_callback(function_name, cb) zend_compat_hash_update_ptr_const(hp_globals.trace_callbacks, function_name, sizeof(function_name) - 1, &cb, sizeof(tw_trace_callback*));
+#define register_trace_callback(function_name, cb) zend_compat_hash_update_ptr_const(hp_globals.trace_callbacks, function_name, strlen(function_name), &cb, sizeof(tw_trace_callback*));
 #define register_trace_callback_len(function_name, len, cb) zend_compat_hash_update_ptr_const(hp_globals.trace_callbacks, function_name, len, &cb, sizeof(tw_trace_callback*));
 
 /**
@@ -2354,23 +2355,26 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 
 	found = 0;
 	found_select = 0;
-	result = "";
 	_ALLOC_INIT_ZVAL(parts);
 
 #if PHP_VERSION_ID < 70000
 	if ((pce = pcre_get_compiled_regex_cache("(([\\s]+))", 8 TSRMLS_CC)) == NULL) {
-#else
-	if ((pce = pcre_get_compiled_regex_cache("(([\\s]+))")) == NULL) {
-#endif
 		return "";
 	}
+#else
+	zend_string *regex = zend_string_init("(([\\s]+))", 9, 0);
+	if ((pce = pcre_get_compiled_regex_cache(regex)) == NULL) {
+		zend_string_release(regex);
+		return "";
+	}
+	zend_string_release(regex);
+#endif
 
 	php_pcre_split_impl(pce, sql, len, parts, -1, 0 TSRMLS_CC);
 
 	arrayParts = Z_ARRVAL_P(parts);
 
-	result_len = TIDEWAYS_MAX_ARGUMENT_LEN;
-	result = emalloc(result_len);
+	smart_str buf = {0};
 
 #if PHP_VERSION_ID < 70000
 	for(zend_hash_internal_pointer_reset_ex(arrayParts, &pointer);
@@ -2379,41 +2383,45 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 
 		zend_hash_get_current_key_ex(arrayParts, &key, &key_len, &index, 0, &pointer);
 		token = Z_STRVAL_PP(data);
+		php_strtolower(token, Z_STRLEN_PP(data));
 #else
 	ZEND_HASH_FOREACH_KEY_VAL(arrayParts, index, key, val) {
 		token = Z_STRVAL_P(val);
+		php_strtolower(token, Z_STRLEN_P(val));
 #endif
 
-		php_strtolower(token, Z_STRLEN_PP(data));
 
 		if ((strcmp(token, "insert") == 0 || strcmp(token, "delete") == 0) &&
 				zend_hash_index_exists(arrayParts, index+2)) {
-			snprintf(result, result_len, "%s", token);
+			smart_str_appends(&buf, token);
+			smart_str_appendc(&buf, ' ');
 
 			tmp = zend_compat_hash_index_find(arrayParts, index+2);
-			snprintf(result, result_len, "%s %s", result, Z_STRVAL_P(tmp));
+			smart_str_appends(&buf, Z_STRVAL_P(tmp));
 			found = 1;
 
 			break;
 		} else if (strcmp(token, "update") == 0 && zend_hash_index_exists(arrayParts, index+1)) {
-			snprintf(result, result_len, "%s", token);
+			smart_str_appends(&buf, token);
+			smart_str_appendc(&buf, ' ');
 
 			tmp = zend_compat_hash_index_find(arrayParts, index+1);
-			snprintf(result, result_len, "%s %s", result, Z_STRVAL_P(tmp));
+			smart_str_appends(&buf, Z_STRVAL_P(tmp));
 			found = 1;
 
 			break;
 		} else if (strcmp(token, "select") == 0) {
-			snprintf(result, result_len, "%s", token);
+			smart_str_appends(&buf, token);
+			smart_str_appendc(&buf, ' ');
 			found_select = 1;
 		} else if (found_select == 1 && strcmp(token, "from") == 0) {
 			tmp = zend_compat_hash_index_find(arrayParts, index+1);
-			snprintf(result, result_len, "%s %s", result, Z_STRVAL_P(tmp));
+			smart_str_appends(&buf, Z_STRVAL_P(tmp));
 			found = 1;
 
 			break;
 		} else if (strcmp(token, "commit") == 0) {
-			snprintf(result, result_len, "%s", token);
+			smart_str_appends(&buf, token);
 			found = 1;
 			break;
 		}
@@ -2426,8 +2434,12 @@ static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
 	hp_ptr_dtor(parts);
 
 	if (found == 0) {
-		snprintf(result, result_len, "%s", "other");
+		smart_str_appends(&buf, "other");
 	}
+	smart_str_0(&buf);
+
+	result = ZSTR_VAL(buf.s);
+	smart_str_free(&buf);
 
 	return result;
 }
