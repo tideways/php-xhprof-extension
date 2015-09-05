@@ -2853,7 +2853,7 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 #else
 		callback = zend_hash_str_find_ptr(hp_globals.trace_callbacks, current->name_hprof, strlen(current->name_hprof));
 
-		if (callback) {
+		if (callback != NULL) {
 			current->span_id = (*callback)(current->name_hprof, data TSRMLS_CC);
 		}
 #endif
