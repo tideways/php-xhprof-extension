@@ -155,6 +155,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _DECLARE_ZVAL(name) zval * name
 #define _ALLOC_INIT_ZVAL(name) ALLOC_INIT_ZVAL(name)
 #define hp_ptr_dtor(val) zval_ptr_dtor( &val )
+#define zend_string_copy(s) s
 
 #else
 #define EX_OBJ(call) &(call->This)
