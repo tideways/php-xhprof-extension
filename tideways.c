@@ -1321,6 +1321,9 @@ long tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *
 		if (zend_hash_find(Z_ARRVAL_P(retval_ptr), "url", sizeof("url"), (void **)&option) == SUCCESS) {
 			summary = hp_get_file_summary(Z_STRVAL_PP(option), Z_STRLEN_PP(option) TSRMLS_CC);
 
+			efree(params_array);
+			zval_ptr_dtor(&retval_ptr);
+
 			return tw_trace_callback_record_with_cache("http", 4, summary, strlen(summary), 0);
 		}
 
