@@ -240,7 +240,7 @@ static zend_always_inline zval* zend_compat_hash_index_find(HashTable *ht, zend_
  */
 
 /* Tideways version                           */
-#define TIDEWAYS_VERSION       "2.0.8"
+#define TIDEWAYS_VERSION       "2.0.10"
 
 /* Fictitious function name to represent top of the call tree. The paranthesis
  * in the name is to ensure we don't conflict with user function names.  */
@@ -372,7 +372,6 @@ typedef struct hp_global_t {
 	HashTable *trace_watch_callbacks;
 	HashTable *trace_callbacks;
 	HashTable *span_cache;
-	int slow_php_call_treshold;
 
 	uint32_t gc_runs; /* number of garbage collection runs */
 	uint32_t gc_collected; /* number of collected items in garbage run */
@@ -963,7 +962,6 @@ PHP_MINIT_FUNCTION(tideways)
 	hp_register_constants(INIT_FUNC_ARGS_PASSTHRU);
 
 	/* Get the number of available logical CPUs. */
-	hp_globals.slow_php_call_treshold = 50000; // 50ms
 	hp_globals.timebase_factor = get_timebase_factor();
 
 	hp_globals.stats_count = NULL;
@@ -1809,11 +1807,6 @@ static void hp_parse_options_from_arg(zval *args)
 
 	if (zresult != NULL && Z_TYPE_P(zresult) == IS_STRING) {
 		hp_globals.exception_function = zend_string_copy(Z_STR_P(zresult));
-	}
-
-	zresult = hp_zval_at_key("slow_php_call_treshold", sizeof("slow_php_call_treshold"), args);
-	if (zresult != NULL && Z_TYPE_P(zresult) == IS_LONG && Z_LVAL_P(zresult) >= 0) {
-		hp_globals.slow_php_call_treshold = Z_LVAL_P(zresult);
 	}
 }
 
@@ -2904,20 +2897,10 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 		cpu = get_us_from_tsc(cpu_timer() - top->cpu_start);
 	}
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
-		if (top->span_id >= 0) {
-			double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time);
-			double end = get_us_from_tsc(tsc_end - hp_globals.start_time);
-			tw_span_record_duration(top->span_id, start, end);
-#if PHP_VERSION_ID < 70000
-		} else if (data != NULL && data->function_state.function->type == ZEND_INTERNAL_FUNCTION && wt > hp_globals.slow_php_call_treshold) {
-			long idx = tw_trace_callback_php_call(top->name_hprof, data TSRMLS_CC);
-
-			double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time);
-			double end = get_us_from_tsc(tsc_end - hp_globals.start_time);
-			tw_span_record_duration(idx, start, end);
-#endif
-		}
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0 && top->span_id >= 0) {
+		double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time);
+		double end = get_us_from_tsc(tsc_end - hp_globals.start_time);
+		tw_span_record_duration(top->span_id, start, end);
 	}
 
 	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_HIERACHICAL) > 0) {
