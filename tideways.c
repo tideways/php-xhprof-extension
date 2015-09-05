@@ -1012,7 +1012,9 @@ PHP_MINIT_FUNCTION(tideways)
 #endif
 
 	tideways_original_error_cb = zend_error_cb;
+	#if PHP_VERSION_ID < 70000
 	zend_error_cb = tideways_error_cb;
+	#endif
 
 	_zend_execute_internal = zend_execute_internal;
 	zend_execute_internal = hp_execute_internal;
@@ -3380,6 +3382,7 @@ static inline void hp_array_del(char **name_array)
 
 void tideways_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
 {
+#if PHP_VERSION_ID < 70000
 	TSRMLS_FETCH();
 	error_handling_t  error_handling;
 	zval *backtrace;
@@ -3404,7 +3407,8 @@ void tideways_error_cb(int type, const char *error_filename, const uint error_li
 
 				hp_globals.backtrace = backtrace;
 		}
-	}
+}
+#endif
 
 	tideways_original_error_cb(type, error_filename, error_lineno, format, args);
 }
