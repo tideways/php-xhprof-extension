@@ -13,8 +13,19 @@
  */
 function print_canonical($xhprof_data)
 {
+    // some functions are not part of the trace
+    // due to being an opcode in php7, these
+    // need to be ignored for a common test-output
+    $ignoreFunctions = array('strlen', 'is_array');
+
     ksort($xhprof_data);
     foreach($xhprof_data as $func => $metrics) {
+        foreach ($ignoreFunctions as $ignoreFunction) {
+            if (strpos($func, "==>" . $ignoreFunction) !== false) {
+                continue 2;
+            }
+        }
+
         echo str_pad($func, 40) . ":";
         ksort($metrics);
         foreach ($metrics as $name => $value) {
