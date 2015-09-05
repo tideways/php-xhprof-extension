@@ -3375,7 +3375,7 @@ void tideways_error_cb(int type, const char *error_filename, const uint error_li
 		switch (type) {
 			case E_ERROR:
 			case E_CORE_ERROR:
-				backtrace = ecalloc(sizeof(zval), 1);
+				ALLOC_INIT_ZVAL(backtrace);
 
 #if PHP_VERSION_ID <= 50399
 				zend_fetch_debug_backtrace(backtrace, 1, 0 TSRMLS_CC);
