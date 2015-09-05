@@ -9,7 +9,7 @@ function foo($x) {
     return bar($x);
 }
 function bar($x) {
-    return substr($x);
+    return substr($x, 0, 10);
 }
 
 tideways_enable(TIDEWAYS_FLAGS_NO_USERLAND);
