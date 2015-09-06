@@ -908,6 +908,24 @@ long tw_trace_callback_watch(char *symbol, void **args, int args_len, zval *obje
 	return -1;
 }
 
+long tw_trace_callback_phpampqlib(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
+{
+	zval *exchange;
+	long idx = -1;
+
+	if (args_len < 2) {
+		return idx;
+	}
+
+	exchange = *(args-args_len+1);
+
+	if (exchange == NULL || Z_TYPE_P(exchange) != IS_STRING) {
+		return idx;
+	}
+
+	return tw_trace_callback_record_with_cache("queue", 5, Z_STRVAL_P(exchange), Z_STRLEN_P(exchange), 1);
+}
+
 long tw_trace_callback_pheanstalk(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
 {
 	zend_class_entry *pheanstalk_ce;
@@ -1824,6 +1842,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	cb = tw_trace_callback_pheanstalk;
 	register_trace_callback("Pheanstalk_Pheanstalk::put", cb);
 	register_trace_callback("Pheanstalk\\Pheanstalk::put", cb);
+
+	cb = tw_trace_callback_phpampqlib;
+	register_trace_callback("PhpAmqpLib\\Channel\\AMQPChannel::basic_publish", cb);
 
 	hp_globals.gc_runs = GC_G(gc_runs);
 	hp_globals.gc_collected = GC_G(collected);
