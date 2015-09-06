@@ -46,7 +46,6 @@
 #include "ext/standard/url.h"
 #include "ext/pdo/php_pdo_driver.h"
 #include "zend_stream.h"
-#include "zend_smart_str.h"
 
 #if PHP_VERSION_ID < 70000
 struct _zend_string {
@@ -249,6 +248,9 @@ static zend_always_inline zval *zend_compat_hash_get_current_data_ex(HashTable *
 #endif
 }
 
+#define register_trace_callback(function_name, cb) zend_hash_str_update_ptr(hp_globals.trace_callbacks, function_name, strlen(function_name), &cb);
+#define register_trace_callback_len(function_name, len, cb) zend_compat_hash_update_ptr_const(hp_globals.trace_callbacks, function_name, len, &cb, sizeof(tw_trace_callback*));
+
 /**
  * **********************
  * GLOBAL MACRO CONSTANTS
@@ -295,8 +297,6 @@ typedef unsigned int uint32;
 typedef unsigned char uint8;
 #endif
 
-#define register_trace_callback(function_name, cb) zend_compat_hash_update_ptr_const(hp_globals.trace_callbacks, function_name, strlen(function_name), &cb, sizeof(tw_trace_callback*));
-#define register_trace_callback_len(function_name, len, cb) zend_compat_hash_update_ptr_const(hp_globals.trace_callbacks, function_name, len, &cb, sizeof(tw_trace_callback*));
 
 /**
  * *****************************
@@ -736,7 +736,7 @@ void tw_span_timer_start(long spanId)
 	zval *span, *starts;
 	double wt;
 
-	span = zend_hash_index_find(hp_globals.spans, spanId);
+	span = zend_compat_hash_index_find(hp_globals.spans, spanId);
 
 	if (span == NULL) {
 		return;
@@ -1605,7 +1605,7 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 	property = _zend_read_property(query_ce, object, "_resultSetMapping", sizeof("_resultSetMapping") - 1, 1, __rv);
 
 	if (property == NULL) {
-		property = zend_read_property(query_ce, object, "resultSetMapping", sizeof("resultSetMapping") - 1, 1, __rv);
+		property = _zend_read_property(query_ce, object, "resultSetMapping", sizeof("resultSetMapping") - 1, 1, __rv);
 	}
 
 	if (property == NULL || Z_TYPE_P(property) != IS_OBJECT) {
@@ -1613,7 +1613,7 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 	}
 
 	rsm_ce = Z_OBJCE_P(property);
-	property = zend_read_property(rsm_ce, property, "aliasMap", sizeof("aliasMap")-1, 1, __rv);
+	property = _zend_read_property(rsm_ce, property, "aliasMap", sizeof("aliasMap")-1, 1, __rv);
 
 	if (property == NULL || Z_TYPE_P(property) != IS_ARRAY) {
 		return idx;
@@ -2956,7 +2956,7 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 			current->span_id = (*callback)(current->name_hprof, data TSRMLS_CC);
 		}
 #else
-		callback = zend_hash_str_find_ptr(hp_globals.trace_callbacks, current->name_hprof, strlen(current->name_hprof));
+		callback = (tw_trace_callback*)zend_hash_str_find_ptr(hp_globals.trace_callbacks, current->name_hprof, strlen(current->name_hprof));
 
 		if (callback != NULL) {
 			current->span_id = (*callback)(current->name_hprof, data TSRMLS_CC);
