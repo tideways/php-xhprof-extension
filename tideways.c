@@ -151,6 +151,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _add_assoc_string_ex(arg, key, key_len, str, copy) add_assoc_string_ex(arg, key, key_len, str, copy)
 #define _add_assoc_stringl(arg, key, str, str_len, copy) add_assoc_stringl(arg, key, str, str_len, copy)
 #define _zend_read_property(scope, object, name, name_length, silent, zv) zend_read_property(scope, object, name, name_length, silent TSRMLS_CC)
+#define _call_user_function_ex(function_table, object, function_name, retval_ptr) call_user_function_ex(function_table, &object, function_name, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)
 #define _DECLARE_ZVAL(name) zval * name
 #define _ALLOC_INIT_ZVAL(name) ALLOC_INIT_ZVAL(name)
 #define hp_ptr_dtor(val) zval_ptr_dtor( &val )
@@ -165,6 +166,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _add_assoc_string_ex(arg, key, key_len, str, copy) add_assoc_string_ex(arg, key, key_len-1, str)
 #define _add_assoc_stringl(arg, key, str, str_len, copy) add_assoc_stringl(arg, key, str, str_len)
 #define _zend_read_property(scope, object, name, name_length, silent, zv) zend_read_property(scope, object, name, name_length, silent, zv)
+#define _call_user_function_ex(function_table, object, function_name, retval_ptr) call_user_function_ex(function_table, object, function_name, retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)
 #define _DECLARE_ZVAL(name) zval name ## _v; zval * name = &name ## _v
 #define _ALLOC_INIT_ZVAL(name) ZVAL_NULL(name)
 #define hp_ptr_dtor(val) zval_ptr_dtor(val)
@@ -1162,22 +1164,22 @@ long tw_trace_callback_mongo_cursor_io(char *symbol, zend_execute_data *data TSR
 {
 	long idx = -1;
 	zval *object = EX_OBJ(data);
-	zval fname, *retval_ptr, **element;
+	zval fname, *retval_ptr, *element;
 
 	idx = tw_span_create("mongo", 5);
 	tw_span_annotate_string(idx, "title", symbol, 1);
 
 	_ZVAL_STRING(&fname, "info");
 
-	if (SUCCESS == call_user_function_ex(EG(function_table), &object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
+	if (SUCCESS == _call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
 		if (Z_TYPE_P(retval_ptr) == IS_ARRAY) {
 			element = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "ns", sizeof("ns"));
 			if (element != NULL) {
-				tw_span_annotate_string(idx, "collection", Z_STRVAL_PP(element), 1);
+				tw_span_annotate_string(idx, "collection", Z_STRVAL_P(element), 1);
 			}
 		}
 
-		zval_ptr_dtor(&retval_ptr);
+		hp_ptr_dtor(retval_ptr);
 	}
 
 	return idx;
@@ -1189,7 +1191,7 @@ long tw_trace_callback_mongo_cursor_next(char *symbol, zend_execute_data *data T
 	zend_class_entry *cursor_ce;
 	zval *object = EX_OBJ(data);
 	zval *queryRunProperty;
-	zval fname, *retval_ptr, **element;
+	zval fname, *retval_ptr, *element;
 
 	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
 		return idx;
@@ -1210,15 +1212,15 @@ long tw_trace_callback_mongo_cursor_next(char *symbol, zend_execute_data *data T
 
 	_ZVAL_STRING(&fname, "info");
 
-	if (SUCCESS == call_user_function_ex(EG(function_table), &object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
+	if (SUCCESS == _call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
 		if (Z_TYPE_P(retval_ptr) == IS_ARRAY) {
 			element = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "ns", sizeof("ns"));
 			if (element != NULL) {
-				tw_span_annotate_string(idx, "collection", Z_STRVAL_PP(element), 1);
+				tw_span_annotate_string(idx, "collection", Z_STRVAL_P(element), 1);
 			}
 		}
 
-		zval_ptr_dtor(&retval_ptr);
+		hp_ptr_dtor(retval_ptr);
 	}
 
 	return idx;
@@ -1239,12 +1241,12 @@ long tw_trace_callback_mongo_collection(char *symbol, zend_execute_data *data TS
 	idx = tw_span_create("mongo", 5);
 	tw_span_annotate_string(idx, "title", symbol, 1);
 
-	if (SUCCESS == call_user_function_ex(EG(function_table), &object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
+	if (SUCCESS == _call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
 		if (Z_TYPE_P(retval_ptr) == IS_STRING) {
 			tw_span_annotate_string(idx, "collection", Z_STRVAL_P(retval_ptr), 1);
 		}
 
-		zval_ptr_dtor(&retval_ptr);
+		hp_ptr_dtor(retval_ptr);
 	}
 
 	return idx;
@@ -1644,7 +1646,7 @@ long tw_trace_callback_twig_template(char *symbol, zend_execute_data *data TSRML
 
 	_ZVAL_STRING(&fname, "getTemplateName");
 
-	if (SUCCESS == call_user_function_ex(EG(function_table), &object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
+	if (SUCCESS == _call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
 		if (Z_TYPE_P(retval_ptr) == IS_STRING) {
 			idx = tw_trace_callback_record_with_cache("view", 4, Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr), 1);
 		}
@@ -1720,7 +1722,6 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 {
 	zval *argument = ZEND_CALL_ARG(data, 1);
 	zval *option;
-	zval ***params_array;
 	char *summary;
 	long idx, *idx_ptr;
 	zval fname, *retval_ptr, *opt;
@@ -1731,17 +1732,24 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 
 	_ZVAL_STRING(&fname, "curl_getinfo");
 
+#if PHP_VERSION_ID < 70000
+	zval ***params_array;
 	params_array = (zval ***) emalloc(sizeof(zval **));
 	params_array[0] = &argument;
 
 	if (SUCCESS == call_user_function_ex(EG(function_table), NULL, &fname, &retval_ptr, 1, params_array, 1, NULL TSRMLS_CC)) {
+#else
+	if (SUCCESS == call_user_function_ex(EG(function_table), NULL, &fname, retval_ptr, 1, NULL, 1, NULL TSRMLS_CC)) {
+#endif
 		option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "url", sizeof("url")-1);
 
 		if (option && Z_TYPE_P(option) == IS_STRING) {
 			summary = hp_get_file_summary(Z_STRVAL_P(option), Z_STRLEN_P(option) TSRMLS_CC);
 
+#if PHP_VERSION_ID < 70000
 			efree(params_array);
-			zval_ptr_dtor(&retval_ptr);
+#endif
+			hp_ptr_dtor(retval_ptr);
 
 			return tw_trace_callback_record_with_cache("http", 4, summary, strlen(summary), 0);
 		}
@@ -1749,7 +1757,9 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 		hp_ptr_dtor(retval_ptr);
 	}
 
+#if PHP_VERSION_ID < 70000
 	efree(params_array);
+#endif
 
 	return -1;
 }
