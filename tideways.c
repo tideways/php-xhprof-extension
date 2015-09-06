@@ -908,6 +908,31 @@ long tw_trace_callback_watch(char *symbol, void **args, int args_len, zval *obje
 	return -1;
 }
 
+long tw_trace_callback_mongo_collection(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
+{
+	long idx = -1, *idx_ptr;
+	zval fname, *retval_ptr;
+
+	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
+		return idx;
+	}
+
+	ZVAL_STRING(&fname, "getName", 0);
+
+	idx = tw_span_create("mongo", 5);
+	tw_span_annotate_string(idx, "title", symbol, 1);
+
+	if (SUCCESS == call_user_function_ex(EG(function_table), &object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
+		if (Z_TYPE_P(retval_ptr) == IS_STRING) {
+			tw_span_annotate_string(idx, "collection", Z_STRVAL_P(retval_ptr), 1);
+		}
+
+		zval_ptr_dtor(&retval_ptr);
+	}
+
+	return idx;
+}
+
 long tw_trace_callback_phpampqlib(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
 {
 	zval *exchange;
@@ -1845,6 +1870,20 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_phpampqlib;
 	register_trace_callback("PhpAmqpLib\\Channel\\AMQPChannel::basic_publish", cb);
+
+	cb = tw_trace_callback_mongo_collection;
+	register_trace_callback("MongoCollection::find", cb);
+	register_trace_callback("MongoCollection::findOne", cb);
+	register_trace_callback("MongoCollection::findAndModify", cb);
+	register_trace_callback("MongoCollection::insert", cb);
+	register_trace_callback("MongoCollection::remove", cb);
+	register_trace_callback("MongoCollection::save", cb);
+	register_trace_callback("MongoCollection::update", cb);
+	register_trace_callback("MongoCollection::group", cb);
+	register_trace_callback("MongoCollection::distinct", cb);
+	register_trace_callback("MongoCollection::batchInsert", cb);
+	register_trace_callback("MongoCollection::aggregate", cb);
+	register_trace_callback("MongoCollection::aggregateCursor", cb);
 
 	hp_globals.gc_runs = GC_G(gc_runs);
 	hp_globals.gc_collected = GC_G(collected);
