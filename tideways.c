@@ -908,9 +908,70 @@ long tw_trace_callback_watch(char *symbol, void **args, int args_len, zval *obje
 	return -1;
 }
 
+long tw_trace_callback_mongo_cursor_io(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
+{
+	long idx = -1;
+	zval fname, *retval_ptr, **data;
+
+	idx = tw_span_create("mongo", 5);
+	tw_span_annotate_string(idx, "title", symbol, 1);
+
+	ZVAL_STRING(&fname, "info", 0);
+
+	if (SUCCESS == call_user_function_ex(EG(function_table), &object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
+		if (Z_TYPE_P(retval_ptr) == IS_ARRAY) {
+			if (zend_hash_find(Z_ARRVAL_P(retval_ptr), "ns", sizeof("ns"), (void**)&data) == SUCCESS) {
+				tw_span_annotate_string(idx, "collection", Z_STRVAL_PP(data), 1);
+			}
+		}
+
+		zval_ptr_dtor(&retval_ptr);
+	}
+
+	return idx;
+}
+
+long tw_trace_callback_mongo_cursor_next(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
+{
+	long idx = -1;
+	zend_class_entry *cursor_ce;
+	zval *queryRunProperty;
+	zval fname, *retval_ptr, **data;
+
+	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
+		return idx;
+	}
+
+	cursor_ce = Z_OBJCE_P(object);
+	queryRunProperty = zend_read_property(cursor_ce, object, "_tidewaysQueryRun", sizeof("_tidewaysQueryRun")-1, 1 TSRMLS_CC);
+
+	if (queryRunProperty != NULL && Z_TYPE_P(queryRunProperty) != IS_NULL) {
+		return idx;
+	}
+
+	zend_update_property_bool(cursor_ce, object, "_tidewaysQueryRun", sizeof("_tidewaysQueryRun") - 1, 1);
+
+	idx = tw_span_create("mongo", 5);
+	tw_span_annotate_string(idx, "title", symbol, 1);
+
+	ZVAL_STRING(&fname, "info", 0);
+
+	if (SUCCESS == call_user_function_ex(EG(function_table), &object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
+		if (Z_TYPE_P(retval_ptr) == IS_ARRAY) {
+			if (zend_hash_find(Z_ARRVAL_P(retval_ptr), "ns", sizeof("ns"), (void**)&data) == SUCCESS) {
+				tw_span_annotate_string(idx, "collection", Z_STRVAL_PP(data), 1);
+			}
+		}
+
+		zval_ptr_dtor(&retval_ptr);
+	}
+
+	return idx;
+}
+
 long tw_trace_callback_mongo_collection(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
 {
-	long idx = -1, *idx_ptr;
+	long idx = -1;
 	zval fname, *retval_ptr;
 
 	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
@@ -1884,6 +1945,19 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("MongoCollection::batchInsert", cb);
 	register_trace_callback("MongoCollection::aggregate", cb);
 	register_trace_callback("MongoCollection::aggregateCursor", cb);
+
+	cb = tw_trace_callback_mongo_cursor_next;
+	register_trace_callback("MongoCursor::next", cb);
+	register_trace_callback("MongoCursor::hasNext", cb);
+	register_trace_callback("MongoCursor::getNext", cb);
+	register_trace_callback("MongoCommandCursor::next", cb);
+	register_trace_callback("MongoCommandCursor::hasNext", cb);
+	register_trace_callback("MongoCommandCursor::getNext", cb);
+
+	cb = tw_trace_callback_mongo_cursor_io;
+	register_trace_callback("MongoCursor::rewind", cb);
+	register_trace_callback("MongoCursor::doQuery", cb);
+	register_trace_callback("MongoCursor::count", cb);
 
 	hp_globals.gc_runs = GC_G(gc_runs);
 	hp_globals.gc_collected = GC_G(collected);

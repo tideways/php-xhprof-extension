@@ -11,7 +11,7 @@
 
 - Add PhpAmqpLib support
 
-- Add MongoDB support (Queries on MongoCollection)
+- Add MongoDB support (Queries on MongoCollection, MongoCursor, MongoCommandCursor)
 
 # Version 2.0.10
 

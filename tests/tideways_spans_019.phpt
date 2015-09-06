@@ -29,7 +29,18 @@ $tideways = $mongo->tidewaystest;
 
 $tideways->items->find();
 $tideways->items->findOne();
-$tideways->items->save(array('x' => 1));
+
+for ($i = 0; $i < 10; $i++) {
+    $tideways->items->save(array('x' => 1));
+}
+
+$cursor = $tideways->items->find();
+$cursor->count();
+
+while ($row = $cursor->next()) {
+}
+
+iterator_to_array($cursor);
 
 tideways_disable();
 print_spans(tideways_get_spans());
@@ -39,3 +50,16 @@ app: 1 timers - cpu=%d
 mongo: 1 timers - collection=items title=MongoCollection::find
 mongo: 1 timers - collection=items title=MongoCollection::findOne
 mongo: 1 timers - collection=items title=MongoCollection::save
+mongo: 1 timers - collection=items title=MongoCollection::save
+mongo: 1 timers - collection=items title=MongoCollection::save
+mongo: 1 timers - collection=items title=MongoCollection::save
+mongo: 1 timers - collection=items title=MongoCollection::save
+mongo: 1 timers - collection=items title=MongoCollection::save
+mongo: 1 timers - collection=items title=MongoCollection::save
+mongo: 1 timers - collection=items title=MongoCollection::save
+mongo: 1 timers - collection=items title=MongoCollection::save
+mongo: 1 timers - collection=items title=MongoCollection::save
+mongo: 1 timers - collection=items title=MongoCollection::find
+mongo: 1 timers - collection=tidewaystest.items title=MongoCursor::count
+mongo: 1 timers - collection=tidewaystest.items title=MongoCursor::next
+mongo: 1 timers - collection=tidewaystest.items title=MongoCursor::rewind
