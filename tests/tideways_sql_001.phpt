@@ -16,16 +16,16 @@ $i = 0;
 foreach ($queries as $sql => $expectedSummary) {
     $actualSummary = tideways_sql_minify($sql);
 
-    if ($actualSummary === $expectedSummary) {
-        echo ++$i . ") OK " . $actualSummary . "\n";
+    if ($actualSummary === '') {
+        echo ++$i . ") OK\n";
     } else {
-        echo ++$i . ") FAIL got '" . $actualSummary . "' but expected '" . $expectedSummary . "'\n";
+        echo ++$i . ") FAIL got '" . $actualSummary . "' but expected empty string.\n";
     }
 }
 --EXPECTF--
-1) OK select foo
-2) OK update foo
-3) OK insert bar
-4) OK delete baz
-5) OK commit
-6) OK other
+1) OK
+2) OK
+3) OK
+4) OK
+5) OK
+6) OK

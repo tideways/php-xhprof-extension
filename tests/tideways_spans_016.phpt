@@ -22,5 +22,5 @@ print_spans(tideways_get_spans());
 tideways_disable();
 --EXPECTF--
 app: 1 timers - 
-sql: 1 timers - title=select TABLES
+sql: 1 timers - sql=SELECT * FROM TABLES LIMIT 1
 sql: 1 timers - title=execute

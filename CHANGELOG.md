@@ -1,3 +1,20 @@
+# Version 3.0.0
+
+- Remove SQL summarization, always keep full SQL and delegate summary
+  generation to the daemon.
+
+- Change `tideways_minify_sql()` to always return empty string, because summary
+  function was removed. To pass full sql and let the daemon summarize it, create
+  a span of category ``sql`` and pass an annotation with key ``sql``.
+
+- Add Pheanstalk v2 and v3 support
+
+- Add PhpAmqpLib support
+
+- Add MongoDB support (Queries on MongoCollection, MongoCursor, MongoCommandCursor)
+
+- Add Predis support
+
 # Version 2.0.10
 
 - Fix bug in CentOS compilation, where -lrt flag is required to use ``clock_gettime`` function.
