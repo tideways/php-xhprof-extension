@@ -994,6 +994,17 @@ long tw_trace_callback_mongo_collection(char *symbol, void **args, int args_len,
 	return idx;
 }
 
+long tw_trace_callback_predis_call(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
+{
+	zval *commandId = *(args-args_len);
+
+	if (commandId == NULL || Z_TYPE_P(commandId) != IS_STRING) {
+		return -1;
+	}
+
+	return tw_trace_callback_record_with_cache("predis", 6, Z_STRVAL_P(commandId), Z_STRLEN_P(commandId), 1);
+}
+
 long tw_trace_callback_phpampqlib(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
 {
 	zval *exchange;
@@ -1958,6 +1969,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("MongoCursor::rewind", cb);
 	register_trace_callback("MongoCursor::doQuery", cb);
 	register_trace_callback("MongoCursor::count", cb);
+
+	cb = tw_trace_callback_predis_call;
+	register_trace_callback("Predis\\Client::__call", cb);
 
 	hp_globals.gc_runs = GC_G(gc_runs);
 	hp_globals.gc_collected = GC_G(collected);

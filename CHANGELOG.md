@@ -13,6 +13,8 @@
 
 - Add MongoDB support (Queries on MongoCollection, MongoCursor, MongoCommandCursor)
 
+- Add Predis support
+
 # Version 2.0.10
 
 - Fix bug in CentOS compilation, where -lrt flag is required to use ``clock_gettime`` function.
