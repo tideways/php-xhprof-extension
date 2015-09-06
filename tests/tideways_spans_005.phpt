@@ -40,10 +40,11 @@ print_spans(tideways_get_spans());
 tideways_disable();
 --EXPECTF--
 app: 1 timers - 
-sql: 1 timers - title=other
-sql: 1 timers - title=select 'baz'
-sql: 1 timers - title=insert baz
-sql: 1 timers - title=update baz
-sql: 1 timers - title=delete baz
-sql: 2 timers - title=select baz
+sql: 1 timers - sql=CREATE TABLE baz (id INTEGER)
+sql: 1 timers - sql=SELECT 'foo' FROM 'baz'
+sql: 1 timers - sql=INSERT INTO baz (id) VALUES (1)
+sql: 1 timers - sql=UPDATE baz SET id = 2 WHERE id = 1
+sql: 1 timers - sql=DELETE FROM baz
+sql: 1 timers - sql=SELECT count(*) FROM baz
+sql: 1 timers - sql=SELECT count(*) FROM baz
 sql: 1 timers - title=commit

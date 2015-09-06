@@ -43,7 +43,6 @@
 #include "zend_extensions.h"
 #include "zend_gc.h"
 
-#include "ext/pcre/php_pcre.h"
 #include "ext/standard/url.h"
 #include "ext/pdo/php_pdo_driver.h"
 #include "zend_stream.h"
@@ -63,7 +62,7 @@
  */
 
 /* Tideways version                           */
-#define TIDEWAYS_VERSION       "2.0.10"
+#define TIDEWAYS_VERSION       "3.0.0"
 
 /* Fictitious function name to represent top of the call tree. The paranthesis
  * in the name is to ensure we don't conflict with user function names.  */
@@ -307,7 +306,6 @@ static inline long hp_zval_to_long(zval *z);
 static inline hp_string *hp_zval_to_string(zval *z);
 static inline zval *hp_string_to_zval(hp_string *str);
 static inline void hp_string_clean(hp_string *str);
-static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC);
 static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC);
 static const char *hp_get_base_filename(const char *filename);
 
@@ -756,16 +754,7 @@ PHP_FUNCTION(tideways_span_annotate)
 
 PHP_FUNCTION(tideways_sql_minify)
 {
-	char *sql, *minified;
-	int len;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &sql, &len) == FAILURE) {
-		return;
-	}
-
-	minified = hp_get_sql_summary(sql, len TSRMLS_CC);
-
-	RETURN_STRING(minified, 0);
+	RETURN_EMPTY_STRING();
 }
 
 /**
@@ -1113,16 +1102,17 @@ long tw_trace_callback_pgsql_execute(char *symbol, void **args, int args_len, zv
 long tw_trace_callback_pgsql_query(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
 {
 	zval *argument_element;
-	char *summary;
+	long idx;
 	int i;
 
 	for (i = 0; i < args_len; i++) {
 		argument_element = *(args-(args_len-i));
 
 		if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
-			summary = hp_get_sql_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element) TSRMLS_CC);
+			idx = tw_span_create("sql", 3);
+			tw_span_annotate_string(idx, "sql", Z_STRVAL_P(argument_element), 1);
 
-			return tw_trace_callback_record_with_cache("sql", 3, summary, strlen(summary), 0);
+			return idx;
 		}
 	}
 
@@ -1185,36 +1175,48 @@ long tw_trace_callback_doctrine_persister(char *symbol, void **args, int args_le
 
 long tw_trace_callback_doctrine_query(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
 {
-	zval *property;
-	zend_class_entry *query_ce;
+	zval *property, **tmp;
+	zend_class_entry *query_ce, *rsm_ce;
 	zval fname, *retval_ptr;
 	char *summary;
 	long idx = -1;
+	HashPosition pos;
 
 	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
 		return idx;
 	}
 
+	idx = tw_span_create("doctrine.query", 14);
+
 	query_ce = Z_OBJCE_P(object);
 
-	if (strcmp(query_ce->name, "Doctrine\\ORM\\Query") == 0) {
-		ZVAL_STRING(&fname, "getDQL", 0);
-	} else if (strcmp(query_ce->name, "Doctrine\\ORM\\NativeQuery") == 0) {
-		ZVAL_STRING(&fname, "getSQL", 0);
-	} else {
+	property = zend_read_property(query_ce, object, "_resultSetMapping", sizeof("_resultSetMapping") - 1, 1 TSRMLS_CC);
+
+	if (property == NULL) {
+		property = zend_read_property(query_ce, object, "resultSetMapping", sizeof("resultSetMapping") - 1, 1 TSRMLS_CC);
+	}
+
+	if (property == NULL || Z_TYPE_P(property) != IS_OBJECT) {
 		return idx;
 	}
 
-	if (SUCCESS == call_user_function_ex(EG(function_table), &object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
-		if (Z_TYPE_P(retval_ptr) != IS_STRING) {
-			return idx;
+	rsm_ce = Z_OBJCE_P(property);
+	property = zend_read_property(rsm_ce, property, "aliasMap", sizeof("aliasMap")-1, 1 TSRMLS_CC);
+
+	if (property == NULL || Z_TYPE_P(property) != IS_ARRAY) {
+		return idx;
+	}
+
+	if (zend_hash_num_elements(Z_ARRVAL_P(property)) == 0) {
+		return idx;
+	}
+
+	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(property), &pos);
+
+	if (zend_hash_get_current_data_ex(Z_ARRVAL_P(property), (void **) &tmp, &pos) == SUCCESS) {
+		if (Z_TYPE_P(*tmp) == IS_STRING) {
+			tw_span_annotate_string(idx, "title", Z_STRVAL_P(*tmp), 1);
 		}
-
-		summary = hp_get_sql_summary(Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr) TSRMLS_CC);
-
-		idx = tw_trace_callback_record_with_cache("doctrine.query", 14, summary, strlen(summary), 0);
-
-		zval_ptr_dtor(&retval_ptr);
 	}
 
 	return idx;
@@ -1256,10 +1258,13 @@ long tw_trace_callback_event_dispatchers(char *symbol, void **args, int args_len
 
 long tw_trace_callback_pdo_stmt_execute(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
 {
-	pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object_by_handle(Z_OBJ_HANDLE_P(object) TSRMLS_CC);
-	char *summary = hp_get_sql_summary(stmt->query_string, stmt->query_stringlen TSRMLS_CC);
+	long idx;
 
-	return tw_trace_callback_record_with_cache("sql", 3, summary, strlen(summary), 0);
+	pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object_by_handle(Z_OBJ_HANDLE_P(object) TSRMLS_CC);
+	idx = tw_span_create("sql", 3);
+	tw_span_annotate_string(idx, "sql", stmt->query_string, 1);
+
+	return idx;
 }
 
 long tw_trace_callback_mysqli_stmt_execute(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
@@ -1275,7 +1280,7 @@ long tw_trace_callback_sql_commit(char *symbol, void **args, int args_len, zval 
 long tw_trace_callback_sql_functions(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
 {
 	zval *argument_element;
-	char *summary;
+	long idx;
 
 	if (strcmp(symbol, "mysqli_query") == 0 || strcmp(symbol, "mysqli_prepare") == 0) {
 		argument_element = *(args-args_len+1);
@@ -1287,9 +1292,10 @@ long tw_trace_callback_sql_functions(char *symbol, void **args, int args_len, zv
 		return -1;
 	}
 
-	summary = hp_get_sql_summary(Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element) TSRMLS_CC);
+	idx = tw_span_create("sql", 3);
+	tw_span_annotate_string(idx, "sql", Z_STRVAL_P(argument_element), 1);
 
-	return tw_trace_callback_record_with_cache("sql", 3, summary, strlen(summary), 0);
+	return idx;
 }
 
 long tw_trace_callback_fastcgi_finish_request(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
@@ -2078,89 +2084,6 @@ static const char *hp_get_base_filename(const char *filename)
 
 	/* no "/" char found, so return the whole string */
 	return filename;
-}
-
-/**
- * Extract a summary of the executed SQL from a query string.
- */
-static char *hp_get_sql_summary(char *sql, int len TSRMLS_DC)
-{
-	zval *parts, **data;
-	HashTable *arrayParts;
-	pcre_cache_entry	*pce;			/* Compiled regular expression */
-	HashPosition pointer;
-	int array_count, result_len, found, found_select;
-	char *result, *token;
-
-	found = 0;
-	found_select = 0;
-	result = "";
-	MAKE_STD_ZVAL(parts);
-
-	if ((pce = pcre_get_compiled_regex_cache("(([\\s]+))", 8 TSRMLS_CC)) == NULL) {
-		return "";
-	}
-
-	php_pcre_split_impl(pce, sql, len, parts, -1, 0 TSRMLS_CC);
-
-	arrayParts = Z_ARRVAL_P(parts);
-
-	result_len = TIDEWAYS_MAX_ARGUMENT_LEN;
-	result = emalloc(result_len);
-
-	for(zend_hash_internal_pointer_reset_ex(arrayParts, &pointer);
-			zend_hash_get_current_data_ex(arrayParts, (void**) &data, &pointer) == SUCCESS;
-			zend_hash_move_forward_ex(arrayParts, &pointer)) {
-
-		char *key;
-		int key_len;
-		long index;
-
-		zend_hash_get_current_key_ex(arrayParts, &key, &key_len, &index, 0, &pointer);
-
-		token = Z_STRVAL_PP(data);
-		php_strtolower(token, Z_STRLEN_PP(data));
-
-		if ((strcmp(token, "insert") == 0 || strcmp(token, "delete") == 0) &&
-				zend_hash_index_exists(arrayParts, index+2)) {
-			snprintf(result, result_len, "%s", token);
-
-			zend_hash_index_find(arrayParts, index+2, (void**) &data);
-			snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
-			found = 1;
-
-			break;
-		} else if (strcmp(token, "update") == 0 && zend_hash_index_exists(arrayParts, index+1)) {
-			snprintf(result, result_len, "%s", token);
-
-			zend_hash_index_find(arrayParts, index+1, (void**) &data);
-			snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
-			found = 1;
-
-			break;
-		} else if (strcmp(token, "select") == 0) {
-			snprintf(result, result_len, "%s", token);
-			found_select = 1;
-		} else if (found_select == 1 && strcmp(token, "from") == 0) {
-			zend_hash_index_find(arrayParts, index+1, (void**) &data);
-			snprintf(result, result_len, "%s %s", result, Z_STRVAL_PP(data));
-			found = 1;
-
-			break;
-		} else if (strcmp(token, "commit") == 0) {
-			snprintf(result, result_len, "%s", token);
-			found = 1;
-			break;
-		}
-	}
-
-	zval_ptr_dtor(&parts);
-
-	if (found == 0) {
-		snprintf(result, result_len, "%s", "other");
-	}
-
-	return result;
 }
 
 static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC)

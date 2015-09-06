@@ -15,13 +15,17 @@ $persister->load();
 $persister = new \Doctrine\ORM\Persisters\BasicEntityPersister("Bar");
 $persister->load();
 
+$rsm = new \Doctrine\ORM\Query\ResultSetMapping();
+$rsm->aliasMap["f"] = "Foo\Bar\Baz";
 $query = new \Doctrine\ORM\Query();
+$query->setResultSetMapping($rsm);
 $query->execute();
 $query->execute();
 
 $query->getDQL();
 
 $query = new \Doctrine\ORM\NativeQuery();
+$query->setResultSetMapping($rsm);
 $query->execute();
 
 $query->getSQL();
@@ -32,5 +36,6 @@ tideways_disable();
 app: 1 timers - 
 doctrine.load: 2 timers - title=Foo
 doctrine.load: 1 timers - title=Bar
-doctrine.query: 2 timers - title=select Foo\Bar\Baz
-doctrine.query: 1 timers - title=select bar
+doctrine.query: 1 timers - title=Foo\Bar\Baz
+doctrine.query: 1 timers - title=Foo\Bar\Baz
+doctrine.query: 1 timers - title=Foo\Bar\Baz

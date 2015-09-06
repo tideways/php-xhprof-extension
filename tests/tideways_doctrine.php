@@ -6,6 +6,10 @@ namespace Doctrine\ORM {
         }
     }
     abstract class AbstractQuery {
+        protected $_resultSetMapping;
+        public function setResultSetMapping($rsm) {
+            $this->_resultSetMapping = $rsm;
+        }
         public function execute()
         {
         }
@@ -19,6 +23,11 @@ namespace Doctrine\ORM {
         public function getSQL() {
             return 'SELECT foo FROM bar';
         }
+    }
+}
+namespace Doctrine\ORM\Query {
+    class ResultSetMapping {
+        public $aliasMap = array();
     }
 }
 
