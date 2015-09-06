@@ -232,6 +232,21 @@ static zend_always_inline zval* zend_compat_hash_index_find(HashTable *ht, zend_
 #endif
 }
 
+static zend_always_inline zval *zend_compat_hash_get_current_data_ex(HashTable *ht, HashPosition *pos)
+{
+#if PHP_VERSION_ID < 70000
+	zval **tmp;
+
+	if (zend_hash_get_current_data_ex(ht, (void **)&tmp, pos) == SUCCESS) {
+		return *tmp;
+	} else {
+		return NULL;
+	}
+#else
+	return zend_hash_get_current_data_ex(ht, pos);
+#endif
+}
+
 /**
  * **********************
  * GLOBAL MACRO CONSTANTS
@@ -1152,11 +1167,12 @@ long tw_trace_callback_mongo_cursor_io(char *symbol, zend_execute_data *data TSR
 	idx = tw_span_create("mongo", 5);
 	tw_span_annotate_string(idx, "title", symbol, 1);
 
-	ZVAL_STRING(&fname, "info", 0);
+	_ZVAL_STRING(&fname, "info");
 
 	if (SUCCESS == call_user_function_ex(EG(function_table), &object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
 		if (Z_TYPE_P(retval_ptr) == IS_ARRAY) {
-			if (zend_hash_find(Z_ARRVAL_P(retval_ptr), "ns", sizeof("ns"), (void**)&element) == SUCCESS) {
+			element = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "ns", sizeof("ns"));
+			if (element != NULL) {
 				tw_span_annotate_string(idx, "collection", Z_STRVAL_PP(element), 1);
 			}
 		}
@@ -1180,7 +1196,8 @@ long tw_trace_callback_mongo_cursor_next(char *symbol, zend_execute_data *data T
 	}
 
 	cursor_ce = Z_OBJCE_P(object);
-	queryRunProperty = zend_read_property(cursor_ce, object, "_tidewaysQueryRun", sizeof("_tidewaysQueryRun")-1, 1 TSRMLS_CC);
+	zval *__rv;
+	queryRunProperty = _zend_read_property(cursor_ce, object, "_tidewaysQueryRun", sizeof("_tidewaysQueryRun")-1, 1, __rv);
 
 	if (queryRunProperty != NULL && Z_TYPE_P(queryRunProperty) != IS_NULL) {
 		return idx;
@@ -1191,11 +1208,12 @@ long tw_trace_callback_mongo_cursor_next(char *symbol, zend_execute_data *data T
 	idx = tw_span_create("mongo", 5);
 	tw_span_annotate_string(idx, "title", symbol, 1);
 
-	ZVAL_STRING(&fname, "info", 0);
+	_ZVAL_STRING(&fname, "info");
 
 	if (SUCCESS == call_user_function_ex(EG(function_table), &object, &fname, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)) {
 		if (Z_TYPE_P(retval_ptr) == IS_ARRAY) {
-			if (zend_hash_find(Z_ARRVAL_P(retval_ptr), "ns", sizeof("ns"), (void**)&element) == SUCCESS) {
+			element = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "ns", sizeof("ns"));
+			if (element != NULL) {
 				tw_span_annotate_string(idx, "collection", Z_STRVAL_PP(element), 1);
 			}
 		}
@@ -1216,7 +1234,7 @@ long tw_trace_callback_mongo_collection(char *symbol, zend_execute_data *data TS
 		return idx;
 	}
 
-	ZVAL_STRING(&fname, "getName", 0);
+	_ZVAL_STRING(&fname, "getName");
 
 	idx = tw_span_create("mongo", 5);
 	tw_span_annotate_string(idx, "title", symbol, 1);
@@ -1274,7 +1292,8 @@ long tw_trace_callback_pheanstalk(char *symbol, zend_execute_data *data TSRMLS_D
 
 	pheanstalk_ce = Z_OBJCE_P(object);
 
-	property = zend_read_property(pheanstalk_ce, object, "_using", sizeof("_using") - 1, 1 TSRMLS_CC);
+	zval *__rv;
+	property = _zend_read_property(pheanstalk_ce, object, "_using", sizeof("_using") - 1, 1, __rv);
 
 	if (property != NULL && Z_TYPE_P(property) == IS_STRING) {
 		return tw_trace_callback_record_with_cache("queue", 5, Z_STRVAL_P(property), Z_STRLEN_P(property), 1);
@@ -1564,7 +1583,7 @@ long tw_trace_callback_doctrine_persister(char *symbol, zend_execute_data *data 
 
 long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
-	zval *property, **tmp;
+	zval *property, *tmp;
 	zend_class_entry *query_ce, *rsm_ce;
 	zval fname, *retval_ptr;
 	char *summary;
@@ -1580,10 +1599,11 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 
 	query_ce = Z_OBJCE_P(object);
 
-	property = zend_read_property(query_ce, object, "_resultSetMapping", sizeof("_resultSetMapping") - 1, 1 TSRMLS_CC);
+	zval *__rv;
+	property = _zend_read_property(query_ce, object, "_resultSetMapping", sizeof("_resultSetMapping") - 1, 1, __rv);
 
 	if (property == NULL) {
-		property = zend_read_property(query_ce, object, "resultSetMapping", sizeof("resultSetMapping") - 1, 1 TSRMLS_CC);
+		property = zend_read_property(query_ce, object, "resultSetMapping", sizeof("resultSetMapping") - 1, 1, __rv);
 	}
 
 	if (property == NULL || Z_TYPE_P(property) != IS_OBJECT) {
@@ -1591,7 +1611,7 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 	}
 
 	rsm_ce = Z_OBJCE_P(property);
-	property = zend_read_property(rsm_ce, property, "aliasMap", sizeof("aliasMap")-1, 1 TSRMLS_CC);
+	property = zend_read_property(rsm_ce, property, "aliasMap", sizeof("aliasMap")-1, 1, __rv);
 
 	if (property == NULL || Z_TYPE_P(property) != IS_ARRAY) {
 		return idx;
@@ -1603,10 +1623,10 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 
 	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(property), &pos);
 
-	if (zend_hash_get_current_data_ex(Z_ARRVAL_P(property), (void **) &tmp, &pos) == SUCCESS) {
-		if (Z_TYPE_P(*tmp) == IS_STRING) {
-			tw_span_annotate_string(idx, "title", Z_STRVAL_P(*tmp), 1);
-		}
+	tmp = zend_compat_hash_get_current_data_ex(Z_ARRVAL_P(property), &pos);
+
+	if (tmp != NULL && Z_TYPE_P(tmp) == IS_STRING) {
+		tw_span_annotate_string(idx, "title", Z_STRVAL_P(tmp), 1);
 	}
 
 	return idx;
