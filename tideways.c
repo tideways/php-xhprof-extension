@@ -908,6 +908,27 @@ long tw_trace_callback_watch(char *symbol, void **args, int args_len, zval *obje
 	return -1;
 }
 
+long tw_trace_callback_pheanstalk(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
+{
+	zend_class_entry *pheanstalk_ce;
+	zval *property;
+	long idx = -1;
+
+	if (Z_TYPE_P(object) != IS_OBJECT) {
+		return idx;
+	}
+
+	pheanstalk_ce = Z_OBJCE_P(object);
+
+	property = zend_read_property(pheanstalk_ce, object, "_using", sizeof("_using") - 1, 1 TSRMLS_CC);
+
+	if (property != NULL && Z_TYPE_P(property) == IS_STRING) {
+		return tw_trace_callback_record_with_cache("queue", 5, Z_STRVAL_P(property), Z_STRLEN_P(property), 1);
+	} else {
+		return tw_trace_callback_record_with_cache("queue", 5, "default", 7, 1);
+	}
+}
+
 long tw_trace_callback_memcache(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
 {
 	return tw_trace_callback_record_with_cache("memcache", 8, symbol, strlen(symbol), 1);
@@ -1799,6 +1820,10 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Memcache::replace", cb);
 	register_trace_callback("Memcache::increment", cb);
 	register_trace_callback("Memcache::decrement", cb);
+
+	cb = tw_trace_callback_pheanstalk;
+	register_trace_callback("Pheanstalk_Pheanstalk::put", cb);
+	register_trace_callback("Pheanstalk\\Pheanstalk::put", cb);
 
 	hp_globals.gc_runs = GC_G(gc_runs);
 	hp_globals.gc_collected = GC_G(collected);
