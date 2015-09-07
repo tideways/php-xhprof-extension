@@ -248,7 +248,7 @@ static zend_always_inline zval *zend_compat_hash_get_current_data_ex(HashTable *
 #endif
 }
 
-#define register_trace_callback(function_name, cb) zend_hash_str_update_ptr(hp_globals.trace_callbacks, function_name, strlen(function_name), &cb);
+#define register_trace_callback(function_name, cb) zend_hash_str_update_mem(hp_globals.trace_callbacks, function_name, strlen(function_name), &cb, sizeof(tw_trace_callback));
 #define register_trace_callback_len(function_name, len, cb) zend_compat_hash_update_ptr_const(hp_globals.trace_callbacks, function_name, len, &cb, sizeof(tw_trace_callback*));
 
 /**
@@ -407,11 +407,11 @@ typedef long (*tw_trace_callback)(char *symbol, zend_execute_data *data TSRMLS_D
 static hp_global_t       hp_globals;
 
 #if PHP_VERSION_ID >= 70000
-static ZEND_DLEXPORT void (*_zend_execute_ex) (zend_execute_data *execute_data);
-static ZEND_DLEXPORT void (*_zend_execute_internal) (zend_execute_data *execute_data, zval *return_value);
+static void (*_zend_execute_ex) (zend_execute_data *execute_data);
+static void (*_zend_execute_internal) (zend_execute_data *execute_data, zval *return_value);
 #elif PHP_VERSION_ID < 50500
-static ZEND_DLEXPORT void (*_zend_execute) (zend_op_array *ops TSRMLS_DC);
-static ZEND_DLEXPORT void (*_zend_execute_internal) (zend_execute_data *data, int ret TSRMLS_DC);
+static void (*_zend_execute) (zend_op_array *ops TSRMLS_DC);
+static void (*_zend_execute_internal) (zend_execute_data *data, int ret TSRMLS_DC);
 #else
 static void (*_zend_execute_ex) (zend_execute_data *execute_data TSRMLS_DC);
 static void (*_zend_execute_internal) (zend_execute_data *data, struct _zend_fcall_info *fci, int ret TSRMLS_DC);
@@ -1673,7 +1673,11 @@ long tw_trace_callback_pdo_stmt_execute(char *symbol, zend_execute_data *data TS
 {
 	long idx;
 
+#if PHP_VERSION_ID >= 70000
+	pdo_stmt_t *stmt = (pdo_stmt_t*) ((char*) Z_OBJ_P(EX_OBJ(data)) - Z_OBJ_HT_P(EX_OBJ(data))->offset);
+#else
 	pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object_by_handle(Z_OBJ_HANDLE_P(EX_OBJ(data)) TSRMLS_CC);
+#endif
 	idx = tw_span_create("sql", 3);
 	tw_span_annotate_string(idx, "sql", stmt->query_string, 1);
 
@@ -2065,6 +2069,14 @@ static inline int hp_function_map_filter_collision(hp_function_map *map, uint8 h
 	return map->filter[INDEX_2_BYTE(hash)] & mask;
 }
 
+#if PHP_VERSION_ID >= 70000
+static inline void hp_free_trace_cb(zval *zv) {
+	efree(Z_PTR_P(zv));
+}
+#else
+static inline void hp_free_trace_cb(void *p) {}
+#endif
+
 void hp_init_trace_callbacks(TSRMLS_D)
 {
 	tw_trace_callback cb;
@@ -2078,7 +2090,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	hp_globals.span_cache = NULL;
 
 	ALLOC_HASHTABLE(hp_globals.trace_callbacks);
-	zend_hash_init(hp_globals.trace_callbacks, 255, NULL, NULL, 0);
+	zend_hash_init(hp_globals.trace_callbacks, 255, NULL, hp_free_trace_cb, 0);
 
 	ALLOC_HASHTABLE(hp_globals.span_cache);
 	zend_hash_init(hp_globals.span_cache, 255, NULL, NULL, 0);
@@ -3509,8 +3521,14 @@ PHP_FUNCTION(tideways_span_watch)
 	register_trace_callback_len(func, func_len, cb);
 }
 
+#if PHP_VERSION_ID >= 70000
+static void free_tw_watch_callback(zval *zv)
+{
+	void *twcb = Z_PTR_P(zv);
+#else
 static void free_tw_watch_callback(void *twcb)
 {
+#endif
 	tw_watch_callback *_twcb = *((tw_watch_callback **)twcb);
 
 #if PHP_VERSION_ID < 70000
