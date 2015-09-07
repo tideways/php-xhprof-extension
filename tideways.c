@@ -880,7 +880,7 @@ void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 		return;
 	}
 
-	_add_assoc_string_ex(span_annotations, key, strlen(key), value, copy);
+	_add_assoc_string_ex(span_annotations, key, strlen(key)+1, value, copy);
 }
 
 PHP_FUNCTION(tideways_span_create)
@@ -1052,11 +1052,13 @@ long tw_trace_callback_record_with_cache(char *category, int category_len, char 
 		zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
 	}
 #else
-	if (idx_ptr = zend_hash_str_find_ptr(hp_globals.span_cache, summary, strlen(summary))) {
-		idx = *idx_ptr;
+	zval zidx, *zidx_ptr;
+	if (zidx_ptr = zend_hash_str_find(hp_globals.span_cache, summary, strlen(summary))) {
+		idx = Z_LVAL_P(zidx_ptr);
 	} else {
 		idx = tw_span_create(category, category_len);
-		zend_hash_str_update_ptr(hp_globals.span_cache, summary, strlen(summary), &idx);
+		ZVAL_LONG(&zidx, idx);
+		zend_hash_str_update(hp_globals.span_cache, summary, strlen(summary), &zidx);
 	}
 #endif
 
@@ -1164,7 +1166,8 @@ long tw_trace_callback_mongo_cursor_io(char *symbol, zend_execute_data *data TSR
 {
 	long idx = -1;
 	zval *object = EX_OBJ(data);
-	zval fname, *retval_ptr, *element;
+	zval fname, *element;
+	_DECLARE_ZVAL(retval_ptr);
 
 	idx = tw_span_create("mongo", 5);
 	tw_span_annotate_string(idx, "title", symbol, 1);
@@ -1191,7 +1194,8 @@ long tw_trace_callback_mongo_cursor_next(char *symbol, zend_execute_data *data T
 	zend_class_entry *cursor_ce;
 	zval *object = EX_OBJ(data);
 	zval *queryRunProperty;
-	zval fname, *retval_ptr, *element;
+	zval fname, *element;
+	_DECLARE_ZVAL(retval_ptr);
 
 	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
 		return idx;
@@ -1230,7 +1234,8 @@ long tw_trace_callback_mongo_collection(char *symbol, zend_execute_data *data TS
 {
 	long idx = -1;
 	zval *object = EX_OBJ(data);
-	zval fname, *retval_ptr;
+	zval fname;
+	_DECLARE_ZVAL(retval_ptr);
 
 	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
 		return idx;
@@ -1399,6 +1404,10 @@ long tw_trace_callback_zend1_dispatcher_families_tx(char *symbol, zend_execute_d
 
 	idx = tw_span_create("php.ctrl", 8);
 	tw_span_annotate_string(idx, "title", ret, 0);
+
+#if PHP_VERSION_ID >= 70000
+	efree(ret);
+#endif
 
 	return idx;
 }
@@ -1587,7 +1596,7 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 {
 	zval *property, *tmp;
 	zend_class_entry *query_ce, *rsm_ce;
-	zval fname, *retval_ptr;
+	zval fname;
 	char *summary;
 	long idx = -1;
 	zval *object = EX_OBJ(data);
@@ -1637,7 +1646,8 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 long tw_trace_callback_twig_template(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	long idx = -1, *idx_ptr;
-	zval fname, *retval_ptr;
+	zval fname;
+	_DECLARE_ZVAL(retval_ptr);
 	zval *object = EX_OBJ(data);
 
 	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
@@ -1728,7 +1738,8 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 	zval *option;
 	char *summary;
 	long idx, *idx_ptr;
-	zval fname, *retval_ptr, *opt;
+	zval fname, *opt;
+	_DECLARE_ZVAL(retval_ptr);
 
 	if (argument == NULL || Z_TYPE_P(argument) != IS_RESOURCE) {
 		return -1;
@@ -1782,7 +1793,13 @@ long tw_trace_callback_soap_client_dorequest(char *symbol, zend_execute_data *da
 	}
 
 	summary = hp_get_file_summary(Z_STRVAL_P(argument), Z_STRLEN_P(argument) TSRMLS_CC);
-	return tw_trace_callback_record_with_cache("http.soap", 9, summary, strlen(summary), 0);
+	long idx = tw_trace_callback_record_with_cache("http.soap", 9, summary, strlen(summary), 0);
+
+#if PHP_VERSION_ID >= 70000
+	efree(summary);
+#endif
+
+	return idx;
 }
 
 long tw_trace_callback_file_get_contents(char *symbol, zend_execute_data *data TSRMLS_DC)
