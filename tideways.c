@@ -143,6 +143,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define ZEND_CALL_ARG(call, n) hp_get_execute_argument(call, n-1)
 #define EX_OBJ(call) call->object
 
+#define Z_TRY_ADDREF_P(zv) Z_ADDREF_P(zv);
 #define _ZCE_NAME(ce) ce->name
 #define _ZCE_NAME_LENGTH(ce) ce->name_length
 #define _ZVAL_STRING(str, len) ZVAL_STRING(str, len, 0)
@@ -1116,15 +1117,15 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 
 		if (args_len > 0) {
 			for (i = 0; i < args_len; i++) {
-				Z_ADDREF_P(ZEND_CALL_ARG(data, i+1));
+				Z_TRY_ADDREF_P(ZEND_CALL_ARG(data, i+1));
 				add_next_index_zval(zargs, ZEND_CALL_ARG(data, i+1));
 			}
 		}
 
 		add_assoc_zval(context, "args", zargs);
 
-		if (object != NULL) {
-			Z_ADDREF_P(object);
+		if (object != NULL && Z_TYPE_P(object) == IS_OBJECT) {
+			Z_TRY_ADDREF_P(object);
 			add_assoc_zval(context, "object", object);
 		}
 
