@@ -249,7 +249,7 @@ static zend_always_inline zval *zend_compat_hash_get_current_data_ex(HashTable *
 }
 
 #define register_trace_callback(function_name, cb) zend_hash_str_update_mem(hp_globals.trace_callbacks, function_name, strlen(function_name), &cb, sizeof(tw_trace_callback));
-#define register_trace_callback_len(function_name, len, cb) zend_compat_hash_update_ptr_const(hp_globals.trace_callbacks, function_name, len, &cb, sizeof(tw_trace_callback*));
+#define register_trace_callback_len(function_name, len, cb) zend_hash_str_update_mem(hp_globals.trace_callbacks, function_name, len, &cb, sizeof(tw_trace_callback));
 
 /**
  * **********************
@@ -2647,7 +2647,7 @@ static void hp_detect_exception(char *func_name, zend_execute_data *data TSRMLS_
 		argument_element = ZEND_CALL_ARG(data, i+1);
 
 		if (Z_TYPE_P(argument_element) == IS_OBJECT) {
-			exception_ce = zend_get_class_entry(argument_element TSRMLS_CC);
+			exception_ce = Z_OBJCE_P(argument_element);
 
 			if (instanceof_function(exception_ce, default_ce TSRMLS_CC) == 1) {
 				Z_ADDREF_P(argument_element);
