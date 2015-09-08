@@ -158,7 +158,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define zend_string_copy(s) s
 
 #else
-#define EX_OBJ(call) &(call->This)
+#define EX_OBJ(call) ((call->This.value.obj) ? &(call->This) : NULL)
 #define _ZCE_NAME(ce) ce->name->val
 #define _ZCE_NAME_LENGTH(ce) ce->name->len
 #define _ZVAL_STRING(str, len) ZVAL_STRING(str, len)
@@ -1099,7 +1099,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 
 	if (twcb) {
 #endif
-		zval *retval = NULL;
+		_DECLARE_ZVAL(retval);
 		_DECLARE_ZVAL(context);
 		_DECLARE_ZVAL(zargs);
 		zval *params[1];
@@ -1124,12 +1124,14 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 
 		add_assoc_zval(context, "args", zargs);
 
-		if (object != NULL && Z_TYPE_P(object) == IS_OBJECT) {
+		if (object != NULL) {
+#if PHP_VERSION_ID < 70000
 			Z_TRY_ADDREF_P(object);
+#endif
 			add_assoc_zval(context, "object", object);
 		}
 
-		params[0] = (zval *)&(context);
+		ZVAL_COPY_VALUE(&params[0], context);
 
 		twcb->fci.param_count = 1;
 		twcb->fci.size = sizeof(twcb->fci);
@@ -1140,7 +1142,10 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 #endif
 		twcb->fci.params = (zval ***)params;
 
-		if (zend_call_function(&(twcb->fci), &(twcb->fcic) TSRMLS_CC) == FAILURE) {
+		fci = twcb->fci;
+		fcic = twcb->fcic;
+
+		if (zend_call_function(&fci, &fcic TSRMLS_CC) == FAILURE) {
 			zend_error(E_ERROR, "Cannot call Trace Watch Callback");
 		}
 
@@ -3585,7 +3590,7 @@ static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cac
 		zend_hash_init(hp_globals.trace_watch_callbacks, 255, NULL, free_tw_watch_callback, 0);
 	}
 
-	zend_compat_hash_update_ptr_const(hp_globals.trace_watch_callbacks, func, func_len, &twcb, sizeof(tw_watch_callback*));
+	zend_hash_str_update_mem(hp_globals.trace_watch_callbacks, func, func_len, twcb, sizeof(tw_watch_callback));
 	cb = tw_trace_callback_watch;
 	register_trace_callback_len(func, func_len, cb);
 }
