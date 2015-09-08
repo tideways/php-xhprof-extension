@@ -442,8 +442,10 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data, struct _
 #endif
 
 /* error callback replacement functions */
+#if PHP_VERSION_ID < 70000
 void (*tideways_original_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
 void tideways_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
+#endif
 
 /* Bloom filter for function names to be ignored */
 #define INDEX_2_BYTE(index)  (index >> 3)
@@ -1000,10 +1002,10 @@ PHP_MINIT_FUNCTION(tideways)
 	zend_execute_ex  = hp_execute_ex;
 #endif
 
+#if PHP_VERSION_ID < 70000
 	tideways_original_error_cb = zend_error_cb;
-	#if PHP_VERSION_ID < 70000
 	zend_error_cb = tideways_error_cb;
-	#endif
+#endif
 
 	_zend_execute_internal = zend_execute_internal;
 	zend_execute_internal = hp_execute_internal;
@@ -1034,7 +1036,9 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	zend_compile_file     = _zend_compile_file;
 	zend_compile_string   = _zend_compile_string;
 
+#if PHP_VERSION_ID < 70000
 	zend_error_cb = tideways_original_error_cb;
+#endif
 
 	UNREGISTER_INI_ENTRIES();
 
@@ -3494,9 +3498,9 @@ static inline void hp_array_del(char **name_array)
 	}
 }
 
+#if PHP_VERSION_ID < 70000
 void tideways_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
 {
-#if PHP_VERSION_ID < 70000
 	TSRMLS_FETCH();
 	error_handling_t  error_handling;
 	zval *backtrace;
@@ -3522,10 +3526,10 @@ void tideways_error_cb(int type, const char *error_filename, const uint error_li
 				hp_globals.backtrace = backtrace;
 		}
 }
-#endif
 
 	tideways_original_error_cb(type, error_filename, error_lineno, format, args);
 }
+#endif
 
 PHP_FUNCTION(tideways_span_watch)
 {
