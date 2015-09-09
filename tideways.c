@@ -2660,7 +2660,7 @@ static void hp_detect_exception(char *func_name, zend_execute_data *data TSRMLS_
 			exception_ce = Z_OBJCE_P(argument_element);
 
 			if (instanceof_function(exception_ce, default_ce TSRMLS_CC) == 1) {
-				Z_ADDREF_P(argument_element);
+				Z_TRY_ADDREF_P(argument_element);
 				hp_globals.exception = argument_element;
 				return;
 			}
