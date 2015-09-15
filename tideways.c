@@ -42,6 +42,7 @@
 #include "php_tideways.h"
 #include "zend_extensions.h"
 #include "zend_gc.h"
+#include "zend_smart_str.h"
 
 #include "ext/standard/url.h"
 #include "ext/pdo/php_pdo_driver.h"
@@ -1345,6 +1346,18 @@ long tw_trace_callback_doctrine_couchdb_request(char *symbol, zend_execute_data 
 		return -1;
 	}
 
+#if PHP_VERSION_ID >= 70000
+	smart_str str = {0};
+	smart_str_appendl(&str, Z_STRVAL_P(method), Z_STRLEN_P(method));
+	smart_str_appendl(&str, " ", sizeof(" ") - 1);
+	smart_str_appendl(&str, Z_STRVAL_P(path), Z_STRLEN_P(path));
+	smart_str_0(&str);
+
+	idx = tw_span_create("http.couchdb", 12);
+	tw_span_annotate_string(idx, "title", str.s->val, 0);
+
+	zend_string_release(str.s);
+#else
 	_ZVAL_STRING(&space, " ");
 
 	concat_function(&tmp, method, &space TSRMLS_CC);
@@ -1354,6 +1367,7 @@ long tw_trace_callback_doctrine_couchdb_request(char *symbol, zend_execute_data 
 	tw_span_annotate_string(idx, "title", Z_STRVAL(title), 0);
 
 	efree(Z_STRVAL(tmp));
+#endif
 
 	return idx;
 }
