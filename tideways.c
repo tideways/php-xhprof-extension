@@ -3579,26 +3579,23 @@ PHP_FUNCTION(tideways_span_watch)
 #if PHP_VERSION_ID >= 70000
 static void free_tw_watch_callback(zval *zv)
 {
-	void *twcb = Z_PTR_P(zv);
+	tw_watch_callback *twcb = (tw_watch_callback*)Z_PTR_P(zv);
+	efree(twcb);
+}
 #else
 static void free_tw_watch_callback(void *twcb)
 {
-#endif
 	tw_watch_callback *_twcb = *((tw_watch_callback **)twcb);
-
-#if PHP_VERSION_ID < 70000
 	if (_twcb->fci.function_name) {
 		zval_ptr_dtor((zval **)&_twcb->fci.function_name);
 	}
 	if (_twcb->fci.object_ptr) {
 		zval_ptr_dtor((zval **)&_twcb->fci.object_ptr);
 	}
-#else
-	// TODO
-#endif
 
 	efree(_twcb);
 }
+#endif
 
 static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cache fcic, char *func, int func_len TSRMLS_DC)
 {
@@ -3636,6 +3633,14 @@ PHP_FUNCTION(tideways_span_callback)
 		Z_ADDREF_P(fci.function_name);
 		if (fci.object_ptr) {
 			Z_ADDREF_P(fci.object_ptr);
+		}
+	}
+#else
+	if (fci.size > 0) {
+		Z_TRY_ADDREF(fci.function_name);
+
+		if (fci.object != NULL) {
+			fci.object->gc.refcount++;
 		}
 	}
 #endif
