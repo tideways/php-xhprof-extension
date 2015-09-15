@@ -1202,6 +1202,10 @@ long tw_trace_callback_mongo_cursor_io(char *symbol, zend_execute_data *data TSR
 		hp_ptr_dtor(retval_ptr);
 	}
 
+#if PHP_VERSION_ID >= 70000
+	zend_string_release(Z_STR(fname));
+#endif
+
 	return idx;
 }
 
@@ -1244,6 +1248,10 @@ long tw_trace_callback_mongo_cursor_next(char *symbol, zend_execute_data *data T
 		hp_ptr_dtor(retval_ptr);
 	}
 
+#if PHP_VERSION_ID >= 70000
+	zend_string_release(Z_STR(fname));
+#endif
+
 	return idx;
 }
 
@@ -1270,6 +1278,10 @@ long tw_trace_callback_mongo_collection(char *symbol, zend_execute_data *data TS
 
 		hp_ptr_dtor(retval_ptr);
 	}
+
+#if PHP_VERSION_ID >= 70000
+	zend_string_release(Z_STR(fname));
+#endif
 
 	return idx;
 }
@@ -1686,10 +1698,14 @@ long tw_trace_callback_twig_template(char *symbol, zend_execute_data *data TSRML
 	if (SUCCESS == _call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
 		if (Z_TYPE_P(retval_ptr) == IS_STRING) {
 			idx = tw_trace_callback_record_with_cache("view", 4, Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr), 1);
+
 		}
 
 		hp_ptr_dtor(retval_ptr);
 	}
+#if PHP_VERSION_ID >= 70000
+	zend_string_release(Z_STR(fname));
+#endif
 
 	return idx;
 }
@@ -1793,13 +1809,6 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 
 
 			idx = tw_trace_callback_record_with_cache("http", 4, summary, strlen(summary), 0);
-
-#if PHP_VERSION_ID < 70000
-			efree(params_array);
-#endif
-			hp_ptr_dtor(retval_ptr);
-
-			return idx;
 		}
 
 		hp_ptr_dtor(retval_ptr);
@@ -1807,9 +1816,11 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 
 #if PHP_VERSION_ID < 70000
 	efree(params_array);
+#else
+	zend_string_release(Z_STR(fname));
 #endif
 
-	return -1;
+	return idx;
 }
 
 long tw_trace_callback_soap_client_dorequest(char *symbol, zend_execute_data *data TSRMLS_DC)
