@@ -1070,6 +1070,12 @@ long tw_trace_callback_record_with_cache(char *category, int category_len, char 
 
 	tw_span_annotate_string(idx, "title", summary, copy);
 
+#if PHP_VERSION_ID >= 70000
+	if (copy == 0) {
+		efree(summary);
+	}
+#endif
+
 	return idx;
 }
 
@@ -1442,6 +1448,7 @@ long tw_trace_callback_oxid_tx(char *symbol, zend_execute_data *data TSRMLS_DC)
 	zval *sClass = ZEND_CALL_ARG(data, 1);
 	zval *sFnc = ZEND_CALL_ARG(data, 2);
 	char *ret = NULL;
+	long idx;
 	int len, copy;
 	int args_len = ZEND_CALL_NUM_ARGS(data);
 
@@ -1458,10 +1465,6 @@ long tw_trace_callback_oxid_tx(char *symbol, zend_execute_data *data TSRMLS_DC)
 		ret = Z_STRVAL_P(sClass);
 		len = Z_STRLEN_P(sClass);
 		copy = 1;
-	}
-
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
-		return -1;
 	}
 
 	return tw_trace_callback_record_with_cache("php.ctrl", 8, ret, len, copy);
@@ -1793,8 +1796,6 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 
 #if PHP_VERSION_ID < 70000
 			efree(params_array);
-#else
-			efree(summary);
 #endif
 			hp_ptr_dtor(retval_ptr);
 
@@ -1825,13 +1826,7 @@ long tw_trace_callback_soap_client_dorequest(char *symbol, zend_execute_data *da
 	}
 
 	summary = hp_get_file_summary(Z_STRVAL_P(argument), Z_STRLEN_P(argument) TSRMLS_CC);
-	long idx = tw_trace_callback_record_with_cache("http.soap", 9, summary, strlen(summary), 0);
-
-#if PHP_VERSION_ID >= 70000
-	efree(summary);
-#endif
-
-	return idx;
+	return tw_trace_callback_record_with_cache("http.soap", 9, summary, strlen(summary), 0);
 }
 
 long tw_trace_callback_file_get_contents(char *symbol, zend_execute_data *data TSRMLS_DC)
