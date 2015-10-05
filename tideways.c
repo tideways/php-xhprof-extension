@@ -1537,6 +1537,11 @@ PHP_RINIT_FUNCTION(tideways)
 	profiler_file = emalloc(profiler_file_len);
 	snprintf(profiler_file, profiler_file_len, "%s/%s", extension_dir, "Tideways.php");
 
+	if (PG(open_basedir) && php_check_open_basedir_ex(profiler_file, 0 TSRMLS_CC)) {
+		efree(profiler_file);
+		return SUCCESS;
+	}
+
 	if (VCWD_ACCESS(profiler_file, F_OK) == 0) {
 		PG(auto_prepend_file) = profiler_file;
 		hp_globals.prepend_overwritten = 1;
