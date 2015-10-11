@@ -13,7 +13,13 @@ if (PHP_VERSION_ID < 50500) {
 
 include __DIR__ . '/common.php';
 
-$client = new SoapClient(
+class MySoapClient extends SoapClient {
+    public function __doRequest($request, $location, $action, $version, $oneWay = 0) {
+        return parent::__doRequest($request, $location, $action, $version, $oneWay);
+    }
+}
+
+$client = new MySoapClient(
     'http://ec.europa.eu/taxation_customs/vies/checkVatService.wsdl',
     array('cache_wsdl' => WSDL_CACHE_NONE)
 );
@@ -33,4 +39,4 @@ $data = tideways_disable();
 print_Spans(tideways_get_spans());
 --EXPECTF--
 app: 1 timers - cpu=%d
-http.soap: 1 timers - title=http://ec.europa.eu/taxation_customs/vies/services/checkVatService
+http: 1 timers - method=POST service=soap url=http://ec.europa.eu/taxation_customs/vies/services/checkVatService

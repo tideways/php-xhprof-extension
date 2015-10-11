@@ -1064,21 +1064,15 @@ long tw_trace_callback_doctrine_couchdb_request(char *symbol, void **args, int a
 	zval *method = *(args-args_len);
 	zval *path = *(args-args_len+1);
 	long idx;
-	zval title, tmp, space;
 
 	if (Z_TYPE_P(method) != IS_STRING || Z_TYPE_P(path) != IS_STRING) {
 		return -1;
 	}
 
-	ZVAL_STRING(&space, " ", 0);
-
-	concat_function(&tmp, method, &space TSRMLS_CC);
-	concat_function(&title, &tmp, path TSRMLS_CC);
-
-	idx = tw_span_create("http.couchdb", 12);
-	tw_span_annotate_string(idx, "title", Z_STRVAL(title), 0);
-
-	efree(Z_STRVAL(tmp));
+	idx = tw_span_create("http", 4);
+	tw_span_annotate_string(idx, "method", Z_STRVAL_P(method), 1);
+	tw_span_annotate_string(idx, "url", Z_STRVAL_P(path), 1);
+	tw_span_annotate_string(idx, "service", "couchdb", 1);
 
 	return idx;
 }
@@ -1447,7 +1441,7 @@ long tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *
 	zval **option;
 	zval ***params_array;
 	char *summary;
-	long idx, *idx_ptr;
+	long idx;
 	zval fname, *retval_ptr, *opt;
 
 	if (argument == NULL || Z_TYPE_P(argument) != IS_RESOURCE) {
@@ -1466,7 +1460,9 @@ long tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *
 			efree(params_array);
 			zval_ptr_dtor(&retval_ptr);
 
-			return tw_trace_callback_record_with_cache("http", 4, summary, strlen(summary), 0);
+			idx = tw_span_create("http", 4);
+			tw_span_annotate_string(idx, "url", summary, 0);
+			return idx;
 		}
 
 		zval_ptr_dtor(&retval_ptr);
@@ -1479,36 +1475,42 @@ long tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *
 
 long tw_trace_callback_soap_client_dorequest(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
 {
+	if (args_len < 2) {
+		return;
+	}
+
+	long idx = -1;
 	zval *argument = *(args-args_len+1);
-	char *summary;
 
 	if (Z_TYPE_P(argument) != IS_STRING) {
-		return -1;
+		return idx;
 	}
 
-	if (strncmp(Z_STRVAL_P(argument), "http", 4) != 0) {
-		return -1;
-	}
+	idx = tw_span_create("http", 4);
+	tw_span_annotate_string(idx, "url", Z_STRVAL_P(argument), 1);
+	tw_span_annotate_string(idx, "method", "POST", 1);
+	tw_span_annotate_string(idx, "service", "soap", 1);
 
-	summary = hp_get_file_summary(Z_STRVAL_P(argument), Z_STRLEN_P(argument) TSRMLS_CC);
-	return tw_trace_callback_record_with_cache("http.soap", 9, summary, strlen(summary), 0);
+	return idx;
 }
 
 long tw_trace_callback_file_get_contents(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
 {
 	zval *argument = *(args-args_len);
-	char *summary;
+	long idx = -1;
 
 	if (Z_TYPE_P(argument) != IS_STRING) {
-		return -1;
+		return idx;
 	}
 
 	if (strncmp(Z_STRVAL_P(argument), "http", 4) != 0) {
-		return -1;
+		return idx;
 	}
 
-	summary = hp_get_file_summary(Z_STRVAL_P(argument), Z_STRLEN_P(argument) TSRMLS_CC);
-	return tw_trace_callback_record_with_cache("http", 4, summary, strlen(summary), 0);
+	idx = tw_span_create("http", 4);
+	tw_span_annotate_string(idx, "url", Z_STRVAL_P(argument), 1);
+
+	return idx;
 }
 
 /**

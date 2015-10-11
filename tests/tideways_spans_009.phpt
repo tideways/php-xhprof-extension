@@ -17,7 +17,7 @@ $ch = curl_init("http://localhost/phpinfo.php");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_exec($ch);
 
-$ch = curl_init("http://localhost/phpinfo.php");
+$ch = curl_init("http://localhost/phpinfo.php?foo=bar");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_exec($ch);
 
@@ -25,4 +25,5 @@ print_spans(tideways_get_spans());
 tideways_disable();
 --EXPECTF--
 app: 1 timers - 
-http: 2 timers - title=http://localhost/phpinfo.php
+http: 1 timers - url=http://localhost/phpinfo.php
+http: 1 timers - url=http://localhost/phpinfo.php?foo=bar
