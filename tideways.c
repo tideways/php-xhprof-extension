@@ -534,6 +534,13 @@ long tw_span_create(char *category, size_t category_len)
 
 	idx = zend_hash_num_elements(Z_ARRVAL_P(hp_globals.spans));
 
+	// Hardcode a limit of 1500 spans for now, Daemon will re-filter again to 1000.
+	// We assume web-requests and non-spammy worker/crons here, need a way to support
+	// very long running scripts at some point.
+	if (idx >= 1500) {
+		return -1;
+	}
+
 	MAKE_STD_ZVAL(span);
 	MAKE_STD_ZVAL(starts);
 	MAKE_STD_ZVAL(stops);
