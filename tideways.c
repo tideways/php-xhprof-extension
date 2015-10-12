@@ -668,6 +668,7 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 {
 	zval **span, **span_annotations;
+	int len;
 
 	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
 		return;
@@ -677,7 +678,14 @@ void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 		return;
 	}
 
-	add_assoc_string_ex(*span_annotations, key, strlen(key)+1, value, copy);
+	// limit size of annotations to 1000 characters, this mostly affects "sql"
+	// annotations, but the daemon sql parser is resilent against broken SQL.
+	len = strlen(value);
+	if (copy == 1 && len > 1000) {
+		len = 1000;
+	}
+
+	add_assoc_stringl_ex(*span_annotations, key, strlen(key)+1, value, len, copy);
 }
 
 PHP_FUNCTION(tideways_span_create)
