@@ -936,7 +936,7 @@ long tw_trace_callback_mongo_cursor_next(char *symbol, void **args, int args_len
 		return idx;
 	}
 
-	zend_update_property_bool(cursor_ce, object, "_tidewaysQueryRun", sizeof("_tidewaysQueryRun") - 1, 1);
+	zend_update_property_bool(cursor_ce, object, "_tidewaysQueryRun", sizeof("_tidewaysQueryRun") - 1, 1 TSRMLS_CC);
 
 	idx = tw_span_create("mongo", 5);
 	tw_span_annotate_string(idx, "title", symbol, 1);
