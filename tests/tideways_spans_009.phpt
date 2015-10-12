@@ -26,4 +26,4 @@ tideways_disable();
 --EXPECTF--
 app: 1 timers - 
 http: 1 timers - url=http://localhost/phpinfo.php
-http: 1 timers - url=http://localhost/phpinfo.php?foo=bar
+http: 1 timers - url=http://localhost/phpinfo.php
