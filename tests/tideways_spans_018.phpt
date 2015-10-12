@@ -14,8 +14,8 @@ $queue->putInTube("foo");
 $queue->putInTube("bar");
 
 $queue = new \PhpAmqpLib\Channel\AMQPChannel;
-$queue->basic_publish([], 'amqp.foo');
-$queue->basic_publish([], 'amqp.bar');
+$queue->basic_publish(array(), 'amqp.foo');
+$queue->basic_publish(array(), 'amqp.bar');
 
 tideways_disable();
 print_spans(tideways_get_spans());
