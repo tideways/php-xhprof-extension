@@ -302,7 +302,7 @@ static inline hp_string *hp_zval_to_string(zval *z);
 static inline zval *hp_string_to_zval(hp_string *str);
 static inline void hp_string_clean(hp_string *str);
 static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC);
-static const char *hp_get_base_filename(const char *filename);
+static char *hp_get_base_filename(char *filename);
 
 static inline hp_function_map *hp_function_map_create(char **names);
 static inline void hp_function_map_clear(hp_function_map *map);
@@ -1071,7 +1071,7 @@ long tw_trace_callback_magento_block(char *symbol, void **args, int args_len, zv
 
 	ce = Z_OBJCE_P(object);
 
-	return tw_trace_callback_record_with_cache("view", 4, ce->name, ce->name_length, 1);
+	return tw_trace_callback_record_with_cache("view", 4, (char*)ce->name, ce->name_length, 1);
 }
 
 /* Zend_View_Abstract::render($name); */
@@ -2231,9 +2231,9 @@ size_t hp_get_function_stack(hp_entry_t *entry, int level, char *result_buf, siz
  * a pointer to one-level directory and basefile name
  * (d/foo.php) in the same string.
  */
-static const char *hp_get_base_filename(const char *filename)
+static char *hp_get_base_filename(char *filename)
 {
-	const char *ptr;
+	char *ptr;
 	int   found = 0;
 
 	if (!filename)
