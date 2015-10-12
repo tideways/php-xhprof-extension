@@ -20,11 +20,6 @@
 #include "config.h"
 #endif
 
-#ifdef linux
-/* To enable CPU_ZERO and CPU_SET, etc.     */
-# define _GNU_SOURCE
-#endif
-
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/time.h>
@@ -536,14 +531,6 @@ long tw_span_create(char *category, size_t category_len)
 	zval *span, *starts, *stops, *annotations;
 	int idx;
 	long parent = 0;
-
-	/*hp_entry_t *p; // find more efficient way of doing this
-	for(p = hp_globals.entries; p; p = p->prev_hprof) {
-		if (p->span_id > 0) { // 0 is implicit
-			parent = p->span_id;
-			break;
-		}
-	}*/
 
 	idx = zend_hash_num_elements(Z_ARRVAL_P(hp_globals.spans));
 
