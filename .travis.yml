@@ -3,7 +3,7 @@ language: php
 notifications:
   email: false
 
-sudo: true
+sudo: false
 
 php:
   - 5.6
