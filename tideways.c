@@ -544,17 +544,14 @@ long tw_span_create(char *category, size_t category_len)
 	MAKE_STD_ZVAL(span);
 	MAKE_STD_ZVAL(starts);
 	MAKE_STD_ZVAL(stops);
-	MAKE_STD_ZVAL(annotations);
 
 	array_init(span);
 	array_init(starts);
 	array_init(stops);
-	array_init(annotations);
 
 	add_assoc_stringl(span, "n", category, category_len, 1);
 	add_assoc_zval(span, "b", starts);
 	add_assoc_zval(span, "e", stops);
-	add_assoc_zval(span, "a", annotations);
 
 	if (parent > 0) {
 		add_assoc_long(span, "p", parent);
@@ -631,14 +628,17 @@ static int tw_convert_to_string(void *pDest TSRMLS_DC)
 
 void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 {
-	zval **span, **span_annotations;
+	zval **span, **span_annotations, *span_annotations_ptr;
 
 	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
 		return;
 	}
 
 	if (zend_hash_find(Z_ARRVAL_PP(span), "a", sizeof("a"), (void **) &span_annotations) == FAILURE) {
-		return;
+		MAKE_STD_ZVAL(span_annotations_ptr);
+		array_init(span_annotations_ptr);
+		span_annotations = &span_annotations_ptr;
+		add_assoc_zval(*span, "a", span_annotations_ptr);
 	}
 
 	zend_hash_apply(Z_ARRVAL_P(annotations), tw_convert_to_string TSRMLS_CC);
@@ -648,14 +648,17 @@ void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 
 void tw_span_annotate_long(long spanId, char *key, long value)
 {
-	zval **span, **span_annotations, *annotation_value;
+	zval **span, **span_annotations, *annotation_value, *span_annotations_ptr;
 
 	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
 		return;
 	}
 
 	if (zend_hash_find(Z_ARRVAL_PP(span), "a", sizeof("a"), (void **) &span_annotations) == FAILURE) {
-		return;
+		MAKE_STD_ZVAL(span_annotations_ptr);
+		array_init(span_annotations_ptr);
+		span_annotations = &span_annotations_ptr;
+		add_assoc_zval(*span, "a", span_annotations_ptr);
 	}
 
 	MAKE_STD_ZVAL(annotation_value);
@@ -667,7 +670,7 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 
 void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 {
-	zval **span, **span_annotations;
+	zval **span, **span_annotations, *span_annotations_ptr;
 	int len;
 
 	if (zend_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId, (void **) &span) == FAILURE) {
@@ -675,7 +678,10 @@ void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 	}
 
 	if (zend_hash_find(Z_ARRVAL_PP(span), "a", sizeof("a"), (void **) &span_annotations) == FAILURE) {
-		return;
+		MAKE_STD_ZVAL(span_annotations_ptr);
+		array_init(span_annotations_ptr);
+		span_annotations = &span_annotations_ptr;
+		add_assoc_zval(*span, "a", span_annotations_ptr);
 	}
 
 	// limit size of annotations to 1000 characters, this mostly affects "sql"

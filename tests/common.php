@@ -38,6 +38,10 @@ function print_canonical($xhprof_data)
 function print_spans($spans)
 {
     foreach ($spans as $span) {
+        if (!isset($span['a'])) {
+            $span['a'] = array();
+        }
+
         ksort($span['a']);
         $annotations = '';
         foreach ($span['a'] as $k => $v) {
