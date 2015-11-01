@@ -23,6 +23,7 @@ AC_DEFUN([AC_TIDEWAYS_CLOCK],
 
     AC_TRY_LINK([ #include <time.h> ], [struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);], [
       have_clock_gettime=yes
+      TIDEWAYS_SHARED_LIBADD="$TIDEWAYS_SHARED_LIBADD -lrt"
       AC_MSG_RESULT([yes])
     ], [
       LIBS="$SAVED_LIBS"
