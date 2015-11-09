@@ -57,7 +57,7 @@
  */
 
 /* Tideways version                           */
-#define TIDEWAYS_VERSION       "3.0.0"
+#define TIDEWAYS_VERSION       "3.0.3"
 
 /* Fictitious function name to represent top of the call tree. The paranthesis
  * in the name is to ensure we don't conflict with user function names.  */
