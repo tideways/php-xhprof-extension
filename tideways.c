@@ -1484,7 +1484,7 @@ long tw_trace_callback_curl_exec(char *symbol, void **args, int args_len, zval *
 long tw_trace_callback_soap_client_dorequest(char *symbol, void **args, int args_len, zval *object TSRMLS_DC)
 {
 	if (args_len < 2) {
-		return;
+		return -1;
 	}
 
 	long idx = -1;
