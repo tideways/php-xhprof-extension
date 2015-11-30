@@ -20,7 +20,11 @@ $spans = tideways_get_spans();
 
 echo "Garbage Collection runs: " . $spans[0]['a']['gc'] . "\n";
 echo "Garbage Collection Cycles Collected: " . $spans[0]['a']['gcc'] . "\n";
+echo "Collection In: " . $spans[1]['a']['title'] . "\n";
+echo "Collection In: " . $spans[2]['a']['title'] . "\n";
 
 --EXPECTF--
 Garbage Collection runs: 2
 Garbage Collection Cycles Collected: 10999
+Collection In: create_garbage
+Collection In: gc_collect_cycles

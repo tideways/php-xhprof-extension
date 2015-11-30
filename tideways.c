@@ -448,6 +448,11 @@ void (*tideways_original_error_cb)(int type, const char *error_filename, const u
 void tideways_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
 #endif
 
+#if PHP_VERSION_ID >= 70000
+int (*tw_original_gc_collect_cycles)(void);
+int tw_gc_collect_cycles(void);
+#endif
+
 /* Bloom filter for function names to be ignored */
 #define INDEX_2_BYTE(index)  (index >> 3)
 #define INDEX_2_BIT(index)   (1 << (index & 0x7));
@@ -1007,6 +1012,11 @@ PHP_MINIT_FUNCTION(tideways)
 	tideways_original_error_cb = zend_error_cb;
 	zend_error_cb = tideways_error_cb;
 #endif
+
+#if PHP_VERSION_ID >= 70000
+	tw_original_gc_collect_cycles = gc_collect_cycles;
+	gc_collect_cycles = tw_gc_collect_cycles;
+#endif 
 
 	_zend_execute_internal = zend_execute_internal;
 	zend_execute_internal = hp_execute_internal;
@@ -3517,6 +3527,27 @@ static inline void hp_array_del(char **name_array)
 		efree(name_array);
 	}
 }
+
+#if PHP_VERSION_ID >= 70000
+int tw_gc_collect_cycles(void)
+{
+	int ret;
+	long spanId;
+
+	spanId = tw_span_create("gc", 2);
+	tw_span_timer_start(spanId);
+
+	if (hp_globals.entries) {
+		tw_span_annotate_string(spanId, "title", hp_globals.entries->name_hprof, 1);
+	}
+
+	ret = tw_original_gc_collect_cycles();
+
+	tw_span_timer_stop(spanId);
+
+	return ret;
+}
+#endif
 
 #if PHP_VERSION_ID < 70000
 void tideways_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
