@@ -3534,6 +3534,10 @@ int tw_gc_collect_cycles(void)
 	int ret;
 	long spanId;
 
+	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
+		return tw_original_gc_collect_cycles();
+	}
+
 	spanId = tw_span_create("gc", 2);
 	tw_span_timer_start(spanId);
 
