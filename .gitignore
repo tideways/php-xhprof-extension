@@ -58,3 +58,7 @@ tests/*.exp
 run-tests.php
 vendor/
 *.phar
+php5/*.lo
+php7/*.lo
+php5/.libs
+php7/.libs
