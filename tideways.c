@@ -1484,12 +1484,12 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 
 long tw_trace_callback_soap_client_dorequest(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
-	if (ZEND_CALL_NUM_ARGS(data) < 1) {
+	if (ZEND_CALL_NUM_ARGS(data) < 2) {
 		return -1;
 	}
 
 	char *summary;
-	zval *argument = ZEND_CALL_ARG(data, 1);
+	zval *argument = ZEND_CALL_ARG(data, 2);
 	long idx = -1;
 
 	if (Z_TYPE_P(argument) != IS_STRING) {
