@@ -55,7 +55,7 @@ array(2) {
     }
   }
   [1]=>
-  array(4) {
+  array(3) {
     ["n"]=>
     string(3) "php"
     ["b"]=>
@@ -63,9 +63,6 @@ array(2) {
     }
     ["e"]=>
     array(%d) {
-    }
-    ["a"]=>
-    array(0) {
     }
   }
 }
@@ -92,7 +89,7 @@ array(2) {
     }
   }
   [1]=>
-  array(4) {
+  array(3) {
     ["n"]=>
     string(3) "app"
     ["b"]=>
@@ -100,9 +97,6 @@ array(2) {
     }
     ["e"]=>
     array(%d) {
-    }
-    ["a"]=>
-    array(0) {
     }
   }
 }

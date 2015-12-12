@@ -43,7 +43,7 @@ array(3) {
     }
   }
   [1]=>
-  array(4) {
+  array(3) {
     ["n"]=>
     string(3) "php"
     ["b"]=>
@@ -55,13 +55,10 @@ array(3) {
     array(1) {
       [0]=>
       int(%d)
-    }
-    ["a"]=>
-    array(0) {
     }
   }
   [2]=>
-  array(4) {
+  array(3) {
     ["n"]=>
     string(3) "php"
     ["b"]=>
@@ -77,9 +74,6 @@ array(3) {
       int(%d)
       [1]=>
       int(%d)
-    }
-    ["a"]=>
-    array(0) {
     }
   }
 }

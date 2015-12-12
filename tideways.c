@@ -20,11 +20,6 @@
 #include "config.h"
 #endif
 
-#ifdef linux
-/* To enable CPU_ZERO and CPU_SET, etc.     */
-# define _GNU_SOURCE
-#endif
-
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/time.h>
@@ -40,6 +35,7 @@
 #include "ext/standard/info.h"
 #include "ext/standard/file.h"
 #include "php_tideways.h"
+#include "spans.h"
 #include "zend_extensions.h"
 #include "zend_gc.h"
 
@@ -48,16 +44,6 @@
 #include "zend_stream.h"
 
 #if PHP_VERSION_ID < 70000
-struct _zend_string {
-  char *val;
-  int   len;
-  int   persistent;
-};
-typedef struct _zend_string zend_string;
-typedef long zend_long;
-typedef ulong zend_ulong;
-typedef int strsize_t;
-typedef zend_uint uint32_t;
 
 static inline void **hp_get_execute_arguments(zend_execute_data *data)
 {
@@ -231,162 +217,11 @@ static zend_always_inline zval* zend_compat_hash_index_find(HashTable *ht, zend_
 #endif
 }
 
-/**
- * **********************
- * GLOBAL MACRO CONSTANTS
- * **********************
- */
+#define register_trace_callback(function_name, cb) zend_compat_hash_update_ptr_const(TWG(trace_callbacks), function_name, sizeof(function_name) - 1, &cb, sizeof(tw_trace_callback*));
+#define register_trace_callback_len(function_name, len, cb) zend_compat_hash_update_ptr_const(TWG(trace_callbacks), function_name, len, &cb, sizeof(tw_trace_callback*));
 
-/* Tideways version                           */
-#define TIDEWAYS_VERSION       "3.0.0"
-
-/* Fictitious function name to represent top of the call tree. The paranthesis
- * in the name is to ensure we don't conflict with user function names.  */
-#define ROOT_SYMBOL                "main()"
-
-/* Size of a temp scratch buffer            */
-#define SCRATCH_BUF_LEN            512
-
-/* Hierarchical profiling flags.
- *
- * Note: Function call counts and wall (elapsed) time are always profiled.
- * The following optional flags can be used to control other aspects of
- * profiling.
- */
-#define TIDEWAYS_FLAGS_NO_BUILTINS   0x0001 /* do not profile builtins */
-#define TIDEWAYS_FLAGS_CPU           0x0002 /* gather CPU times for funcs */
-#define TIDEWAYS_FLAGS_MEMORY        0x0004 /* gather memory usage for funcs */
-#define TIDEWAYS_FLAGS_NO_USERLAND   0x0008 /* do not profile userland functions */
-#define TIDEWAYS_FLAGS_NO_COMPILE    0x0010 /* do not profile require/include/eval */
-#define TIDEWAYS_FLAGS_NO_SPANS      0x0020
-#define TIDEWAYS_FLAGS_NO_HIERACHICAL 0x0040
-
-/* Constant for ignoring functions, transparent to hierarchical profile */
-#define TIDEWAYS_MAX_FILTERED_FUNCTIONS  256
-#define TIDEWAYS_FILTERED_FUNCTION_SIZE                           \
-               ((TIDEWAYS_MAX_FILTERED_FUNCTIONS + 7)/8)
-#define TIDEWAYS_MAX_ARGUMENT_LEN 256
-
-#if !defined(uint64)
-typedef unsigned long long uint64;
-#endif
-#if !defined(uint32)
-typedef unsigned int uint32;
-#endif
-#if !defined(uint8)
-typedef unsigned char uint8;
-#endif
-
-#define register_trace_callback(function_name, cb) zend_compat_hash_update_ptr_const(hp_globals.trace_callbacks, function_name, sizeof(function_name) - 1, &cb, sizeof(tw_trace_callback*));
-#define register_trace_callback_len(function_name, len, cb) zend_compat_hash_update_ptr_const(hp_globals.trace_callbacks, function_name, len, &cb, sizeof(tw_trace_callback*));
-
-/**
- * *****************************
- * GLOBAL DATATYPES AND TYPEDEFS
- * *****************************
- */
-
-/* Tideways maintains a stack of entries being profiled. The memory for the entry
- * is passed by the layer that invokes BEGIN_PROFILING(), e.g. the hp_execute()
- * function. Often, this is just C-stack memory.
- *
- * This structure is a convenient place to track start time of a particular
- * profile operation, recursion depth, and the name of the function being
- * profiled. */
-typedef struct hp_entry_t {
-	char                   *name_hprof;                       /* function name */
-	int                     rlvl_hprof;        /* recursion level for function */
-	uint64                  tsc_start;         /* start value for wall clock timer */
-	uint64					cpu_start;		   /* start value for CPU clock timer */
-	long int                mu_start_hprof;                    /* memory usage */
-	long int                pmu_start_hprof;              /* peak memory usage */
-	struct hp_entry_t      *prev_hprof;    /* ptr to prev entry being profiled */
-	uint8                   hash_code;     /* hash_code for the function name  */
-	long int				span_id; /* span id of this entry if any, otherwise -1 */
-} hp_entry_t;
-
-typedef struct hp_function_map {
-	char **names;
-	uint8 filter[TIDEWAYS_FILTERED_FUNCTION_SIZE];
-} hp_function_map;
-
-typedef struct tw_watch_callback {
-	zend_fcall_info fci;
-	zend_fcall_info_cache fcic;
-} tw_watch_callback;
-
-/* Tideways's global state.
- *
- * This structure is instantiated once.  Initialize defaults for attributes in
- * hp_init_profiler_state() Cleanup/free attributes in
- * hp_clean_profiler_state() */
-typedef struct hp_global_t {
-
-	/*       ----------   Global attributes:  -----------       */
-
-	/* Indicates if Tideways is currently enabled */
-	int              enabled;
-
-	/* Indicates if Tideways was ever enabled during this request */
-	int              ever_enabled;
-
-	int				 prepend_overwritten;
-
-	/* Holds all the Tideways statistics */
-	zval            *stats_count;
-	zval			*spans;
-	long			current_span_id;
-	uint64			start_time;
-
-	zval			*backtrace;
-	zval			*exception;
-
-	/* Top of the profile stack */
-	hp_entry_t      *entries;
-
-	/* freelist of hp_entry_t chunks for reuse... */
-	hp_entry_t      *entry_free_list;
-
-	/* Function that determines the transaction name and callback */
-	zend_string       *transaction_function;
-	zend_string		*transaction_name;
-	char			*root;
-
-	zend_string		*exception_function;
-
-	double timebase_factor;
-
-	/* Tideways flags */
-	uint32 tideways_flags;
-
-	/* counter table indexed by hash value of function names. */
-	uint8  func_hash_counters[256];
-
-	/* Table of filtered function names and their filter */
-	int     filtered_type; // 1 = blacklist, 2 = whitelist, 0 = nothing
-
-	hp_function_map *filtered_functions;
-
-	HashTable *trace_watch_callbacks;
-	HashTable *trace_callbacks;
-	HashTable *span_cache;
-
-	uint32_t gc_runs; /* number of garbage collection runs */
-	uint32_t gc_collected; /* number of collected items in garbage run */
-	int compile_count;
-	double compile_wt;
-	uint64 cpu_start;
-} hp_global_t;
 
 typedef long (*tw_trace_callback)(char *symbol, zend_execute_data *data TSRMLS_DC);
-
-/**
- * ***********************
- * GLOBAL STATIC VARIABLES
- * ***********************
- */
-/* Tideways global state */
-static hp_global_t       hp_globals;
 
 #if PHP_VERSION_ID >= 70000
 static ZEND_DLEXPORT void (*_zend_execute_ex) (zend_execute_data *execute_data);
@@ -463,7 +298,7 @@ static inline zval *hp_zval_at_key(char *key, size_t size, zval *values);
 static inline char **hp_strings_in_zval(zval  *values);
 static inline void   hp_array_del(char **name_array);
 static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC);
-static const char *hp_get_base_filename(const char *filename);
+static char *hp_get_base_filename(char *filename);
 
 static inline hp_function_map *hp_function_map_create(char **names);
 static inline void hp_function_map_clear(hp_function_map *map);
@@ -573,6 +408,8 @@ zend_module_entry tideways_module_entry = {
 	STANDARD_MODULE_PROPERTIES
 };
 
+ZEND_DECLARE_MODULE_GLOBALS(hp)
+
 PHP_INI_BEGIN()
 
 /**
@@ -613,7 +450,7 @@ PHP_FUNCTION(tideways_enable)
 	zend_long tideways_flags = 0;
 	zval *optional_array = NULL;
 
-	if (hp_globals.enabled) {
+	if (TWG(enabled)) {
 		hp_stop(TSRMLS_C);
 	}
 
@@ -636,38 +473,38 @@ PHP_FUNCTION(tideways_enable)
  */
 PHP_FUNCTION(tideways_disable)
 {
-	if (!hp_globals.enabled) {
+	if (!TWG(enabled)) {
 		return;
 	}
 
 	hp_stop(TSRMLS_C);
 
-	RETURN_ZVAL(hp_globals.stats_count, 1, 0);
+	RETURN_ZVAL(TWG(stats_count), 1, 0);
 }
 
 PHP_FUNCTION(tideways_transaction_name)
 {
-	if (hp_globals.transaction_name) {
-		RETURN_STR_COPY(hp_globals.transaction_name);
+	if (TWG(transaction_name)) {
+		RETURN_STR_COPY(TWG(transaction_name));
 	}
 }
 
 PHP_FUNCTION(tideways_prepend_overwritten)
 {
-	RETURN_BOOL(hp_globals.prepend_overwritten);
+	RETURN_BOOL(TWG(prepend_overwritten));
 }
 
 PHP_FUNCTION(tideways_fatal_backtrace)
 {
-	if (hp_globals.backtrace != NULL) {
-		RETURN_ZVAL(hp_globals.backtrace, 1, 1);
+	if (TWG(backtrace) != NULL) {
+		RETURN_ZVAL(TWG(backtrace), 1, 1);
 	}
 }
 
 PHP_FUNCTION(tideways_last_detected_exception)
 {
-	if (hp_globals.exception != NULL) {
-		RETURN_ZVAL(hp_globals.exception, 1, 0);
+	if (TWG(exception )!= NULL) {
+		RETURN_ZVAL(TWG(exception), 1, 0);
 	}
 }
 
@@ -686,56 +523,13 @@ PHP_FUNCTION(tideways_last_fatal_error)
 	}
 }
 
-long tw_span_create(char *category, size_t category_len)
-{
-	_DECLARE_ZVAL(span);
-	_DECLARE_ZVAL(starts);
-	_DECLARE_ZVAL(stops);
-	_DECLARE_ZVAL(annotations);
-
-	int idx;
-	long parent = 0;
-
-	/*hp_entry_t *p; // find more efficient way of doing this
-	for(p = hp_globals.entries; p; p = p->prev_hprof) {
-		if (p->span_id > 0) { // 0 is implicit
-			parent = p->span_id;
-			break;
-		}
-	}*/
-
-	idx = zend_hash_num_elements(Z_ARRVAL_P(hp_globals.spans));
-
-	_ALLOC_INIT_ZVAL(span);
-	_ALLOC_INIT_ZVAL(starts);
-	_ALLOC_INIT_ZVAL(stops);
-	_ALLOC_INIT_ZVAL(annotations);
-
-	array_init(span);
-	array_init(starts);
-	array_init(stops);
-	array_init(annotations);
-
-	_add_assoc_stringl(span, "n", category, category_len, 1);
-	add_assoc_zval(span, "b", starts);
-	add_assoc_zval(span, "e", stops);
-	add_assoc_zval(span, "a", annotations);
-
-	if (parent > 0) {
-		add_assoc_long(span, "p", parent);
-	}
-
-	zend_compat_hash_index_update(Z_ARRVAL_P(hp_globals.spans), idx, span);
-
-	return idx;
-}
 
 void tw_span_timer_start(long spanId)
 {
 	zval *span, *starts;
 	double wt;
 
-	span = zend_compat_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId);
+	span = zend_compat_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
 
 	if (span == NULL) {
 		return;
@@ -747,7 +541,7 @@ void tw_span_timer_start(long spanId)
 		return;
 	}
 
-	wt = get_us_from_tsc(cycle_timer() - hp_globals.start_time);
+	wt = get_us_from_tsc(cycle_timer() - TWG(start_time));
 	add_next_index_long(starts, wt);
 }
 
@@ -755,7 +549,7 @@ void tw_span_record_duration(long spanId, double start, double end)
 {
 	zval *span, *timer;
 
-	span = zend_compat_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId);
+	span = zend_compat_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
 
 	if (span == NULL) {
 		return;
@@ -783,7 +577,7 @@ void tw_span_timer_stop(long spanId)
 	zval *span, *stops;
 	double wt;
 
-	span = zend_compat_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId);
+	span = zend_compat_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
 
 	if (span == NULL) {
 		return;
@@ -795,7 +589,7 @@ void tw_span_timer_stop(long spanId)
 		return;
 	}
 
-	wt = get_us_from_tsc(cycle_timer() - hp_globals.start_time);
+	wt = get_us_from_tsc(cycle_timer() - TWG(start_time));
 	add_next_index_long(stops, wt);
 }
 
@@ -814,73 +608,6 @@ static int tw_convert_to_string(zval *pDest TSRMLS_DC)
 	return ZEND_HASH_APPLY_KEEP;
 }
 
-void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
-{
-	zval *span, *span_annotations;
-
-	span = zend_compat_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId);
-
-	if (span == NULL) {
-		return;
-	}
-
-	span_annotations = zend_compat_hash_find_const(Z_ARRVAL_P(span), "a", sizeof("a") - 1);
-
-	if (span_annotations == NULL) {
-		return;
-	}
-
-	zend_hash_apply(Z_ARRVAL_P(annotations), tw_convert_to_string TSRMLS_CC);
-
-	zend_compat_hash_merge(Z_ARRVAL_P(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, 1);
-}
-
-void tw_span_annotate_long(long spanId, char *key, long value)
-{
-	zval *span, *span_annotations;
-	_DECLARE_ZVAL(annotation_value);
-
-	span = zend_compat_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId);
-
-	if (span == NULL) {
-		return;
-	}
-
-	span_annotations = zend_compat_hash_find_const(Z_ARRVAL_P(span), "a", sizeof("a") - 1);
-
-	if (span_annotations == NULL) {
-		return;
-	}
-
-	_ALLOC_INIT_ZVAL(annotation_value);
-	ZVAL_LONG(annotation_value, value);
-#if PHP_VERSION_ID < 70000
-	convert_to_string_ex(&annotation_value);
-#else
-	convert_to_string_ex(annotation_value);
-#endif
-
-	add_assoc_zval_ex(span_annotations, key, strlen(key)+1, annotation_value);
-}
-
-void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
-{
-	zval *span, *span_annotations;
-
-	span = zend_compat_hash_index_find(Z_ARRVAL_P(hp_globals.spans), spanId);
-
-	if (span == NULL) {
-		return;
-	}
-
-	span_annotations = zend_compat_hash_find_const(Z_ARRVAL_P(span), "a", sizeof("a") - 1);
-
-	if (span_annotations == NULL) {
-		return;
-	}
-
-	_add_assoc_string_ex(span_annotations, key, strlen(key)+1, value, copy);
-}
 
 PHP_FUNCTION(tideways_span_create)
 {
@@ -891,7 +618,7 @@ PHP_FUNCTION(tideways_span_create)
 		return;
 	}
 
-	if (hp_globals.enabled == 0) {
+	if (TWG(enabled )== 0) {
 		return;
 	}
 
@@ -900,8 +627,8 @@ PHP_FUNCTION(tideways_span_create)
 
 PHP_FUNCTION(tideways_get_spans)
 {
-	if (hp_globals.spans) {
-		RETURN_ZVAL(hp_globals.spans, 1, 0);
+	if (TWG(spans)) {
+		RETURN_ZVAL(TWG(spans), 1, 0);
 	}
 }
 
@@ -913,7 +640,7 @@ PHP_FUNCTION(tideways_span_timer_start)
 		return;
 	}
 
-	if (hp_globals.enabled == 0) {
+	if (TWG(enabled )== 0) {
 		return;
 	}
 
@@ -928,7 +655,7 @@ PHP_FUNCTION(tideways_span_timer_stop)
 		return;
 	}
 
-	if (hp_globals.enabled == 0) {
+	if (TWG(enabled )== 0) {
 		return;
 	}
 
@@ -953,6 +680,14 @@ PHP_FUNCTION(tideways_sql_minify)
 	RETURN_EMPTY_STRING();
 }
 
+static void php_hp_init_globals(zend_hp_globals *hp_globals TSRMLS_DC)
+{
+}
+
+static void php_hp_shutdown_globals(zend_hp_globals *hp_globals)
+{
+}
+
 /**
  * Module init callback.
  *
@@ -962,24 +697,25 @@ PHP_MINIT_FUNCTION(tideways)
 {
 	int i;
 
+	ZEND_INIT_MODULE_GLOBALS(hp, php_hp_init_globals, php_hp_shutdown_globals);
 	REGISTER_INI_ENTRIES();
 
 	hp_register_constants(INIT_FUNC_ARGS_PASSTHRU);
 
 	/* Get the number of available logical CPUs. */
-	hp_globals.timebase_factor = get_timebase_factor();
+	TWG(timebase_factor) = get_timebase_factor();
 
-	hp_globals.stats_count = NULL;
-	hp_globals.spans = NULL;
-	hp_globals.trace_callbacks = NULL;
-	hp_globals.trace_watch_callbacks = NULL;
-	hp_globals.span_cache = NULL;
+	TWG(stats_count) = NULL;
+	TWG(spans) = NULL;
+	TWG(trace_callbacks) = NULL;
+	TWG(trace_watch_callbacks) = NULL;
+	TWG(span_cache) = NULL;
 
 	/* no free hp_entry_t structures to start with */
-	hp_globals.entry_free_list = NULL;
+	TWG(entry_free_list) = NULL;
 
 	for (i = 0; i < 256; i++) {
-		hp_globals.func_hash_counters[i] = 0;
+		TWG(func_hash_counters)[i] = 0;
 	}
 
 	hp_transaction_function_clear();
@@ -1044,18 +780,18 @@ long tw_trace_callback_record_with_cache(char *category, int category_len, char 
 	long idx, *idx_ptr = NULL;
 
 #if PHP_VERSION_ID < 70000
-	if (zend_hash_find(hp_globals.span_cache, summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
+	if (zend_hash_find(TWG(span_cache), summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
 		idx = *idx_ptr;
 	} else {
 		idx = tw_span_create(category, category_len);
-		zend_hash_update(hp_globals.span_cache, summary, strlen(summary)+1, &idx, sizeof(long), NULL);
+		zend_hash_update(TWG(span_cache), summary, strlen(summary)+1, &idx, sizeof(long), NULL);
 	}
 #else
-	if (idx_ptr = zend_hash_str_find_ptr(hp_globals.span_cache, summary, strlen(summary))) {
+	if (idx_ptr = zend_hash_str_find_ptr(TWG(span_cache), summary, strlen(summary))) {
 		idx = *idx_ptr;
 	} else {
 		idx = tw_span_create(category, category_len);
-		zend_hash_str_update_ptr(hp_globals.span_cache, summary, strlen(summary), &idx);
+		zend_hash_str_update_ptr(TWG(span_cache), summary, strlen(summary), &idx);
 	}
 #endif
 
@@ -1083,15 +819,15 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 	int args_len = ZEND_CALL_NUM_ARGS(data);
 	zval *object = EX_OBJ(data);
 
-	if (hp_globals.trace_watch_callbacks == NULL) {
+	if (TWG(trace_watch_callbacks) == NULL) {
 		return -1;
 	}
 
 #if PHP_VERSION_ID < 70000
-	if (zend_hash_find(hp_globals.trace_watch_callbacks, symbol, strlen(symbol)+1, (void **)&temp) == SUCCESS) {
+	if (zend_hash_find(TWG(trace_watch_callbacks), symbol, strlen(symbol)+1, (void **)&temp) == SUCCESS) {
 		twcb = *temp;
 #else
-	twcb = zend_hash_str_find_ptr(hp_globals.trace_watch_callbacks, symbol, strlen(symbol));
+	twcb = zend_hash_str_find_ptr(TWG(trace_watch_callbacks), symbol, strlen(symbol));
 
 	if (twcb) {
 #endif
@@ -1202,7 +938,7 @@ long tw_trace_callback_mongo_cursor_next(char *symbol, zend_execute_data *data T
 		return idx;
 	}
 
-	zend_update_property_bool(cursor_ce, object, "_tidewaysQueryRun", sizeof("_tidewaysQueryRun") - 1, 1);
+	zend_update_property_bool(cursor_ce, object, "_tidewaysQueryRun", sizeof("_tidewaysQueryRun") - 1, 1 TSRMLS_CC);
 
 	idx = tw_span_create("mongo", 5);
 	tw_span_annotate_string(idx, "title", symbol, 1);
@@ -1319,21 +1055,15 @@ long tw_trace_callback_doctrine_couchdb_request(char *symbol, zend_execute_data 
 	zval *method = ZEND_CALL_ARG(data, 1);
 	zval *path = ZEND_CALL_ARG(data, 2);
 	long idx;
-	zval title, tmp, space;
 
 	if (Z_TYPE_P(method) != IS_STRING || Z_TYPE_P(path) != IS_STRING) {
 		return -1;
 	}
 
-	_ZVAL_STRING(&space, " ");
-
-	concat_function(&tmp, method, &space TSRMLS_CC);
-	concat_function(&title, &tmp, path TSRMLS_CC);
-
-	idx = tw_span_create("http.couchdb", 12);
-	tw_span_annotate_string(idx, "title", Z_STRVAL(title), 0);
-
-	efree(Z_STRVAL(tmp));
+	idx = tw_span_create("http", 4);
+	tw_span_annotate_string(idx, "method", Z_STRVAL_P(method), 1);
+	tw_span_annotate_string(idx, "url", Z_STRVAL_P(path), 1);
+	tw_span_annotate_string(idx, "service", "couchdb", 1);
 
 	return idx;
 }
@@ -1422,7 +1152,7 @@ long tw_trace_callback_oxid_tx(char *symbol, zend_execute_data *data TSRMLS_DC)
 		copy = 1;
 	}
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
+	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
 		return -1;
 	}
 
@@ -1718,7 +1448,7 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 	zval *option;
 	zval ***params_array;
 	char *summary;
-	long idx, *idx_ptr;
+	long idx;
 	zval fname, *retval_ptr, *opt;
 
 	if (argument == NULL || Z_TYPE_P(argument) != IS_RESOURCE) {
@@ -1739,7 +1469,9 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 			efree(params_array);
 			zval_ptr_dtor(&retval_ptr);
 
-			return tw_trace_callback_record_with_cache("http", 4, summary, strlen(summary), 0);
+			idx = tw_span_create("http", 4);
+			tw_span_annotate_string(idx, "url", summary, 0);
+			return idx;
 		}
 
 		hp_ptr_dtor(retval_ptr);
@@ -1752,36 +1484,44 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 
 long tw_trace_callback_soap_client_dorequest(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
-	zval *argument = ZEND_CALL_ARG(data, 2);
+	if (ZEND_CALL_NUM_ARGS(data) < 1) {
+		return -1;
+	}
+
 	char *summary;
+	zval *argument = ZEND_CALL_ARG(data, 1);
+	long idx = -1;
 
 	if (Z_TYPE_P(argument) != IS_STRING) {
-		return -1;
+		return idx;
 	}
 
-	if (strncmp(Z_STRVAL_P(argument), "http", 4) != 0) {
-		return -1;
-	}
+	idx = tw_span_create("http", 4);
+	tw_span_annotate_string(idx, "url", Z_STRVAL_P(argument), 1);
+	tw_span_annotate_string(idx, "method", "POST", 1);
+	tw_span_annotate_string(idx, "service", "soap", 1);
 
-	summary = hp_get_file_summary(Z_STRVAL_P(argument), Z_STRLEN_P(argument) TSRMLS_CC);
-	return tw_trace_callback_record_with_cache("http.soap", 9, summary, strlen(summary), 0);
+	return idx;
 }
 
 long tw_trace_callback_file_get_contents(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	zval *argument = ZEND_CALL_ARG(data, 1);
 	char *summary;
+	long idx = -1;
 
 	if (Z_TYPE_P(argument) != IS_STRING) {
-		return -1;
+		return idx;
 	}
 
 	if (strncmp(Z_STRVAL_P(argument), "http", 4) != 0) {
-		return -1;
+		return idx;
 	}
 
-	summary = hp_get_file_summary(Z_STRVAL_P(argument), Z_STRLEN_P(argument) TSRMLS_CC);
-	return tw_trace_callback_record_with_cache("http", 4, summary, strlen(summary), 0);
+	idx = tw_span_create("http", 4);
+	tw_span_annotate_string(idx, "url", Z_STRVAL_P(argument), 1);
+
+	return idx;
 }
 
 /**
@@ -1797,11 +1537,11 @@ PHP_RINIT_FUNCTION(tideways)
 	char *profiler_file;
 	int profiler_file_len;
 
-	hp_globals.prepend_overwritten = 0;
-	hp_globals.backtrace = NULL;
-	hp_globals.exception = NULL;
-	hp_globals.transaction_name = NULL;
-	hp_globals.transaction_function = NULL;
+	TWG(prepend_overwritten) = 0;
+	TWG(backtrace) = NULL;
+	TWG(exception) = NULL;
+	TWG(transaction_name) = NULL;
+	TWG(transaction_function) = NULL;
 
 	if (INI_INT("tideways.auto_prepend_library") == 0) {
 		return SUCCESS;
@@ -1812,9 +1552,14 @@ PHP_RINIT_FUNCTION(tideways)
 	profiler_file = emalloc(profiler_file_len);
 	snprintf(profiler_file, profiler_file_len, "%s/%s", extension_dir, "Tideways.php");
 
+	if (PG(open_basedir) && php_check_open_basedir_ex(profiler_file, 0 TSRMLS_CC)) {
+		efree(profiler_file);
+		return SUCCESS;
+	}
+
 	if (VCWD_ACCESS(profiler_file, F_OK) == 0) {
 		PG(auto_prepend_file) = profiler_file;
-		hp_globals.prepend_overwritten = 1;
+		TWG(prepend_overwritten) = 1;
 	} else {
 		efree(profiler_file);
 	}
@@ -1829,11 +1574,11 @@ PHP_RSHUTDOWN_FUNCTION(tideways)
 {
 	hp_end(TSRMLS_C);
 
-	if (hp_globals.prepend_overwritten == 1) {
+	if (TWG(prepend_overwritten) == 1) {
 		efree(PG(auto_prepend_file));
 	}
 	PG(auto_prepend_file) = NULL;
-	hp_globals.prepend_overwritten = 0;
+	TWG(prepend_overwritten) = 0;
 
 	return SUCCESS;
 }
@@ -1954,42 +1699,42 @@ static void hp_parse_options_from_arg(zval *args)
 	if (zresult == NULL) {
 		zresult = hp_zval_at_key("functions", sizeof("functions"), args);
 		if (zresult != NULL) {
-			hp_globals.filtered_type = 2;
+			TWG(filtered_type) = 2;
 		}
 	} else {
-		hp_globals.filtered_type = 1;
+		TWG(filtered_type) = 1;
 	}
 
-	hp_globals.filtered_functions = hp_function_map_create(hp_strings_in_zval(zresult));
+	TWG(filtered_functions) = hp_function_map_create(hp_strings_in_zval(zresult));
 
 	zresult = hp_zval_at_key("transaction_function", sizeof("transaction_function"), args);
 
 	if (zresult != NULL && Z_TYPE_P(zresult) == IS_STRING) {
-		hp_globals.transaction_function = zend_string_copy(Z_STR_P(zresult));
+		TWG(transaction_function) = zend_string_copy(Z_STR_P(zresult));
 	}
 
 	zresult = hp_zval_at_key("exception_function", sizeof("exception_function"), args);
 
 	if (zresult != NULL && Z_TYPE_P(zresult) == IS_STRING) {
-		hp_globals.exception_function = zend_string_copy(Z_STR_P(zresult));
+		TWG(exception_function) = zend_string_copy(Z_STR_P(zresult));
 	}
 }
 
 static void hp_exception_function_clear() {
-	if (hp_globals.exception_function != NULL) {
-		zend_string_release(hp_globals.exception_function);
-		hp_globals.exception_function = NULL;
+	if (TWG(exception_function) != NULL) {
+		zend_string_release(TWG(exception_function));
+		TWG(exception_function) = NULL;
 	}
 
-	if (hp_globals.exception != NULL) {
-		hp_ptr_dtor(hp_globals.exception);
+	if (TWG(exception) != NULL) {
+		hp_ptr_dtor(TWG(exception));
 	}
 }
 
 static void hp_transaction_function_clear() {
-	if (hp_globals.transaction_function) {
-		zend_string_release(hp_globals.transaction_function);
-		hp_globals.transaction_function = NULL;
+	if (TWG(transaction_function)) {
+		zend_string_release(TWG(transaction_function));
+		TWG(transaction_function) = NULL;
 	}
 }
 
@@ -2055,19 +1800,19 @@ void hp_init_trace_callbacks(TSRMLS_D)
 {
 	tw_trace_callback cb;
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
+	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
 		return;
 	}
 
-	hp_globals.trace_callbacks = NULL;
-	hp_globals.trace_watch_callbacks = NULL;
-	hp_globals.span_cache = NULL;
+	TWG(trace_callbacks) = NULL;
+	TWG(trace_watch_callbacks) = NULL;
+	TWG(span_cache) = NULL;
 
-	ALLOC_HASHTABLE(hp_globals.trace_callbacks);
-	zend_hash_init(hp_globals.trace_callbacks, 255, NULL, NULL, 0);
+	ALLOC_HASHTABLE(TWG(trace_callbacks));
+	zend_hash_init(TWG(trace_callbacks), 255, NULL, NULL, 0);
 
-	ALLOC_HASHTABLE(hp_globals.span_cache);
-	zend_hash_init(hp_globals.span_cache, 255, NULL, NULL, 0);
+	ALLOC_HASHTABLE(TWG(span_cache));
+	zend_hash_init(TWG(span_cache), 255, NULL, NULL, 0);
 
 	cb = tw_trace_callback_file_get_contents;
 	register_trace_callback("file_get_contents", cb);
@@ -2246,10 +1991,10 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	cb = tw_trace_callback_predis_call;
 	register_trace_callback("Predis\\Client::__call", cb);
 
-	hp_globals.gc_runs = GC_G(gc_runs);
-	hp_globals.gc_collected = GC_G(collected);
-	hp_globals.compile_count = 0;
-	hp_globals.compile_wt = 0;
+	TWG(gc_runs) = GC_G(gc_runs);
+	TWG(gc_collected) = GC_G(collected);
+	TWG(compile_count) = 0;
+	TWG(compile_wt) = 0;
 }
 
 
@@ -2264,27 +2009,27 @@ void hp_init_profiler_state(TSRMLS_D)
 	_DECLARE_ZVAL(spans);
 
 	/* Setup globals */
-	if (!hp_globals.ever_enabled) {
-		hp_globals.ever_enabled  = 1;
-		hp_globals.entries = NULL;
+	if (!TWG(ever_enabled)) {
+		TWG(ever_enabled) = 1;
+		TWG(entries) = NULL;
 	}
 
 	/* Init stats_count */
-	if (hp_globals.stats_count) {
-		hp_ptr_dtor(hp_globals.stats_count);
+	if (TWG(stats_count)) {
+		hp_ptr_dtor(TWG(stats_count));
 	}
 
 	_ALLOC_INIT_ZVAL(stats_count);
 	array_init(stats_count);
-	hp_globals.stats_count = stats_count;
+	TWG(stats_count) = stats_count;
 
-	if (hp_globals.spans) {
-		hp_ptr_dtor(hp_globals.spans);
+	if (TWG(spans)) {
+		hp_ptr_dtor(TWG(spans));
 	}
 
 	_ALLOC_INIT_ZVAL(spans);
 	array_init(spans);
-	hp_globals.spans = spans;
+	TWG(spans) = spans;
 
 	hp_init_trace_callbacks(TSRMLS_C);
 }
@@ -2297,57 +2042,57 @@ void hp_init_profiler_state(TSRMLS_D)
 void hp_clean_profiler_state(TSRMLS_D)
 {
 	/* Clear globals */
-	if (hp_globals.stats_count) {
-		hp_ptr_dtor(hp_globals.stats_count);
-		hp_globals.stats_count = NULL;
+	if (TWG(stats_count)) {
+		hp_ptr_dtor(TWG(stats_count));
+		TWG(stats_count) = NULL;
 	}
-	if (hp_globals.spans) {
-		hp_ptr_dtor(hp_globals.spans);
-		hp_globals.spans = NULL;
+	if (TWG(spans)) {
+		hp_ptr_dtor(TWG(spans));
+		TWG(spans) = NULL;
 	}
 
-	hp_globals.entries = NULL;
-	hp_globals.ever_enabled = 0;
+	TWG(entries) = NULL;
+	TWG(ever_enabled) = 0;
 
 	hp_clean_profiler_options_state();
 
-	hp_function_map_clear(hp_globals.filtered_functions);
-	hp_globals.filtered_functions = NULL;
+	hp_function_map_clear(TWG(filtered_functions));
+	TWG(filtered_functions) = NULL;
 }
 
 static void hp_transaction_name_clear()
 {
-	if (hp_globals.transaction_name) {
-		zend_string_release(hp_globals.transaction_name);
-		hp_globals.transaction_name = NULL;
+	if (TWG(transaction_name)) {
+		zend_string_release(TWG(transaction_name));
+		TWG(transaction_name) = NULL;
 	}
 }
 
 static void hp_clean_profiler_options_state()
 {
-	hp_function_map_clear(hp_globals.filtered_functions);
-	hp_globals.filtered_functions = NULL;
+	hp_function_map_clear(TWG(filtered_functions));
+	TWG(filtered_functions) = NULL;
 
 	hp_exception_function_clear();
 	hp_transaction_function_clear();
 	hp_transaction_name_clear();
 
-	if (hp_globals.trace_callbacks) {
-		zend_hash_destroy(hp_globals.trace_callbacks);
-		FREE_HASHTABLE(hp_globals.trace_callbacks);
-		hp_globals.trace_callbacks = NULL;
+	if (TWG(trace_callbacks)) {
+		zend_hash_destroy(TWG(trace_callbacks));
+		FREE_HASHTABLE(TWG(trace_callbacks));
+		TWG(trace_callbacks) = NULL;
 	}
 
-	if (hp_globals.trace_watch_callbacks) {
-		zend_hash_destroy(hp_globals.trace_watch_callbacks);
-		FREE_HASHTABLE(hp_globals.trace_watch_callbacks);
-		hp_globals.trace_watch_callbacks = NULL;
+	if (TWG(trace_watch_callbacks)) {
+		zend_hash_destroy(TWG(trace_watch_callbacks));
+		FREE_HASHTABLE(TWG(trace_watch_callbacks));
+		TWG(trace_watch_callbacks) = NULL;
 	}
 
-	if (hp_globals.span_cache) {
-		zend_hash_destroy(hp_globals.span_cache);
-		FREE_HASHTABLE(hp_globals.span_cache);
-		hp_globals.span_cache = NULL;
+	if (TWG(span_cache)) {
+		zend_hash_destroy(TWG(span_cache));
+		FREE_HASHTABLE(TWG(span_cache));
+		TWG(span_cache) = NULL;
 	}
 }
 
@@ -2449,13 +2194,13 @@ static inline int hp_filter_entry(uint8 hash_code, char *curr_func)
 	int exists;
 
 	/* First check if ignoring functions is enabled */
-	if (hp_globals.filtered_functions == NULL || hp_globals.filtered_type == 0) {
+	if (TWG(filtered_functions) == NULL || TWG(filtered_type) == 0) {
 		return 0;
 	}
 
-	exists = hp_function_map_exists(hp_globals.filtered_functions, hash_code, curr_func);
+	exists = hp_function_map_exists(TWG(filtered_functions), hash_code, curr_func);
 
-	if (hp_globals.filtered_type == 2) {
+	if (TWG(filtered_type) == 2) {
 		// always include main() in profiling result.
 		return (strcmp(curr_func, ROOT_SYMBOL) == 0)
 			? 0
@@ -2513,9 +2258,9 @@ size_t hp_get_function_stack(hp_entry_t *entry, int level, char *result_buf, siz
  * a pointer to one-level directory and basefile name
  * (d/foo.php) in the same string.
  */
-static const char *hp_get_base_filename(const char *filename)
+static char *hp_get_base_filename(char *filename)
 {
-	const char *ptr;
+	char *ptr;
 	int   found = 0;
 
 	if (!filename)
@@ -2600,7 +2345,7 @@ static void hp_detect_exception(char *func_name, zend_execute_data *data TSRMLS_
 
 			if (instanceof_function(exception_ce, default_ce TSRMLS_CC) == 1) {
 				Z_ADDREF_P(argument_element);
-				hp_globals.exception = argument_element;
+				TWG(exception) = argument_element;
 				return;
 			}
 		}
@@ -2609,9 +2354,9 @@ static void hp_detect_exception(char *func_name, zend_execute_data *data TSRMLS_
 
 static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS_DC)
 {
-	if (!hp_globals.transaction_function ||
-		hp_globals.transaction_name ||
-		strcmp(ret, ZSTR_VAL(hp_globals.transaction_function)) != 0) {
+	if (!TWG(transaction_function) ||
+		TWG(transaction_name) ||
+		strcmp(ret, ZSTR_VAL(TWG(transaction_function))) != 0) {
 		return;
 	}
 
@@ -2635,14 +2380,14 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 			snprintf(ctrl, len, "%s::%s", _ZCE_NAME(ce), Z_STRVAL_P(argument_element));
 			ctrl[len-1] = '\0';
 
-			hp_globals.transaction_name = zend_string_init(ctrl, len-1, 0);
+			TWG(transaction_name) = zend_string_init(ctrl, len-1, 0);
 			efree(ctrl);
 		}
 	} else {
 		argument_element = ZEND_CALL_ARG(data, 1);
 
 		if (Z_TYPE_P(argument_element) == IS_STRING) {
-			hp_globals.transaction_name = Z_STR_P(argument_element);
+			TWG(transaction_name) = Z_STR_P(argument_element);
 		}
 	}
 
@@ -2716,7 +2461,7 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
  */
 static void hp_free_the_free_list()
 {
-	hp_entry_t *p = hp_globals.entry_free_list;
+	hp_entry_t *p = TWG(entry_free_list);
 	hp_entry_t *cur;
 
 	while (p) {
@@ -2738,10 +2483,10 @@ static hp_entry_t *hp_fast_alloc_hprof_entry()
 {
 	hp_entry_t *p;
 
-	p = hp_globals.entry_free_list;
+	p = TWG(entry_free_list);
 
 	if (p) {
-		hp_globals.entry_free_list = p->prev_hprof;
+		TWG(entry_free_list) = p->prev_hprof;
 		return p;
 	} else {
 		return (hp_entry_t *)malloc(sizeof(hp_entry_t));
@@ -2759,8 +2504,8 @@ static void hp_fast_free_hprof_entry(hp_entry_t *p)
 {
 	/* we use/overload the prev_hprof field in the structure to link entries in
 	 * the free list. */
-	p->prev_hprof = hp_globals.entry_free_list;
-	hp_globals.entry_free_list = p;
+	p->prev_hprof = TWG(entry_free_list);
+	TWG(entry_free_list) = p;
 }
 
 /**
@@ -2908,7 +2653,7 @@ static long get_us_interval(struct timeval *start, struct timeval *end)
  */
 static inline double get_us_from_tsc(uint64 count)
 {
-	return count / hp_globals.timebase_factor;
+	return count / TWG(timebase_factor);
 }
 
 /**
@@ -2937,8 +2682,8 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 	tw_trace_callback *callback;
 	int    recurse_level = 0;
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_HIERACHICAL) == 0) {
-		if (hp_globals.func_hash_counters[current->hash_code] > 0) {
+	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_HIERACHICAL) == 0) {
+		if (TWG(func_hash_counters)[current->hash_code] > 0) {
 			/* Find this symbols recurse level */
 			for(p = (*entries); p; p = p->prev_hprof) {
 				if (!strcmp(current->name_hprof, p->name_hprof)) {
@@ -2947,7 +2692,7 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 				}
 			}
 		}
-		hp_globals.func_hash_counters[current->hash_code]++;
+		TWG(func_hash_counters)[current->hash_code]++;
 
 		/* Init current function's recurse level */
 		current->rlvl_hprof = recurse_level;
@@ -2956,13 +2701,13 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 	/* Get start tsc counter */
 	current->tsc_start = cycle_timer();
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0 && data != NULL) {
+	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) == 0 && data != NULL) {
 #if PHP_VERSION_ID < 70000
-		if (zend_hash_find(hp_globals.trace_callbacks, current->name_hprof, strlen(current->name_hprof)+1, (void **)&callback) == SUCCESS) {
+		if (zend_hash_find(TWG(trace_callbacks), current->name_hprof, strlen(current->name_hprof)+1, (void **)&callback) == SUCCESS) {
 			current->span_id = (*callback)(current->name_hprof, data TSRMLS_CC);
 		}
 #else
-		callback = zend_hash_str_find_ptr(hp_globals.trace_callbacks, current->name_hprof, strlen(current->name_hprof));
+		callback = zend_hash_str_find_ptr(TWG(trace_callbacks), current->name_hprof, strlen(current->name_hprof));
 
 		if (callback != NULL) {
 			current->span_id = (*callback)(current->name_hprof, data TSRMLS_CC);
@@ -2971,12 +2716,12 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 	}
 
 	/* Get CPU usage */
-	if (hp_globals.tideways_flags & TIDEWAYS_FLAGS_CPU) {
+	if (TWG(tideways_flags) & TIDEWAYS_FLAGS_CPU) {
 		current->cpu_start = cpu_timer();
 	}
 
 	/* Get memory usage */
-	if (hp_globals.tideways_flags & TIDEWAYS_FLAGS_MEMORY) {
+	if (TWG(tideways_flags) & TIDEWAYS_FLAGS_MEMORY) {
 		current->mu_start_hprof  = zend_memory_usage(0 TSRMLS_CC);
 		current->pmu_start_hprof = zend_memory_peak_usage(0 TSRMLS_CC);
 	}
@@ -3008,17 +2753,17 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 	tsc_end = cycle_timer();
 	wt = get_us_from_tsc(tsc_end - top->tsc_start);
 
-	if (hp_globals.tideways_flags & TIDEWAYS_FLAGS_CPU) {
+	if (TWG(tideways_flags) & TIDEWAYS_FLAGS_CPU) {
 		cpu = get_us_from_tsc(cpu_timer() - top->cpu_start);
 	}
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0 && top->span_id >= 0) {
-		double start = get_us_from_tsc(top->tsc_start - hp_globals.start_time);
-		double end = get_us_from_tsc(tsc_end - hp_globals.start_time);
+	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) == 0 && top->span_id >= 0) {
+		double start = get_us_from_tsc(top->tsc_start - TWG(start_time));
+		double end = get_us_from_tsc(tsc_end - TWG(start_time));
 		tw_span_record_duration(top->span_id, start, end);
 	}
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_HIERACHICAL) > 0) {
+	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_HIERACHICAL) > 0) {
 		return;
 	}
 
@@ -3026,7 +2771,7 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 	hp_get_function_stack(top, 2, symbol, sizeof(symbol));
 
 	/* Get the stat array */
-	if (!(counts = hp_hash_lookup(hp_globals.stats_count, symbol TSRMLS_CC))) {
+	if (!(counts = hp_hash_lookup(TWG(stats_count), symbol TSRMLS_CC))) {
 		return;
 	}
 
@@ -3034,12 +2779,12 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 	hp_inc_count(counts, "ct", 1  TSRMLS_CC);
 	hp_inc_count(counts, "wt", wt TSRMLS_CC);
 
-	if (hp_globals.tideways_flags & TIDEWAYS_FLAGS_CPU) {
+	if (TWG(tideways_flags) & TIDEWAYS_FLAGS_CPU) {
 		/* Bump CPU stats in the counts hashtable */
 		hp_inc_count(counts, "cpu", cpu TSRMLS_CC);
 	}
 
-	if (hp_globals.tideways_flags & TIDEWAYS_FLAGS_MEMORY) {
+	if (TWG(tideways_flags) & TIDEWAYS_FLAGS_MEMORY) {
 		/* Get Memory usage */
 		mu_end  = zend_memory_usage(0 TSRMLS_CC);
 		pmu_end = zend_memory_peak_usage(0 TSRMLS_CC);
@@ -3049,7 +2794,7 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 		hp_inc_count(counts, "pmu", pmu_end - top->pmu_start_hprof  TSRMLS_CC);
 	}
 
-	hp_globals.func_hash_counters[top->hash_code]--;
+	TWG(func_hash_counters)[top->hash_code]--;
 }
 
 
@@ -3081,7 +2826,7 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 	char          *func = NULL;
 	int hp_profile_flag = 1;
 
-	if (!hp_globals.enabled) {
+	if (!TWG(enabled)) {
 #if PHP_VERSION_ID < 50500
 		_zend_execute(ops TSRMLS_CC);
 #else
@@ -3103,11 +2848,11 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 
 	hp_detect_transaction_name(func, real_execute_data TSRMLS_CC);
 
-	if (hp_globals.exception_function != NULL && strcmp(func, ZSTR_VAL(hp_globals.exception_function)) == 0) {
+	if (TWG(exception_function) != NULL && strcmp(func, ZSTR_VAL(TWG(exception_function))) == 0) {
 		hp_detect_exception(func, real_execute_data TSRMLS_CC);
 	}
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_USERLAND) > 0) {
+	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_USERLAND) > 0) {
 #if PHP_VERSION_ID < 50500
 		_zend_execute(ops TSRMLS_CC);
 #else
@@ -3117,14 +2862,14 @@ ZEND_DLEXPORT void hp_execute_ex (zend_execute_data *execute_data TSRMLS_DC) {
 		return;
 	}
 
-	BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag, real_execute_data);
+	BEGIN_PROFILING(&TWG(entries), func, hp_profile_flag, real_execute_data);
 #if PHP_VERSION_ID < 50500
 	_zend_execute(ops TSRMLS_CC);
 #else
 	_zend_execute_ex(execute_data TSRMLS_CC);
 #endif
-	if (hp_globals.entries) {
-		END_PROFILING(&hp_globals.entries, hp_profile_flag, real_execute_data);
+	if (TWG(entries)) {
+		END_PROFILING(&TWG(entries), hp_profile_flag, real_execute_data);
 	}
 	efree(func);
 }
@@ -3155,7 +2900,7 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
 	char             *func = NULL;
 	int    hp_profile_flag = 1;
 
-	if (!hp_globals.enabled || (hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_BUILTINS) > 0) {
+	if (!TWG(enabled) || (TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_BUILTINS) > 0) {
 #if PHP_MAJOR_VERSION == 7
 		execute_internal(execute_data, return_value TSRMLS_CC);
 #elif PHP_VERSION_ID < 50500
@@ -3169,7 +2914,7 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
 	func = hp_get_function_name(execute_data TSRMLS_CC);
 
 	if (func) {
-		BEGIN_PROFILING(&hp_globals.entries, func, hp_profile_flag, execute_data);
+		BEGIN_PROFILING(&TWG(entries), func, hp_profile_flag, execute_data);
 	}
 
 	if (!_zend_execute_internal) {
@@ -3192,8 +2937,8 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
 	}
 
 	if (func) {
-		if (hp_globals.entries) {
-			END_PROFILING(&hp_globals.entries, hp_profile_flag, execute_data);
+		if (TWG(entries)) {
+			END_PROFILING(&TWG(entries), hp_profile_flag, execute_data);
 		}
 		efree(func);
 	}
@@ -3206,18 +2951,18 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
  */
 ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int type TSRMLS_DC)
 {
-	if (!hp_globals.enabled || (hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_COMPILE) > 0) {
+	if (!TWG(enabled) || (TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_COMPILE) > 0) {
 		return _zend_compile_file(file_handle, type TSRMLS_CC);
 	}
 
 	zend_op_array  *ret;
 	uint64 start = cycle_timer();
 
-	hp_globals.compile_count++;
+	TWG(compile_count)++;
 
 	ret = _zend_compile_file(file_handle, type TSRMLS_CC);
 
-	hp_globals.compile_wt += get_us_from_tsc(cycle_timer() - start);
+	TWG(compile_wt) += get_us_from_tsc(cycle_timer() - start);
 
 	return ret;
 }
@@ -3227,18 +2972,18 @@ ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int 
  */
 ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filename TSRMLS_DC)
 {
-	if (!hp_globals.enabled || (hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_COMPILE) > 0) {
+	if (!TWG(enabled) || (TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_COMPILE) > 0) {
 		return _zend_compile_string(source_string, filename TSRMLS_CC);
 	}
 
 	zend_op_array  *ret;
 	uint64 start = cycle_timer();
 
-	hp_globals.compile_count++;
+	TWG(compile_count)++;
 
 	ret = _zend_compile_string(source_string, filename TSRMLS_CC);
 
-	hp_globals.compile_wt += get_us_from_tsc(cycle_timer() - start);
+	TWG(compile_wt) += get_us_from_tsc(cycle_timer() - start);
 
 	return ret;
 }
@@ -3256,27 +3001,27 @@ ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filena
  */
 static void hp_begin(long tideways_flags TSRMLS_DC)
 {
-	if (!hp_globals.enabled) {
+	if (!TWG(enabled)) {
 		int hp_profile_flag = 1;
 
-		hp_globals.enabled      = 1;
-		hp_globals.tideways_flags = (uint32)tideways_flags;
+		TWG(enabled) = 1;
+		TWG(tideways_flags) = (uint32)tideways_flags;
 
 		/* one time initializations */
 		hp_init_profiler_state(TSRMLS_C);
 
 		/* start profiling from fictitious main() */
-		hp_globals.root = estrdup(ROOT_SYMBOL);
-		hp_globals.start_time = cycle_timer();
+		TWG(root) = estrdup(ROOT_SYMBOL);
+		TWG(start_time) = cycle_timer();
 
-		if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
-			hp_globals.cpu_start = cpu_timer();
+		if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
+			TWG(cpu_start) = cpu_timer();
 		}
 
 		tw_span_create("app", 3);
 		tw_span_timer_start(0);
 
-		BEGIN_PROFILING(&hp_globals.entries, hp_globals.root, hp_profile_flag, NULL);
+		BEGIN_PROFILING(&TWG(entries), TWG(root), hp_profile_flag, NULL);
 	}
 }
 
@@ -3286,12 +3031,12 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
 static void hp_end(TSRMLS_D)
 {
 	/* Bail if not ever enabled */
-	if (!hp_globals.ever_enabled) {
+	if (!TWG(ever_enabled)) {
 		return;
 	}
 
 	/* Stop profiler if enabled */
-	if (hp_globals.enabled) {
+	if (TWG(enabled)) {
 		hp_stop(TSRMLS_C);
 	}
 
@@ -3308,35 +3053,35 @@ static void hp_stop(TSRMLS_D)
 	int hp_profile_flag = 1;
 
 	/* End any unfinished calls */
-	while (hp_globals.entries) {
-		END_PROFILING(&hp_globals.entries, hp_profile_flag, NULL);
+	while (TWG(entries)) {
+		END_PROFILING(&TWG(entries), hp_profile_flag, NULL);
 	}
 
 	tw_span_timer_stop(0);
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
-		if ((GC_G(gc_runs) - hp_globals.gc_runs) > 0) {
-			tw_span_annotate_long(0, "gc", GC_G(gc_runs) - hp_globals.gc_runs);
-			tw_span_annotate_long(0, "gcc", GC_G(collected) - hp_globals.gc_collected);
+	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
+		if ((GC_G(gc_runs) - TWG(gc_runs)) > 0) {
+			tw_span_annotate_long(0, "gc", GC_G(gc_runs) - TWG(gc_runs));
+			tw_span_annotate_long(0, "gcc", GC_G(collected) - TWG(gc_collected));
 		}
 
-		if (hp_globals.compile_count > 0) {
-			tw_span_annotate_long(0, "cct", hp_globals.compile_count);
+		if (TWG(compile_count) > 0) {
+			tw_span_annotate_long(0, "cct", TWG(compile_count));
 		}
-		if (hp_globals.compile_wt > 0) {
-			tw_span_annotate_long(0, "cwt", hp_globals.compile_wt);
+		if (TWG(compile_wt) > 0) {
+			tw_span_annotate_long(0, "cwt", TWG(compile_wt));
 		}
 
-		tw_span_annotate_long(0, "cpu", get_us_from_tsc(cpu_timer() - hp_globals.cpu_start));
+		tw_span_annotate_long(0, "cpu", get_us_from_tsc(cpu_timer() - TWG(cpu_start)));
 	}
 
-	if (hp_globals.root) {
-		efree(hp_globals.root);
-		hp_globals.root = NULL;
+	if (TWG(root)) {
+		efree(TWG(root));
+		TWG(root) = NULL;
 	}
 
 	/* Stop profiling */
-	hp_globals.enabled = 0;
+	TWG(enabled) = 0;
 }
 
 
@@ -3478,7 +3223,7 @@ void tideways_error_cb(int type, const char *error_filename, const uint error_li
 				zend_fetch_debug_backtrace(backtrace, 1, 0, 0 TSRMLS_CC);
 #endif
 
-				hp_globals.backtrace = backtrace;
+				TWG(backtrace) = backtrace;
 		}
 }
 #endif
@@ -3492,7 +3237,7 @@ PHP_FUNCTION(tideways_span_watch)
 	strsize_t func_len, category_len;
 	tw_trace_callback cb;
 
-	if (!hp_globals.enabled || (hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
+	if (!TWG(enabled) || (TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
 		return;
 	}
 
@@ -3538,12 +3283,12 @@ static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cac
 	twcb->fci = fci;
 	twcb->fcic = fcic;
 
-	if (hp_globals.trace_watch_callbacks == NULL) {
-		ALLOC_HASHTABLE(hp_globals.trace_watch_callbacks);
-		zend_hash_init(hp_globals.trace_watch_callbacks, 255, NULL, free_tw_watch_callback, 0);
+	if (TWG(trace_watch_callbacks) == NULL) {
+		ALLOC_HASHTABLE(TWG(trace_watch_callbacks));
+		zend_hash_init(TWG(trace_watch_callbacks), 255, NULL, free_tw_watch_callback, 0);
 	}
 
-	zend_compat_hash_update_ptr_const(hp_globals.trace_watch_callbacks, func, func_len, &twcb, sizeof(tw_watch_callback*));
+	zend_compat_hash_update_ptr_const(TWG(trace_watch_callbacks), func, func_len, &twcb, sizeof(tw_watch_callback*));
 	cb = tw_trace_callback_watch;
 	register_trace_callback_len(func, func_len, cb);
 }

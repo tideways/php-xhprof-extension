@@ -18,14 +18,15 @@ AC_DEFUN([AC_TIDEWAYS_CLOCK],
   if test "$have_clock_gettime" = "no"; then
     AC_MSG_CHECKING([for clock_gettime in -lrt])
 
-    SAVED_CFLAGS="$CFLAGS"
-    CFLAGS="$CFLAGS -lrt"
+    SAVED_LIBS="$LIBS"
+    LIBS="$LIBS -lrt"
 
     AC_TRY_LINK([ #include <time.h> ], [struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);], [
       have_clock_gettime=yes
+      TIDEWAYS_SHARED_LIBADD="$TIDEWAYS_SHARED_LIBADD -lrt"
       AC_MSG_RESULT([yes])
     ], [
-      CFLAGS="$SAVED_CFLAGS"
+      LIBS="$SAVED_LIBS"
       AC_MSG_RESULT([no])
     ])
   fi
@@ -74,7 +75,26 @@ AC_DEFUN([AC_TIDEWAYS_CLOCK],
 if test "$PHP_TIDEWAYS" != "no"; then
   AC_TIDEWAYS_CLOCK
 
-  PHP_SUBST([CFLAGS])
+  AC_MSG_CHECKING(PHP version)
+  export OLD_CPPFLAGS="$CPPFLAGS"
+  export CPPFLAGS="$CPPFLAGS $INCLUDES"
+  AC_TRY_COMPILE([#include <php_version.h>], [
+#if PHP_MAJOR_VERSION > 5
+#error  PHP > 5
+#endif
+  ], [
+    subdir=php5
+    AC_MSG_RESULT([PHP 5.x])
+  ], [
+    subdir=php7
+    AC_MSG_RESULT([PHP 7.x])
+  ])
+  export CPPFLAGS="$OLD_CPPFLAGS"
+  TIDEWAYS_SOURCES="$subdir/spans.c"
+
+  TIDEWAYS_SOURCES="$TIDEWAYS_SOURCES tideways.c"
+
+  PHP_SUBST([LIBS])
   PHP_SUBST([TIDEWAYS_SHARED_LIBADD])
-  PHP_NEW_EXTENSION(tideways, tideways.c, $ext_shared)
+  PHP_NEW_EXTENSION(tideways, $TIDEWAYS_SOURCES, $ext_shared)
 fi
