@@ -1051,6 +1051,10 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	zend_error_cb = tideways_original_error_cb;
 #endif
 
+#if PHP_VERSION_ID >= 70000
+	gc_collect_cycles = tw_original_gc_collect_cycles;
+#endif 
+
 	UNREGISTER_INI_ENTRIES();
 
 	return SUCCESS;
