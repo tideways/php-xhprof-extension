@@ -162,8 +162,8 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define hp_ptr_dtor(val) zval_ptr_dtor(val)
 
 
-#define register_trace_callback(function_name, cb) zend_hash_str_update_mem(hp_globals.trace_callbacks, function_name, strlen(function_name), &cb, sizeof(tw_trace_callback));
-#define register_trace_callback_len(function_name, len, cb) zend_hash_str_update_mem(hp_globals.trace_callbacks, function_name, len, &cb, sizeof(tw_trace_callback));
+#define register_trace_callback(function_name, cb) zend_hash_str_update_mem(TWG(trace_callbacks), function_name, strlen(function_name), &cb, sizeof(tw_trace_callback));
+#define register_trace_callback_len(function_name, len, cb) zend_hash_str_update_mem(TWG(trace_callbacks), function_name, len, &cb, sizeof(tw_trace_callback));
 
 typedef size_t strsize_t;
 /* removed/uneeded macros */
@@ -458,7 +458,6 @@ PHP_INI_END()
 /* Init module */
 ZEND_GET_MODULE(tideways)
 
-
 /**
  * **********************************
  * PHP EXTENSION FUNCTION DEFINITIONS
@@ -645,6 +644,14 @@ PHP_FUNCTION(tideways_sql_minify)
 
 static void php_hp_init_globals(zend_hp_globals *hp_globals TSRMLS_DC)
 {
+	hp_globals->transaction_function = NULL;
+	hp_globals->transaction_name = NULL;
+	hp_globals->exception_function = NULL;
+	hp_globals->trace_callbacks = NULL;
+	hp_globals->stats_count = NULL;
+	hp_globals->spans = NULL;
+	hp_globals->backtrace = NULL;
+	hp_globals->exception = NULL;
 }
 
 static void php_hp_shutdown_globals(zend_hp_globals *hp_globals)
@@ -2798,7 +2805,7 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 			current->span_id = (*callback)(current->name_hprof, data TSRMLS_CC);
 		}
 #else
-		callback = (tw_trace_callback*)zend_hash_str_find_ptr(hp_globals.trace_callbacks, current->name_hprof, strlen(current->name_hprof));
+		callback = (tw_trace_callback*)zend_hash_str_find_ptr(TWG(trace_callbacks), current->name_hprof, strlen(current->name_hprof));
 
 		if (callback != NULL) {
 			current->span_id = (*callback)(current->name_hprof, data TSRMLS_CC);
