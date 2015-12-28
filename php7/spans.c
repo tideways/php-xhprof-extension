@@ -76,10 +76,10 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 		return;
 	}
 
-	ZVAL_LONG(annotation_value, value);
-	convert_to_string_ex(annotation_value);
+	ZVAL_LONG(&annotation_value, value);
+	convert_to_string_ex(&annotation_value);
 
-	add_assoc_zval_ex(span_annotations, key, strlen(key), annotation_value);
+	add_assoc_zval_ex(span_annotations, key, strlen(key), &annotation_value);
 }
 
 void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
