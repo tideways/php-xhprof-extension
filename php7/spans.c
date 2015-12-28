@@ -10,7 +10,7 @@ long tw_span_create(char *category, size_t category_len TSRMLS_DC)
 	int idx;
 	long parent = 0;
 
-	idx = zend_hash_num_elements(TWG(spans));
+	idx = zend_hash_num_elements(Z_ARRVAL_P(TWG(spans)));
 
 	array_init(&span);
 	array_init(&starts);
@@ -33,7 +33,7 @@ long tw_span_create(char *category, size_t category_len TSRMLS_DC)
 
 static int tw_convert_to_string(void *pDest TSRMLS_DC)
 {
-	zval **zv = (zval **) pDest;
+	zval *zv = (zval*) pDest;
 
 	convert_to_string_ex(zv);
 
@@ -64,7 +64,7 @@ void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 void tw_span_annotate_long(long spanId, char *key, long value)
 {
 	zval *span, *span_annotations;
-	_DECLARE_ZVAL(annotation_value);
+	zval annotation_value;
 
 	span = zend_compat_hash_index_find(TWG(spans), spanId);
 
@@ -78,13 +78,8 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 		return;
 	}
 
-	_ALLOC_INIT_ZVAL(annotation_value);
 	ZVAL_LONG(annotation_value, value);
-#if PHP_VERSION_ID < 70000
-	convert_to_string_ex(&annotation_value);
-#else
 	convert_to_string_ex(annotation_value);
-#endif
 
 	add_assoc_zval_ex(span_annotations, key, strlen(key), annotation_value);
 }
