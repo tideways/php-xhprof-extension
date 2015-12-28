@@ -749,12 +749,12 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 	return SUCCESS;
 }
 
-long tw_trace_callback_record_with_cache(char *category, int category_len, char *summary, int summary_len, int copy)
+long tw_trace_callback_record_with_cache(char *category, int category_len, char *summary, int summary_len, int copy TSRMLS_DC)
 {
 	long idx, *idx_ptr = NULL;
 
 #if PHP_VERSION_ID < 70000
-	if (zend_hash_find(TWG(span_cache), summary, strlen(summary)+1, (void **)&idx_ptr TSRMLS_CC) == SUCCESS) {
+	if (zend_hash_find(TWG(span_cache), summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
 		idx = *idx_ptr;
 	} else {
 		idx = tw_span_create(category, category_len TSRMLS_CC);
@@ -1070,7 +1070,7 @@ long tw_trace_callback_predis_call(char *symbol, zend_execute_data *data TSRMLS_
 		return -1;
 	}
 
-	return tw_trace_callback_record_with_cache("predis", 6, Z_STRVAL_P(commandId), Z_STRLEN_P(commandId), 1);
+	return tw_trace_callback_record_with_cache("predis", 6, Z_STRVAL_P(commandId), Z_STRLEN_P(commandId), 1 TSRMLS_CC);
 }
 
 long tw_trace_callback_phpampqlib(char *symbol, zend_execute_data *data TSRMLS_DC)
@@ -1088,7 +1088,7 @@ long tw_trace_callback_phpampqlib(char *symbol, zend_execute_data *data TSRMLS_D
 		return idx;
 	}
 
-	return tw_trace_callback_record_with_cache("queue", 5, Z_STRVAL_P(exchange), Z_STRLEN_P(exchange), 1);
+	return tw_trace_callback_record_with_cache("queue", 5, Z_STRVAL_P(exchange), Z_STRLEN_P(exchange), 1 TSRMLS_CC);
 }
 
 long tw_trace_callback_pheanstalk(char *symbol, zend_execute_data *data TSRMLS_DC)
@@ -1108,15 +1108,15 @@ long tw_trace_callback_pheanstalk(char *symbol, zend_execute_data *data TSRMLS_D
 	property = _zend_read_property(pheanstalk_ce, object, "_using", sizeof("_using") - 1, 1, __rv);
 
 	if (property != NULL && Z_TYPE_P(property) == IS_STRING) {
-		return tw_trace_callback_record_with_cache("queue", 5, Z_STRVAL_P(property), Z_STRLEN_P(property), 1);
+		return tw_trace_callback_record_with_cache("queue", 5, Z_STRVAL_P(property), Z_STRLEN_P(property), 1 TSRMLS_CC);
 	} else {
-		return tw_trace_callback_record_with_cache("queue", 5, "default", 7, 1);
+		return tw_trace_callback_record_with_cache("queue", 5, "default", 7, 1 TSRMLS_CC);
 	}
 }
 
 long tw_trace_callback_memcache(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
-	return tw_trace_callback_record_with_cache("memcache", 8, symbol, strlen(symbol), 1);
+	return tw_trace_callback_record_with_cache("memcache", 8, symbol, strlen(symbol), 1 TSRMLS_CC);
 }
 
 long tw_trace_callback_php_controller(char *symbol, zend_execute_data *data TSRMLS_DC)
@@ -1159,7 +1159,7 @@ long tw_trace_callback_magento_block(char *symbol, zend_execute_data *data TSRML
 
 	ce = Z_OBJCE_P(object);
 
-	return tw_trace_callback_record_with_cache("view", 4, _ZCE_NAME(ce), _ZCE_NAME_LENGTH(ce), 1);
+	return tw_trace_callback_record_with_cache("view", 4, _ZCE_NAME(ce), _ZCE_NAME_LENGTH(ce), 1 TSRMLS_CC);
 }
 
 /* Zend_View_Abstract::render($name); */
@@ -1174,7 +1174,7 @@ long tw_trace_callback_view_engine(char *symbol, zend_execute_data *data TSRMLS_
 
 	view = hp_get_base_filename(Z_STRVAL_P(name));
 
-	return tw_trace_callback_record_with_cache("view", 4, view, strlen(view)+1, 1);
+	return tw_trace_callback_record_with_cache("view", 4, view, strlen(view)+1, 1 TSRMLS_CC);
 }
 
 /* Applies to Enlight, Mage and Zend1 */
@@ -1240,7 +1240,7 @@ long tw_trace_callback_oxid_tx(char *symbol, zend_execute_data *data TSRMLS_DC)
 		return -1;
 	}
 
-	return tw_trace_callback_record_with_cache("php.ctrl", 8, ret, len, copy);
+	return tw_trace_callback_record_with_cache("php.ctrl", 8, ret, len, copy TSRMLS_CC);
 }
 
 /* $resolver->getArguments($request, $controller); */
@@ -1297,7 +1297,7 @@ long tw_trace_callback_pgsql_execute(char *symbol, zend_execute_data *data TSRML
 			// TODO: Introduce SQL statement cache to find the names here again.
 			summary = Z_STRVAL_P(argument_element);
 
-			return tw_trace_callback_record_with_cache("sql", 3, summary, strlen(summary), 1);
+			return tw_trace_callback_record_with_cache("sql", 3, summary, strlen(summary), 1 TSRMLS_CC);
 		}
 	}
 
@@ -1356,7 +1356,7 @@ long tw_trace_callback_smarty3_template(char *symbol, zend_execute_data *data TS
 
 	template_len = Z_STRLEN_P(argument_element);
 
-	return tw_trace_callback_record_with_cache("view", 4, template, template_len, 1);
+	return tw_trace_callback_record_with_cache("view", 4, template, template_len, 1 TSRMLS_CC);
 }
 
 long tw_trace_callback_doctrine_persister(char *symbol, zend_execute_data *data TSRMLS_DC)
@@ -1386,7 +1386,7 @@ long tw_trace_callback_doctrine_persister(char *symbol, zend_execute_data *data 
 			return -1;
 		}
 
-		return tw_trace_callback_record_with_cache("doctrine.load", 13, Z_STRVAL_P(property), Z_STRLEN_P(property), 1);
+		return tw_trace_callback_record_with_cache("doctrine.load", 13, Z_STRVAL_P(property), Z_STRLEN_P(property), 1 TSRMLS_CC);
 	}
 
 	return -1;
@@ -1458,7 +1458,7 @@ long tw_trace_callback_twig_template(char *symbol, zend_execute_data *data TSRML
 
 	if (SUCCESS == _call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
 		if (Z_TYPE_P(retval_ptr) == IS_STRING) {
-			idx = tw_trace_callback_record_with_cache("view", 4, Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr), 1);
+			idx = tw_trace_callback_record_with_cache("view", 4, Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr), 1 TSRMLS_CC);
 
 		}
 
@@ -1477,7 +1477,7 @@ long tw_trace_callback_event_dispatchers(char *symbol, zend_execute_data *data T
 	zval *argument_element = ZEND_CALL_ARG(data, 1);
 
 	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
-		idx = tw_trace_callback_record_with_cache("event", 5, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element), 1);
+		idx = tw_trace_callback_record_with_cache("event", 5, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element), 1 TSRMLS_CC);
 	}
 
 	return idx;
@@ -1500,12 +1500,12 @@ long tw_trace_callback_pdo_stmt_execute(char *symbol, zend_execute_data *data TS
 
 long tw_trace_callback_mysqli_stmt_execute(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
-	return tw_trace_callback_record_with_cache("sql", 3, "execute", 7, 1);
+	return tw_trace_callback_record_with_cache("sql", 3, "execute", 7, 1 TSRMLS_CC);
 }
 
 long tw_trace_callback_sql_commit(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
-	return tw_trace_callback_record_with_cache("sql", 3, "commit", 3, 1);
+	return tw_trace_callback_record_with_cache("sql", 3, "commit", 3, 1 TSRMLS_CC);
 }
 
 long tw_trace_callback_sql_functions(char *symbol, zend_execute_data *data TSRMLS_DC)
