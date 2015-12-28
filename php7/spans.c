@@ -31,10 +31,8 @@ long tw_span_create(char *category, size_t category_len TSRMLS_DC)
 	return idx;
 }
 
-static int tw_convert_to_string(void *pDest TSRMLS_DC)
+static int tw_convert_to_string(zval *zv)
 {
-	zval *zv = (zval*) pDest;
-
 	convert_to_string_ex(zv);
 
 	return ZEND_HASH_APPLY_KEEP;
