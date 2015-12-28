@@ -306,20 +306,20 @@ static void hp_end(TSRMLS_D);
 
 static uint64 cycle_timer();
 
-static void hp_free_the_free_list();
-static hp_entry_t *hp_fast_alloc_hprof_entry();
-static void hp_fast_free_hprof_entry(hp_entry_t *p);
+static void hp_free_the_free_list(TSRMLS_D);
+static hp_entry_t *hp_fast_alloc_hprof_entry(TSRMLS_D);
+static void hp_fast_free_hprof_entry(hp_entry_t *p TSRMLS_DC);
 static inline uint8 hp_inline_hash(char * str);
 static double get_timebase_factor();
 static long get_us_interval(struct timeval *start, struct timeval *end);
-static inline double get_us_from_tsc(uint64 count);
+static inline double get_us_from_tsc(uint64 count TSRMLS_DC);
 
-static void hp_parse_options_from_arg(zval *args);
-static void hp_clean_profiler_options_state();
+static void hp_parse_options_from_arg(zval *args TSRMLS_DC);
+static void hp_clean_profiler_options_state(TSRMLS_D);
 
-static void hp_exception_function_clear();
-static void hp_transaction_function_clear();
-static void hp_transaction_name_clear();
+static void hp_exception_function_clear(TSRMLS_D);
+static void hp_transaction_function_clear(TSRMLS_D);
+static void hp_transaction_name_clear(TSRMLS_D);
 
 static inline zval *hp_zval_at_key(char *key, size_t size, zval *values);
 static inline char **hp_strings_in_zval(zval  *values);
@@ -486,7 +486,7 @@ PHP_FUNCTION(tideways_enable)
 		return;
 	}
 
-	hp_parse_options_from_arg(optional_array);
+	hp_parse_options_from_arg(optional_array TSRMLS_CC);
 
 	hp_begin(tideways_flags TSRMLS_CC);
 }
@@ -607,7 +607,7 @@ PHP_FUNCTION(tideways_span_timer_start)
 		return;
 	}
 
-	tw_span_timer_start(spanId);
+	tw_span_timer_start(spanId TSRMLS_CC);
 }
 
 PHP_FUNCTION(tideways_span_timer_stop)
@@ -622,7 +622,7 @@ PHP_FUNCTION(tideways_span_timer_stop)
 		return;
 	}
 
-	tw_span_timer_stop(spanId);
+	tw_span_timer_stop(spanId TSRMLS_CC);
 }
 
 PHP_FUNCTION(tideways_span_annotate)
@@ -681,8 +681,8 @@ PHP_MINIT_FUNCTION(tideways)
 		TWG(func_hash_counters)[i] = 0;
 	}
 
-	hp_transaction_function_clear();
-	hp_exception_function_clear();
+	hp_transaction_function_clear(TSRMLS_C);
+	hp_exception_function_clear(TSRMLS_C);
 
 	_zend_compile_file = zend_compile_file;
 	zend_compile_file  = hp_compile_file;
@@ -723,7 +723,7 @@ PHP_MINIT_FUNCTION(tideways)
 PHP_MSHUTDOWN_FUNCTION(tideways)
 {
 	/* free any remaining items in the free list */
-	hp_free_the_free_list();
+	hp_free_the_free_list(TSRMLS_C);
 
 	/* Remove proxies, restore the originals */
 #if PHP_VERSION_ID < 50500
@@ -754,7 +754,7 @@ long tw_trace_callback_record_with_cache(char *category, int category_len, char 
 	long idx, *idx_ptr = NULL;
 
 #if PHP_VERSION_ID < 70000
-	if (zend_hash_find(TWG(span_cache), summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
+	if (zend_hash_find(TWG(span_cache), summary, strlen(summary)+1, (void **)&idx_ptr TSRMLS_CC) == SUCCESS) {
 		idx = *idx_ptr;
 	} else {
 		idx = tw_span_create(category, category_len TSRMLS_CC);
@@ -782,7 +782,7 @@ long tw_trace_callback_record_with_cache(char *category, int category_len, char 
 	return idx;
 }
 
-void tw_span_timer_start(long spanId)
+void tw_span_timer_start(long spanId TSRMLS_DC)
 {
 	zval *span, *starts;
 	double wt;
@@ -799,11 +799,11 @@ void tw_span_timer_start(long spanId)
 		return;
 	}
 
-	wt = get_us_from_tsc(cycle_timer() - TWG(start_time));
+	wt = get_us_from_tsc(cycle_timer() - TWG(start_time) TSRMLS_CC);
 	add_next_index_long(starts, wt);
 }
 
-void tw_span_timer_stop(long spanId)
+void tw_span_timer_stop(long spanId TSRMLS_DC)
 {
 	zval *span, *stops;
 	double wt;
@@ -820,11 +820,11 @@ void tw_span_timer_stop(long spanId)
 		return;
 	}
 
-	wt = get_us_from_tsc(cycle_timer() - TWG(start_time));
+	wt = get_us_from_tsc(cycle_timer() - TWG(start_time) TSRMLS_CC);
 	add_next_index_long(stops, wt);
 }
 
-void tw_span_record_duration(long spanId, double start, double end)
+void tw_span_record_duration(long spanId, double start, double end TSRMLS_DC)
 {
 	zval *span, *timer;
 
@@ -1532,7 +1532,7 @@ long tw_trace_callback_sql_functions(char *symbol, zend_execute_data *data TSRML
 long tw_trace_callback_fastcgi_finish_request(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	// stop the main span, the request ended here
-	tw_span_timer_stop(0);
+	tw_span_timer_stop(0 TSRMLS_CC);
 	return -1;
 }
 
@@ -1788,9 +1788,9 @@ EMPTY_SWITCH_DEFAULT_CASE()
  *
  * @author mpal
  */
-static void hp_parse_options_from_arg(zval *args)
+static void hp_parse_options_from_arg(zval *args TSRMLS_DC)
 {
-	hp_clean_profiler_options_state();
+	hp_clean_profiler_options_state(TSRMLS_C);
 
 	if (args == NULL) {
 		return;
@@ -1824,7 +1824,7 @@ static void hp_parse_options_from_arg(zval *args)
 	}
 }
 
-static void hp_exception_function_clear() {
+static void hp_exception_function_clear(TSRMLS_D) {
 	if (TWG(exception_function) != NULL) {
 		zend_string_release(TWG(exception_function));
 		TWG(exception_function) = NULL;
@@ -1835,7 +1835,7 @@ static void hp_exception_function_clear() {
 	}
 }
 
-static void hp_transaction_function_clear() {
+static void hp_transaction_function_clear(TSRMLS_D) {
 	if (TWG(transaction_function)) {
 		zend_string_release(TWG(transaction_function));
 		TWG(transaction_function) = NULL;
@@ -2161,13 +2161,13 @@ void hp_clean_profiler_state(TSRMLS_D)
 	TWG(entries) = NULL;
 	TWG(ever_enabled) = 0;
 
-	hp_clean_profiler_options_state();
+	hp_clean_profiler_options_state(TSRMLS_C);
 
 	hp_function_map_clear(TWG(filtered_functions));
 	TWG(filtered_functions) = NULL;
 }
 
-static void hp_transaction_name_clear()
+static void hp_transaction_name_clear(TSRMLS_D)
 {
 	if (TWG(transaction_name)) {
 		zend_string_release(TWG(transaction_name));
@@ -2175,14 +2175,14 @@ static void hp_transaction_name_clear()
 	}
 }
 
-static void hp_clean_profiler_options_state()
+static void hp_clean_profiler_options_state(TSRMLS_D)
 {
 	hp_function_map_clear(TWG(filtered_functions));
 	TWG(filtered_functions) = NULL;
 
-	hp_exception_function_clear();
-	hp_transaction_function_clear();
-	hp_transaction_name_clear();
+	hp_exception_function_clear(TSRMLS_C);
+	hp_transaction_function_clear(TSRMLS_C);
+	hp_transaction_name_clear(TSRMLS_C);
 
 	if (TWG(trace_callbacks)) {
 		zend_hash_destroy(TWG(trace_callbacks));
@@ -2215,9 +2215,9 @@ static void hp_clean_profiler_options_state()
 	do {																		\
 		/* Use a hash code to filter most of the string comparisons. */			\
 		uint8 hash_code  = hp_inline_hash(symbol);								\
-		profile_curr = !hp_filter_entry(hash_code, symbol);						\
+		profile_curr = !hp_filter_entry(hash_code, symbol TSRMLS_CC);			\
 		if (profile_curr) {														\
-			hp_entry_t *cur_entry = hp_fast_alloc_hprof_entry();				\
+			hp_entry_t *cur_entry = hp_fast_alloc_hprof_entry(TSRMLS_C);		\
 			(cur_entry)->hash_code = hash_code;									\
 			(cur_entry)->name_hprof = symbol;									\
 			(cur_entry)->prev_hprof = (*(entries));								\
@@ -2244,7 +2244,7 @@ static void hp_clean_profiler_options_state()
 			cur_entry = (*(entries));										\
 			/* Free top entry and update entries linked list */				\
 			(*(entries)) = (*(entries))->prev_hprof;						\
-			hp_fast_free_hprof_entry(cur_entry);							\
+			hp_fast_free_hprof_entry(cur_entry TSRMLS_CC);					\
 		}																	\
 	} while (0)
 
@@ -2296,7 +2296,7 @@ size_t hp_get_entry_name(hp_entry_t  *entry, char *result_buf, size_t result_len
  *
  * @author mpal
  */
-static inline int hp_filter_entry(uint8 hash_code, char *curr_func)
+static inline int hp_filter_entry(uint8 hash_code, char *curr_func TSRMLS_DC)
 {
 	int exists;
 
@@ -2498,7 +2498,7 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 		}
 	}
 
-	hp_transaction_function_clear();
+	hp_transaction_function_clear(TSRMLS_C);
 }
 
 /**
@@ -2572,7 +2572,7 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 /**
  * Free any items in the free list.
  */
-static void hp_free_the_free_list()
+static void hp_free_the_free_list(TSRMLS_D)
 {
 	hp_entry_t *p = TWG(entry_free_list);
 	hp_entry_t *cur;
@@ -2592,7 +2592,7 @@ static void hp_free_the_free_list()
  *
  * @author kannan
  */
-static hp_entry_t *hp_fast_alloc_hprof_entry()
+static hp_entry_t *hp_fast_alloc_hprof_entry(TSRMLS_D)
 {
 	hp_entry_t *p;
 
@@ -2613,7 +2613,7 @@ static hp_entry_t *hp_fast_alloc_hprof_entry()
  *
  * @author kannan
  */
-static void hp_fast_free_hprof_entry(hp_entry_t *p)
+static void hp_fast_free_hprof_entry(hp_entry_t *p TSRMLS_DC)
 {
 	/* we use/overload the prev_hprof field in the structure to link entries in
 	 * the free list. */
@@ -2742,7 +2742,7 @@ static long get_us_interval(struct timeval *start, struct timeval *end)
  *
  * @author cjiang
  */
-static inline double get_us_from_tsc(uint64 count)
+static inline double get_us_from_tsc(uint64 count TSRMLS_DC)
 {
 	return count / TWG(timebase_factor);
 }
@@ -2842,16 +2842,16 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 
 	/* Get end tsc counter */
 	tsc_end = cycle_timer();
-	wt = get_us_from_tsc(tsc_end - top->tsc_start);
+	wt = get_us_from_tsc(tsc_end - top->tsc_start TSRMLS_CC);
 
 	if (TWG(tideways_flags) & TIDEWAYS_FLAGS_CPU) {
-		cpu = get_us_from_tsc(cpu_timer() - top->cpu_start);
+		cpu = get_us_from_tsc(cpu_timer() - top->cpu_start TSRMLS_CC);
 	}
 
 	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) == 0 && top->span_id >= 0) {
-		double start = get_us_from_tsc(top->tsc_start - TWG(start_time));
-		double end = get_us_from_tsc(tsc_end - TWG(start_time));
-		tw_span_record_duration(top->span_id, start, end);
+		double start = get_us_from_tsc(top->tsc_start - TWG(start_time) TSRMLS_CC);
+		double end = get_us_from_tsc(tsc_end - TWG(start_time) TSRMLS_CC);
+		tw_span_record_duration(top->span_id, start, end TSRMLS_CC);
 	}
 
 	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_HIERACHICAL) > 0) {
@@ -3061,7 +3061,7 @@ ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int 
 
 	ret = _zend_compile_file(file_handle, type TSRMLS_CC);
 
-	TWG(compile_wt) += get_us_from_tsc(cycle_timer() - start);
+	TWG(compile_wt) += get_us_from_tsc(cycle_timer() - start TSRMLS_CC);
 
 	return ret;
 }
@@ -3082,7 +3082,7 @@ ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filena
 
 	ret = _zend_compile_string(source_string, filename TSRMLS_CC);
 
-	TWG(compile_wt) += get_us_from_tsc(cycle_timer() - start);
+	TWG(compile_wt) += get_us_from_tsc(cycle_timer() - start TSRMLS_CC);
 
 	return ret;
 }
@@ -3118,7 +3118,7 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
 		}
 
 		tw_span_create("app", 3 TSRMLS_CC);
-		tw_span_timer_start(0);
+		tw_span_timer_start(0 TSRMLS_CC);
 
 		BEGIN_PROFILING(&TWG(entries), TWG(root), hp_profile_flag, NULL);
 	}
@@ -3156,7 +3156,7 @@ static void hp_stop(TSRMLS_D)
 		END_PROFILING(&TWG(entries), hp_profile_flag, NULL);
 	}
 
-	tw_span_timer_stop(0);
+	tw_span_timer_stop(0 TSRMLS_CC);
 
 	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
 		if ((GC_G(gc_runs) - TWG(gc_runs)) > 0) {
@@ -3171,7 +3171,7 @@ static void hp_stop(TSRMLS_D)
 			tw_span_annotate_long(0, "cwt", TWG(compile_wt) TSRMLS_CC);
 		}
 
-		tw_span_annotate_long(0, "cpu", get_us_from_tsc(cpu_timer() - TWG(cpu_start)) TSRMLS_CC);
+		tw_span_annotate_long(0, "cpu", get_us_from_tsc(cpu_timer() - TWG(cpu_start) TSRMLS_CC) TSRMLS_CC);
 	}
 
 	if (TWG(root)) {
@@ -3308,7 +3308,7 @@ int tw_gc_collect_cycles(void)
 	}
 
 	spanId = tw_span_create("gc", 2 TSRMLS_CC);
-	tw_span_timer_start(spanId);
+	tw_span_timer_start(spanId TSRMLS_CC);
 
 	if (hp_globals.entries) {
 		tw_span_annotate_string(spanId, "title", hp_globals.entries->name_hprof, 1 TSRMLS_CC);
@@ -3316,7 +3316,7 @@ int tw_gc_collect_cycles(void)
 
 	ret = tw_original_gc_collect_cycles();
 
-	tw_span_timer_stop(spanId);
+	tw_span_timer_stop(spanId TSRMLS_CC);
 
 	return ret;
 }
