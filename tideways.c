@@ -585,7 +585,7 @@ PHP_FUNCTION(tideways_span_create)
 		return;
 	}
 
-	RETURN_LONG(tw_span_create(category, category_len));
+	RETURN_LONG(tw_span_create(category, category_len TSRMLS_CC));
 }
 
 PHP_FUNCTION(tideways_get_spans)
@@ -757,7 +757,7 @@ long tw_trace_callback_record_with_cache(char *category, int category_len, char 
 	if (zend_hash_find(TWG(span_cache), summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
 		idx = *idx_ptr;
 	} else {
-		idx = tw_span_create(category, category_len);
+		idx = tw_span_create(category, category_len TSRMLS_CC);
 		zend_hash_update(TWG(span_cache), summary, strlen(summary)+1, &idx, sizeof(long), NULL);
 	}
 #else
@@ -765,13 +765,13 @@ long tw_trace_callback_record_with_cache(char *category, int category_len, char 
 	if (zidx_ptr = zend_hash_str_find(TWG(span_cache), summary, strlen(summary))) {
 		idx = Z_LVAL_P(zidx_ptr);
 	} else {
-		idx = tw_span_create(category, category_len);
+		idx = tw_span_create(category, category_len TSRMLS_CC);
 		ZVAL_LONG(&zidx, idx);
 		zend_hash_str_update(TWG(span_cache), summary, strlen(summary), &zidx);
 	}
 #endif
 
-	tw_span_annotate_string(idx, "title", summary, copy);
+	tw_span_annotate_string(idx, "title", summary, copy TSRMLS_CC);
 
 #if PHP_VERSION_ID >= 70000
 	if (copy == 0) {
@@ -855,8 +855,8 @@ long tw_trace_callback_php_call(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	long idx;
 
-	idx = tw_span_create("php", 3);
-	tw_span_annotate_string(idx, "title", symbol, 1);
+	idx = tw_span_create("php", 3 TSRMLS_CC);
+	tw_span_annotate_string(idx, "title", symbol, 1 TSRMLS_CC);
 
 	return idx;
 }
@@ -962,8 +962,8 @@ long tw_trace_callback_mongo_cursor_io(char *symbol, zend_execute_data *data TSR
 	zval fname, *element;
 	_DECLARE_ZVAL(retval_ptr);
 
-	idx = tw_span_create("mongo", 5);
-	tw_span_annotate_string(idx, "title", symbol, 1);
+	idx = tw_span_create("mongo", 5 TSRMLS_CC);
+	tw_span_annotate_string(idx, "title", symbol, 1 TSRMLS_CC);
 
 	_ZVAL_STRING(&fname, "info");
 
@@ -971,7 +971,7 @@ long tw_trace_callback_mongo_cursor_io(char *symbol, zend_execute_data *data TSR
 		if (Z_TYPE_P(retval_ptr) == IS_ARRAY) {
 			element = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "ns", sizeof("ns"));
 			if (element != NULL) {
-				tw_span_annotate_string(idx, "collection", Z_STRVAL_P(element), 1);
+				tw_span_annotate_string(idx, "collection", Z_STRVAL_P(element), 1 TSRMLS_CC);
 			}
 		}
 
@@ -1008,8 +1008,8 @@ long tw_trace_callback_mongo_cursor_next(char *symbol, zend_execute_data *data T
 
 	zend_update_property_bool(cursor_ce, object, "_tidewaysQueryRun", sizeof("_tidewaysQueryRun") - 1, 1 TSRMLS_CC);
 
-	idx = tw_span_create("mongo", 5);
-	tw_span_annotate_string(idx, "title", symbol, 1);
+	idx = tw_span_create("mongo", 5 TSRMLS_CC);
+	tw_span_annotate_string(idx, "title", symbol, 1 TSRMLS_CC);
 
 	_ZVAL_STRING(&fname, "info");
 
@@ -1017,7 +1017,7 @@ long tw_trace_callback_mongo_cursor_next(char *symbol, zend_execute_data *data T
 		if (Z_TYPE_P(retval_ptr) == IS_ARRAY) {
 			element = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "ns", sizeof("ns"));
 			if (element != NULL) {
-				tw_span_annotate_string(idx, "collection", Z_STRVAL_P(element), 1);
+				tw_span_annotate_string(idx, "collection", Z_STRVAL_P(element), 1 TSRMLS_CC);
 			}
 		}
 
@@ -1044,12 +1044,12 @@ long tw_trace_callback_mongo_collection(char *symbol, zend_execute_data *data TS
 
 	_ZVAL_STRING(&fname, "getName");
 
-	idx = tw_span_create("mongo", 5);
-	tw_span_annotate_string(idx, "title", symbol, 1);
+	idx = tw_span_create("mongo", 5 TSRMLS_CC);
+	tw_span_annotate_string(idx, "title", symbol, 1 TSRMLS_CC);
 
 	if (SUCCESS == _call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
 		if (Z_TYPE_P(retval_ptr) == IS_STRING) {
-			tw_span_annotate_string(idx, "collection", Z_STRVAL_P(retval_ptr), 1);
+			tw_span_annotate_string(idx, "collection", Z_STRVAL_P(retval_ptr), 1 TSRMLS_CC);
 		}
 
 		hp_ptr_dtor(retval_ptr);
@@ -1123,8 +1123,8 @@ long tw_trace_callback_php_controller(char *symbol, zend_execute_data *data TSRM
 {
 	long idx;
 
-	idx = tw_span_create("php.ctrl", 8);
-	tw_span_annotate_string(idx, "title", symbol, 1);
+	idx = tw_span_create("php.ctrl", 8 TSRMLS_CC);
+	tw_span_annotate_string(idx, "title", symbol, 1 TSRMLS_CC);
 
 	return idx;
 }
@@ -1139,10 +1139,10 @@ long tw_trace_callback_doctrine_couchdb_request(char *symbol, zend_execute_data 
 		return -1;
 	}
 
-	idx = tw_span_create("http", 4);
-	tw_span_annotate_string(idx, "method", Z_STRVAL_P(method), 1);
-	tw_span_annotate_string(idx, "url", Z_STRVAL_P(path), 1);
-	tw_span_annotate_string(idx, "service", "couchdb", 1);
+	idx = tw_span_create("http", 4 TSRMLS_CC);
+	tw_span_annotate_string(idx, "method", Z_STRVAL_P(method), 1 TSRMLS_CC);
+	tw_span_annotate_string(idx, "url", Z_STRVAL_P(path), 1 TSRMLS_CC);
+	tw_span_annotate_string(idx, "service", "couchdb", 1 TSRMLS_CC);
 
 	return idx;
 }
@@ -1201,8 +1201,8 @@ long tw_trace_callback_zend1_dispatcher_families_tx(char *symbol, zend_execute_d
 	ret = (char*)emalloc(len);
 	snprintf(ret, len, "%s::%s", _ZCE_NAME(ce), Z_STRVAL_P(argument_element));
 
-	idx = tw_span_create("php.ctrl", 8);
-	tw_span_annotate_string(idx, "title", ret, 0);
+	idx = tw_span_create("php.ctrl", 8 TSRMLS_CC);
+	tw_span_annotate_string(idx, "title", ret, 0 TSRMLS_CC);
 
 #if PHP_VERSION_ID >= 70000
 	efree(ret);
@@ -1315,8 +1315,8 @@ long tw_trace_callback_pgsql_query(char *symbol, zend_execute_data *data TSRMLS_
 		argument_element = ZEND_CALL_ARG(data, i+1);
 
 		if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
-			idx = tw_span_create("sql", 3);
-			tw_span_annotate_string(idx, "sql", Z_STRVAL_P(argument_element), 1);
+			idx = tw_span_create("sql", 3 TSRMLS_CC);
+			tw_span_annotate_string(idx, "sql", Z_STRVAL_P(argument_element), 1 TSRMLS_CC);
 
 			return idx;
 		}
@@ -1406,7 +1406,7 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 		return idx;
 	}
 
-	idx = tw_span_create("doctrine.query", 14);
+	idx = tw_span_create("doctrine.query", 14 TSRMLS_CC);
 
 	query_ce = Z_OBJCE_P(object);
 
@@ -1437,7 +1437,7 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 	tmp = zend_compat_hash_get_current_data_ex(Z_ARRVAL_P(property), &pos);
 
 	if (tmp != NULL && Z_TYPE_P(tmp) == IS_STRING) {
-		tw_span_annotate_string(idx, "title", Z_STRVAL_P(tmp), 1);
+		tw_span_annotate_string(idx, "title", Z_STRVAL_P(tmp), 1 TSRMLS_CC);
 	}
 
 	return idx;
@@ -1492,8 +1492,8 @@ long tw_trace_callback_pdo_stmt_execute(char *symbol, zend_execute_data *data TS
 #else
 	pdo_stmt_t *stmt = (pdo_stmt_t*)zend_object_store_get_object_by_handle(Z_OBJ_HANDLE_P(EX_OBJ(data)) TSRMLS_CC);
 #endif
-	idx = tw_span_create("sql", 3);
-	tw_span_annotate_string(idx, "sql", stmt->query_string, 1);
+	idx = tw_span_create("sql", 3 TSRMLS_CC);
+	tw_span_annotate_string(idx, "sql", stmt->query_string, 1 TSRMLS_CC);
 
 	return idx;
 }
@@ -1523,8 +1523,8 @@ long tw_trace_callback_sql_functions(char *symbol, zend_execute_data *data TSRML
 		return -1;
 	}
 
-	idx = tw_span_create("sql", 3);
-	tw_span_annotate_string(idx, "sql", Z_STRVAL_P(argument_element), 1);
+	idx = tw_span_create("sql", 3 TSRMLS_CC);
+	tw_span_annotate_string(idx, "sql", Z_STRVAL_P(argument_element), 1 TSRMLS_CC);
 
 	return idx;
 }
@@ -1569,8 +1569,8 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 			summary = hp_get_file_summary(Z_STRVAL_P(option), Z_STRLEN_P(option) TSRMLS_CC);
 
 
-			idx = tw_span_create("http", 4);
-			tw_span_annotate_string(idx, "url", summary, 0);
+			idx = tw_span_create("http", 4 TSRMLS_CC);
+			tw_span_annotate_string(idx, "url", summary, 0 TSRMLS_CC);
 			return idx;
 		}
 
@@ -1600,10 +1600,10 @@ long tw_trace_callback_soap_client_dorequest(char *symbol, zend_execute_data *da
 		return idx;
 	}
 
-	idx = tw_span_create("http", 4);
-	tw_span_annotate_string(idx, "url", Z_STRVAL_P(argument), 1);
-	tw_span_annotate_string(idx, "method", "POST", 1);
-	tw_span_annotate_string(idx, "service", "soap", 1);
+	idx = tw_span_create("http", 4 TSRMLS_CC);
+	tw_span_annotate_string(idx, "url", Z_STRVAL_P(argument), 1 TSRMLS_CC);
+	tw_span_annotate_string(idx, "method", "POST", 1 TSRMLS_CC);
+	tw_span_annotate_string(idx, "service", "soap", 1 TSRMLS_CC);
 
 	return idx;
 }
@@ -1622,8 +1622,8 @@ long tw_trace_callback_file_get_contents(char *symbol, zend_execute_data *data T
 		return idx;
 	}
 
-	idx = tw_span_create("http", 4);
-	tw_span_annotate_string(idx, "url", Z_STRVAL_P(argument), 1);
+	idx = tw_span_create("http", 4 TSRMLS_CC);
+	tw_span_annotate_string(idx, "url", Z_STRVAL_P(argument), 1 TSRMLS_CC);
 
 	return idx;
 }
@@ -3117,7 +3117,7 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
 			TWG(cpu_start) = cpu_timer();
 		}
 
-		tw_span_create("app", 3);
+		tw_span_create("app", 3 TSRMLS_CC);
 		tw_span_timer_start(0);
 
 		BEGIN_PROFILING(&TWG(entries), TWG(root), hp_profile_flag, NULL);
@@ -3160,18 +3160,18 @@ static void hp_stop(TSRMLS_D)
 
 	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
 		if ((GC_G(gc_runs) - TWG(gc_runs)) > 0) {
-			tw_span_annotate_long(0, "gc", GC_G(gc_runs) - TWG(gc_runs));
-			tw_span_annotate_long(0, "gcc", GC_G(collected) - TWG(gc_collected));
+			tw_span_annotate_long(0, "gc", GC_G(gc_runs) - TWG(gc_runs) TSRMLS_CC);
+			tw_span_annotate_long(0, "gcc", GC_G(collected) - TWG(gc_collected) TSRMLS_CC);
 		}
 
 		if (TWG(compile_count) > 0) {
-			tw_span_annotate_long(0, "cct", TWG(compile_count));
+			tw_span_annotate_long(0, "cct", TWG(compile_count) TSRMLS_CC);
 		}
 		if (TWG(compile_wt) > 0) {
-			tw_span_annotate_long(0, "cwt", TWG(compile_wt));
+			tw_span_annotate_long(0, "cwt", TWG(compile_wt) TSRMLS_CC);
 		}
 
-		tw_span_annotate_long(0, "cpu", get_us_from_tsc(cpu_timer() - TWG(cpu_start)));
+		tw_span_annotate_long(0, "cpu", get_us_from_tsc(cpu_timer() - TWG(cpu_start)) TSRMLS_CC);
 	}
 
 	if (TWG(root)) {
@@ -3307,11 +3307,11 @@ int tw_gc_collect_cycles(void)
 		return tw_original_gc_collect_cycles();
 	}
 
-	spanId = tw_span_create("gc", 2);
+	spanId = tw_span_create("gc", 2 TSRMLS_CC);
 	tw_span_timer_start(spanId);
 
 	if (hp_globals.entries) {
-		tw_span_annotate_string(spanId, "title", hp_globals.entries->name_hprof, 1);
+		tw_span_annotate_string(spanId, "title", hp_globals.entries->name_hprof, 1 TSRMLS_CC);
 	}
 
 	ret = tw_original_gc_collect_cycles();

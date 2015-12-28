@@ -4,7 +4,7 @@
 
 ZEND_DECLARE_MODULE_GLOBALS(hp)
 
-long tw_span_create(char *category, size_t category_len)
+long tw_span_create(char *category, size_t category_len TSRMLS_DC)
 {
 	zval *span, *starts, *stops;
 	int idx;
@@ -69,7 +69,7 @@ void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 	zend_hash_merge(Z_ARRVAL_PP(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *), 1);
 }
 
-void tw_span_annotate_long(long spanId, char *key, long value)
+void tw_span_annotate_long(long spanId, char *key, long value TSRMLS_DC)
 {
 	zval **span, **span_annotations, *annotation_value, *span_annotations_ptr;
 
@@ -91,7 +91,7 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 	add_assoc_zval_ex(*span_annotations, key, strlen(key)+1, annotation_value);
 }
 
-void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
+void tw_span_annotate_string(long spanId, char *key, char *value, int copy TSRMLS_DC)
 {
 	zval **span, **span_annotations, *span_annotations_ptr;
 	int len;

@@ -4,13 +4,13 @@
 
 ZEND_DECLARE_MODULE_GLOBALS(hp)
 
-long tw_span_create(char *category, size_t category_len)
+long tw_span_create(char *category, size_t category_len TSRMLS_DC)
 {
 	zval span, starts, stops, annotations;
 	int idx;
 	long parent = 0;
 
-	idx = zend_hash_num_elements(hp_globals.spans);
+	idx = zend_hash_num_elements(TWG(spans));
 
 	array_init(&span);
 	array_init(&starts);
@@ -26,7 +26,7 @@ long tw_span_create(char *category, size_t category_len)
 		add_assoc_long(&span, "p", parent);
 	}
 
-	zend_compat_hash_index_update(hp_globals.spans, idx, &span);
+	zend_compat_hash_index_update(TWG(spans), idx, &span);
 
 	return idx;
 }
@@ -35,7 +35,7 @@ void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 {
 	zval *span, *span_annotations;
 
-	span = zend_compat_hash_index_find(hp_globals.spans, spanId);
+	span = zend_compat_hash_index_find(TWG(spans), spanId);
 
 	if (span == NULL) {
 		return;
@@ -57,7 +57,7 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 	zval *span, *span_annotations;
 	_DECLARE_ZVAL(annotation_value);
 
-	span = zend_compat_hash_index_find(hp_globals.spans, spanId);
+	span = zend_compat_hash_index_find(TWG(spans), spanId);
 
 	if (span == NULL) {
 		return;
@@ -84,7 +84,7 @@ void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 {
 	zval *span, *span_annotations;
 
-	span = zend_compat_hash_index_find(hp_globals.spans, spanId);
+	span = zend_compat_hash_index_find(TWG(spans), spanId);
 
 	if (span == NULL) {
 		return;
