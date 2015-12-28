@@ -183,7 +183,11 @@ ZEND_BEGIN_MODULE_GLOBALS(hp)
 	uint64 cpu_start;
 ZEND_END_MODULE_GLOBALS(hp)
 
+#ifdef ZTS
+#define TWG(v) TSRMG(hp_globals_id, zend_hp_globals *, v)
+#else
 #define TWG(v) (hp_globals.v)
+#endif
 
 PHP_MINIT_FUNCTION(tideways);
 PHP_MSHUTDOWN_FUNCTION(tideways);
