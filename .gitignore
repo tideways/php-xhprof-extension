@@ -62,3 +62,4 @@ php5/*.lo
 php7/*.lo
 php5/.libs
 php7/.libs
+/.gdb_history

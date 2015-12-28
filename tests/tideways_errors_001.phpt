@@ -1,5 +1,10 @@
 --TEST--
 Tideways: Fetch Fatal Error Backtrace
+--SKIPIF--
+<?php
+if (PHP_VERSION_ID >= 70000) {
+    die("skip: Dont need error callback overwrite on PHP 7+");
+}
 --FILE--
 <?php
 
