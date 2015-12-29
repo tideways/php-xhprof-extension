@@ -2135,12 +2135,20 @@ void hp_init_profiler_state(TSRMLS_D)
 		hp_ptr_dtor(TWG(stats_count));
 	}
 
+#if PHP_VERSION_ID >= 70000
+	TWG(stats_count) = (zval*)emalloc(sizeof(zval));
+#endif
+
 	_ALLOC_INIT_ZVAL(TWG(stats_count));
 	array_init(TWG(stats_count));
 
 	if (TWG(spans)) {
 		hp_ptr_dtor(TWG(spans));
 	}
+
+#if PHP_VERSION_ID >= 70000
+	TWG(spans) = (zval*)emalloc(sizeof(zval));
+#endif
 
 	_ALLOC_INIT_ZVAL(TWG(spans));
 	array_init(TWG(spans));
@@ -2660,7 +2668,7 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
 	} else {
 #if PHP_VERSION_ID >= 70000
 		ZVAL_LONG(&val, count);
-		zend_compat_hash_update_ptr_const(ht, name, strlen(name), &val);
+		zend_hash_str_update(ht, name, strlen(name), &val);
 #else
 		add_assoc_long(counts, name, count);
 #endif
@@ -2874,11 +2882,12 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 #if PHP_VERSION_ID >= 70000
 		counts = &count_val;
 		array_init(counts);
+		zend_hash_str_update(Z_ARRVAL_P(TWG(stats_count)), symbol, strlen(symbol), counts);
 #else
 		MAKE_STD_ZVAL(counts);
 		array_init(counts);
+		zend_hash_update(Z_ARRVAL_P(TWG(stats_count)), symbol, strlen(symbol)+1, &counts, sizeof(zval*));
 #endif
-		zend_compat_hash_update_ptr_const(Z_ARRVAL_P(TWG(stats_count)), symbol, strlen(symbol), &counts, sizeof(zval*));
 	}
 
 	/* Bump stats in the counts hashtable */

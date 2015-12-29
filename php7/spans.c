@@ -17,7 +17,7 @@ long tw_span_create(char *category, size_t category_len TSRMLS_DC)
 	array_init(&stops);
 	array_init(&annotations);
 
-	_add_assoc_stringl(&span, "n", category, category_len, 1);
+	add_assoc_stringl(&span, "n", category, category_len);
 	add_assoc_zval(&span, "b", &starts);
 	add_assoc_zval(&span, "e", &stops);
 	add_assoc_zval(&span, "a", &annotations);
@@ -26,7 +26,7 @@ long tw_span_create(char *category, size_t category_len TSRMLS_DC)
 		add_assoc_long(&span, "p", parent);
 	}
 
-	zend_compat_hash_index_update(TWG(spans), idx, &span);
+	zend_hash_index_update(Z_ARRVAL_P(TWG(spans)), idx, &span);
 
 	return idx;
 }
@@ -42,13 +42,13 @@ void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 {
 	zval *span, *span_annotations;
 
-	span = zend_compat_hash_index_find(TWG(spans), spanId);
+	span = zend_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
 
 	if (span == NULL) {
 		return;
 	}
 
-	span_annotations = zend_compat_hash_find_const(Z_ARRVAL_P(span), "a", sizeof("a") - 1);
+	span_annotations = zend_hash_str_find(Z_ARRVAL_P(span), "a", sizeof("a") - 1);
 
 	if (span_annotations == NULL) {
 		return;
@@ -64,13 +64,13 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 	zval *span, *span_annotations;
 	zval annotation_value;
 
-	span = zend_compat_hash_index_find(TWG(spans), spanId);
+	span = zend_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
 
 	if (span == NULL) {
 		return;
 	}
 
-	span_annotations = zend_compat_hash_find_const(Z_ARRVAL_P(span), "a", sizeof("a") - 1);
+	span_annotations = zend_hash_str_find(Z_ARRVAL_P(span), "a", sizeof("a") - 1);
 
 	if (span_annotations == NULL) {
 		return;
@@ -86,17 +86,17 @@ void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 {
 	zval *span, *span_annotations;
 
-	span = zend_compat_hash_index_find(TWG(spans), spanId);
+	span = zend_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
 
 	if (span == NULL) {
 		return;
 	}
 
-	span_annotations = zend_compat_hash_find_const(Z_ARRVAL_P(span), "a", sizeof("a") - 1);
+	span_annotations = zend_hash_str_find(Z_ARRVAL_P(span), "a", sizeof("a") - 1);
 
 	if (span_annotations == NULL) {
 		return;
 	}
 
-	_add_assoc_string_ex(span_annotations, key, strlen(key)+1, value, copy);
+	add_assoc_string_ex(span_annotations, key, strlen(key), value);
 }
