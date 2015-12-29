@@ -12,6 +12,13 @@ long tw_span_create(char *category, size_t category_len TSRMLS_DC)
 
 	idx = zend_hash_num_elements(Z_ARRVAL_P(TWG(spans)));
 
+	// Hardcode a limit of 1500 spans for now, Daemon will re-filter again to 1000.
+	// We assume web-requests and non-spammy worker/crons here, need a way to support
+	// very long running scripts at some point.
+	if (idx >= 1500) {
+		return -1;
+	}
+
 	array_init(&span);
 	array_init(&starts);
 	array_init(&stops);
@@ -20,7 +27,6 @@ long tw_span_create(char *category, size_t category_len TSRMLS_DC)
 	add_assoc_stringl(&span, "n", category, category_len);
 	add_assoc_zval(&span, "b", &starts);
 	add_assoc_zval(&span, "e", &stops);
-	add_assoc_zval(&span, "a", &annotations);
 
 	if (parent > 0) {
 		add_assoc_long(&span, "p", parent);
@@ -40,7 +46,7 @@ static int tw_convert_to_string(zval *zv)
 
 void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 {
-	zval *span, *span_annotations;
+	zval *span, *span_annotations, span_annotations_value;
 
 	span = zend_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
 
@@ -51,17 +57,19 @@ void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 	span_annotations = zend_hash_str_find(Z_ARRVAL_P(span), "a", sizeof("a") - 1);
 
 	if (span_annotations == NULL) {
-		return;
+		span_annotations = &span_annotations_value;
+		array_init(span_annotations);
+		add_assoc_zval(span, "a", span_annotations);
 	}
 
 	zend_hash_apply(Z_ARRVAL_P(annotations), tw_convert_to_string TSRMLS_CC);
 
-	zend_compat_hash_merge(Z_ARRVAL_P(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, 1);
+	zend_hash_merge(Z_ARRVAL_P(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, 1);
 }
 
 void tw_span_annotate_long(long spanId, char *key, long value)
 {
-	zval *span, *span_annotations;
+	zval *span, *span_annotations, span_annotations_value;
 	zval annotation_value;
 
 	span = zend_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
@@ -73,7 +81,9 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 	span_annotations = zend_hash_str_find(Z_ARRVAL_P(span), "a", sizeof("a") - 1);
 
 	if (span_annotations == NULL) {
-		return;
+		span_annotations = &span_annotations_value;
+		array_init(span_annotations);
+		add_assoc_zval(span, "a", span_annotations);
 	}
 
 	ZVAL_LONG(&annotation_value, value);
@@ -84,7 +94,7 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 
 void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 {
-	zval *span, *span_annotations;
+	zval *span, *span_annotations, span_annotations_value;
 
 	span = zend_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
 
@@ -95,7 +105,9 @@ void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 	span_annotations = zend_hash_str_find(Z_ARRVAL_P(span), "a", sizeof("a") - 1);
 
 	if (span_annotations == NULL) {
-		return;
+		span_annotations = &span_annotations_value;
+		array_init(span_annotations);
+		add_assoc_zval(span, "a", span_annotations);
 	}
 
 	add_assoc_string_ex(span_annotations, key, strlen(key), value);
