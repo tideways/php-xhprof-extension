@@ -3023,7 +3023,11 @@ static char **hp_strings_in_zval(zval *values)
 	char   **result;
 	size_t   count;
 	size_t   ix = 0;
+#if PHP_VERSION_ID < 70000
 	char  *str;
+#else
+	zend_string *str;
+#endif
 	uint   len;
 	ulong  idx;
 	int    type;
@@ -3065,7 +3069,7 @@ static char **hp_strings_in_zval(zval *values)
 #else
 		ZEND_HASH_FOREACH_KEY_VAL(ht, idx, str, val) {
 			if (str) {
-				result[ix] = estrdup(str);
+				result[ix] = estrdup(ZSTR_VAL(str));
 			} else {
 				result[ix] = estrdup(Z_STRVAL_P(val));
 			}
@@ -3109,15 +3113,15 @@ int tw_gc_collect_cycles(void)
 	int ret;
 	long spanId;
 
-	if ((hp_globals.tideways_flags & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
+	if (TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
 		return tw_original_gc_collect_cycles();
 	}
 
 	spanId = tw_span_create("gc", 2 TSRMLS_CC);
 	tw_span_timer_start(spanId TSRMLS_CC);
 
-	if (hp_globals.entries) {
-		tw_span_annotate_string(spanId, "title", hp_globals.entries->name_hprof, 1 TSRMLS_CC);
+	if (TWG(entries)) {
+		tw_span_annotate_string(spanId, "title", TWG(entries)->name_hprof, 1 TSRMLS_CC);
 	}
 
 	ret = tw_original_gc_collect_cycles();
