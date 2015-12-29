@@ -144,8 +144,8 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define zend_string_copy(s) s
 #define zend_hash_str_update(array, key, len, value) zend_hash_update(array, key, len+1, value, sizeof(zval*), NULL)
 
-#define register_trace_callback(function_name, cb) zend_compat_hash_update_ptr_const(TWG(trace_callbacks), function_name, sizeof(function_name) - 1, &cb, sizeof(tw_trace_callback*));
-#define register_trace_callback_len(function_name, len, cb) zend_compat_hash_update_ptr_const(TWG(trace_callbacks), function_name, len, &cb, sizeof(tw_trace_callback*));
+#define register_trace_callback(function_name, cb) zend_hash_update(TWG(trace_callbacks), function_name, sizeof(function_name), &cb, sizeof(tw_trace_callback*), NULL);
+#define register_trace_callback_len(function_name, len, cb) zend_hash_update(TWG(trace_callbacks), function_name, len+1, &cb, sizeof(tw_trace_callback*), NULL);
 
 #else
 #define EX_OBJ(call) ((call->This.value.obj) ? &(call->This) : NULL)
@@ -169,33 +169,6 @@ typedef size_t strsize_t;
 /* removed/uneeded macros */
 #define TSRMLS_CC
 #endif
-
-static zend_always_inline void zend_compat_hash_merge(HashTable *target, HashTable *source, copy_ctor_func_t pCopyConstructor, zend_bool overwrite)
-{
-#if PHP_VERSION_ID < 70000
-	zend_hash_merge(target, source, pCopyConstructor, NULL, sizeof(zval*), overwrite);
-#else
-	zend_hash_merge(target, source, pCopyConstructor, overwrite);
-#endif
-}
-
-static zend_always_inline void zend_compat_hash_index_update(HashTable *ht, zend_ulong idx, zval *pData)
-{
-#if PHP_VERSION_ID < 70000
-	zend_hash_index_update(ht, idx, &pData, sizeof(zval*), NULL);
-#else
-	zend_hash_index_update(ht, idx, pData);
-#endif
-}
-
-static zend_always_inline void zend_compat_hash_update_ptr_const(HashTable *ht, const char *key, strsize_t len, void *ptr, size_t ptr_size)
-{
-#if PHP_VERSION_ID < 70000
-	zend_hash_update(ht, key, len+1, ptr, ptr_size, NULL);
-#else
-	zend_hash_str_update_ptr(ht, key, len, ptr);
-#endif
-}
 
 static zend_always_inline zval* zend_compat_hash_find_const(HashTable *ht, const char *key, strsize_t len)
 {
@@ -458,189 +431,6 @@ PHP_INI_END()
 /* Init module */
 ZEND_GET_MODULE(tideways)
 
-/**
- * **********************************
- * PHP EXTENSION FUNCTION DEFINITIONS
- * **********************************
- */
-
-/**
- * Start Tideways profiling in hierarchical mode.
- *
- * @param  long $flags  flags for hierarchical mode
- * @return void
- * @author kannan
- */
-PHP_FUNCTION(tideways_enable)
-{
-	zend_long tideways_flags = 0;
-	zval *optional_array = NULL;
-
-	if (TWG(enabled)) {
-		hp_stop(TSRMLS_C);
-	}
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
-				"|lz", &tideways_flags, &optional_array) == FAILURE) {
-		return;
-	}
-
-	hp_parse_options_from_arg(optional_array TSRMLS_CC);
-
-	hp_begin(tideways_flags TSRMLS_CC);
-}
-
-/**
- * Stops Tideways from profiling  and returns the profile info.
- *
- * @param  void
- * @return array  hash-array of Tideways's profile info
- * @author cjiang
- */
-PHP_FUNCTION(tideways_disable)
-{
-	if (!TWG(enabled)) {
-		return;
-	}
-
-	hp_stop(TSRMLS_C);
-
-	RETURN_ZVAL(TWG(stats_count), 1, 0);
-}
-
-PHP_FUNCTION(tideways_transaction_name)
-{
-	if (TWG(transaction_name)) {
-		RETURN_STR_COPY(TWG(transaction_name));
-	}
-}
-
-PHP_FUNCTION(tideways_prepend_overwritten)
-{
-	RETURN_BOOL(TWG(prepend_overwritten));
-}
-
-PHP_FUNCTION(tideways_fatal_backtrace)
-{
-	if (TWG(backtrace) != NULL) {
-		RETURN_ZVAL(TWG(backtrace), 1, 1);
-	}
-}
-
-PHP_FUNCTION(tideways_last_detected_exception)
-{
-	if (TWG(exception )!= NULL) {
-		RETURN_ZVAL(TWG(exception), 1, 0);
-	}
-}
-
-PHP_FUNCTION(tideways_last_fatal_error)
-{
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		return;
-	}
-
-	if (PG(last_error_message)) {
-		array_init(return_value);
-#if PHP_VERSION_ID < 70000
-		add_assoc_long_ex(return_value, "type", sizeof("type"), PG(last_error_type));
-		add_assoc_string_ex(return_value, "message", sizeof("message"), PG(last_error_message), 1);
-		add_assoc_string_ex(return_value, "file", sizeof("file"), PG(last_error_file)?PG(last_error_file):"-", 1 );
-		add_assoc_long_ex(return_value, "line", sizeof("line"), PG(last_error_lineno));
-#else
-		add_assoc_long_ex(return_value, "type", sizeof("type")-1, PG(last_error_type));
-		_add_assoc_string_ex(return_value, "message", sizeof("message"), PG(last_error_message), 1);
-		_add_assoc_string_ex(return_value, "file", sizeof("file"), PG(last_error_file)?PG(last_error_file):"-", 1);
-		add_assoc_long_ex(return_value, "line", sizeof("line")-1, PG(last_error_lineno));
-#endif
-	}
-}
-
-#if PHP_VERSION_ID < 70000
-static int tw_convert_to_string(void *pDest TSRMLS_DC)
-{
-	zval **zv = (zval **) pDest;
-#else
-static int tw_convert_to_string(zval *pDest TSRMLS_DC)
-{
-	zval *zv = pDest;
-#endif
-
-	convert_to_string_ex(zv);
-
-	return ZEND_HASH_APPLY_KEEP;
-}
-
-PHP_FUNCTION(tideways_span_create)
-{
-	char *category = NULL;
-	strsize_t category_len;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &category, &category_len) == FAILURE) {
-		return;
-	}
-
-	if (TWG(enabled )== 0) {
-		return;
-	}
-
-	RETURN_LONG(tw_span_create(category, category_len TSRMLS_CC));
-}
-
-PHP_FUNCTION(tideways_get_spans)
-{
-	if (TWG(spans)) {
-		RETURN_ZVAL(TWG(spans), 1, 0);
-	}
-}
-
-PHP_FUNCTION(tideways_span_timer_start)
-{
-	zend_long spanId;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &spanId) == FAILURE) {
-		return;
-	}
-
-	if (TWG(enabled )== 0) {
-		return;
-	}
-
-	tw_span_timer_start(spanId TSRMLS_CC);
-}
-
-PHP_FUNCTION(tideways_span_timer_stop)
-{
-	zend_long spanId;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &spanId) == FAILURE) {
-		return;
-	}
-
-	if (TWG(enabled )== 0) {
-		return;
-	}
-
-	tw_span_timer_stop(spanId TSRMLS_CC);
-}
-
-PHP_FUNCTION(tideways_span_annotate)
-{
-	zend_long spanId;
-	zval *annotations;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lz", &spanId, &annotations) == FAILURE) {
-		return;
-	}
-
-	// Yes, annotations are still possible when profiler is deactivated!
-	tw_span_annotate(spanId, annotations TSRMLS_CC);
-}
-
-PHP_FUNCTION(tideways_sql_minify)
-{
-	RETURN_EMPTY_STRING();
-}
 
 static void php_hp_init_globals(zend_hp_globals *hp_globals TSRMLS_DC)
 {
@@ -2886,7 +2676,7 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 #else
 		MAKE_STD_ZVAL(counts);
 		array_init(counts);
-		zend_hash_update(Z_ARRVAL_P(TWG(stats_count)), symbol, strlen(symbol)+1, &counts, sizeof(zval*));
+		zend_hash_update(Z_ARRVAL_P(TWG(stats_count)), symbol, strlen(symbol)+1, &counts, sizeof(zval*), NULL);
 #endif
 	}
 
@@ -3432,7 +3222,7 @@ static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cac
 	}
 
 #if PHP_VERSION_ID < 70000
-	zend_compat_hash_update_ptr_const(TWG(trace_watch_callbacks), func, func_len, &twcb, sizeof(tw_watch_callback*));
+	zend_hash_update(TWG(trace_watch_callbacks), func, func_len, &twcb, sizeof(tw_watch_callback*), NULL);
 #else
 	zend_hash_str_update_mem(TWG(trace_watch_callbacks), func, func_len, twcb, sizeof(tw_watch_callback));
 #endif
@@ -3470,4 +3260,188 @@ PHP_FUNCTION(tideways_span_callback)
 #endif
 
 	tideways_add_callback_watch(fci, fcic, func, func_len TSRMLS_CC);
+}
+
+/**
+ * **********************************
+ * PHP EXTENSION FUNCTION DEFINITIONS
+ * **********************************
+ */
+
+/**
+ * Start Tideways profiling in hierarchical mode.
+ *
+ * @param  long $flags  flags for hierarchical mode
+ * @return void
+ * @author kannan
+ */
+PHP_FUNCTION(tideways_enable)
+{
+	zend_long tideways_flags = 0;
+	zval *optional_array = NULL;
+
+	if (TWG(enabled)) {
+		hp_stop(TSRMLS_C);
+	}
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
+				"|lz", &tideways_flags, &optional_array) == FAILURE) {
+		return;
+	}
+
+	hp_parse_options_from_arg(optional_array TSRMLS_CC);
+
+	hp_begin(tideways_flags TSRMLS_CC);
+}
+
+/**
+ * Stops Tideways from profiling  and returns the profile info.
+ *
+ * @param  void
+ * @return array  hash-array of Tideways's profile info
+ * @author cjiang
+ */
+PHP_FUNCTION(tideways_disable)
+{
+	if (!TWG(enabled)) {
+		return;
+	}
+
+	hp_stop(TSRMLS_C);
+
+	RETURN_ZVAL(TWG(stats_count), 1, 0);
+}
+
+PHP_FUNCTION(tideways_transaction_name)
+{
+	if (TWG(transaction_name)) {
+		RETURN_STR_COPY(TWG(transaction_name));
+	}
+}
+
+PHP_FUNCTION(tideways_prepend_overwritten)
+{
+	RETURN_BOOL(TWG(prepend_overwritten));
+}
+
+PHP_FUNCTION(tideways_fatal_backtrace)
+{
+	if (TWG(backtrace) != NULL) {
+		RETURN_ZVAL(TWG(backtrace), 1, 1);
+	}
+}
+
+PHP_FUNCTION(tideways_last_detected_exception)
+{
+	if (TWG(exception )!= NULL) {
+		RETURN_ZVAL(TWG(exception), 1, 0);
+	}
+}
+
+PHP_FUNCTION(tideways_last_fatal_error)
+{
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
+		return;
+	}
+
+	if (PG(last_error_message)) {
+		array_init(return_value);
+#if PHP_VERSION_ID < 70000
+		add_assoc_long_ex(return_value, "type", sizeof("type"), PG(last_error_type));
+		add_assoc_string_ex(return_value, "message", sizeof("message"), PG(last_error_message), 1);
+		add_assoc_string_ex(return_value, "file", sizeof("file"), PG(last_error_file)?PG(last_error_file):"-", 1 );
+		add_assoc_long_ex(return_value, "line", sizeof("line"), PG(last_error_lineno));
+#else
+		add_assoc_long_ex(return_value, "type", sizeof("type")-1, PG(last_error_type));
+		_add_assoc_string_ex(return_value, "message", sizeof("message"), PG(last_error_message), 1);
+		_add_assoc_string_ex(return_value, "file", sizeof("file"), PG(last_error_file)?PG(last_error_file):"-", 1);
+		add_assoc_long_ex(return_value, "line", sizeof("line")-1, PG(last_error_lineno));
+#endif
+	}
+}
+
+#if PHP_VERSION_ID < 70000
+static int tw_convert_to_string(void *pDest TSRMLS_DC)
+{
+	zval **zv = (zval **) pDest;
+#else
+static int tw_convert_to_string(zval *pDest TSRMLS_DC)
+{
+	zval *zv = pDest;
+#endif
+
+	convert_to_string_ex(zv);
+
+	return ZEND_HASH_APPLY_KEEP;
+}
+
+PHP_FUNCTION(tideways_span_create)
+{
+	char *category = NULL;
+	strsize_t category_len;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &category, &category_len) == FAILURE) {
+		return;
+	}
+
+	if (TWG(enabled )== 0) {
+		return;
+	}
+
+	RETURN_LONG(tw_span_create(category, category_len TSRMLS_CC));
+}
+
+PHP_FUNCTION(tideways_get_spans)
+{
+	if (TWG(spans)) {
+		RETURN_ZVAL(TWG(spans), 1, 0);
+	}
+}
+
+PHP_FUNCTION(tideways_span_timer_start)
+{
+	zend_long spanId;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &spanId) == FAILURE) {
+		return;
+	}
+
+	if (TWG(enabled )== 0) {
+		return;
+	}
+
+	tw_span_timer_start(spanId TSRMLS_CC);
+}
+
+PHP_FUNCTION(tideways_span_timer_stop)
+{
+	zend_long spanId;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &spanId) == FAILURE) {
+		return;
+	}
+
+	if (TWG(enabled )== 0) {
+		return;
+	}
+
+	tw_span_timer_stop(spanId TSRMLS_CC);
+}
+
+PHP_FUNCTION(tideways_span_annotate)
+{
+	zend_long spanId;
+	zval *annotations;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lz", &spanId, &annotations) == FAILURE) {
+		return;
+	}
+
+	// Yes, annotations are still possible when profiler is deactivated!
+	tw_span_annotate(spanId, annotations TSRMLS_CC);
+}
+
+PHP_FUNCTION(tideways_sql_minify)
+{
+	RETURN_EMPTY_STRING();
 }
