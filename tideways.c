@@ -1477,9 +1477,9 @@ PHP_RSHUTDOWN_FUNCTION(tideways)
 
 	if (TWG(prepend_overwritten) == 1) {
 		efree(PG(auto_prepend_file));
+		PG(auto_prepend_file) = NULL;
+		TWG(prepend_overwritten) = 0;
 	}
-	PG(auto_prepend_file) = NULL;
-	TWG(prepend_overwritten) = 0;
 
 	return SUCCESS;
 }
