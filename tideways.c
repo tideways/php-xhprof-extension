@@ -1571,9 +1571,9 @@ PHP_RSHUTDOWN_FUNCTION(tideways)
 
 	if (hp_globals.prepend_overwritten == 1) {
 		efree(PG(auto_prepend_file));
+		PG(auto_prepend_file) = NULL;
+		hp_globals.prepend_overwritten = 0;
 	}
-	PG(auto_prepend_file) = NULL;
-	hp_globals.prepend_overwritten = 0;
 
 	return SUCCESS;
 }
