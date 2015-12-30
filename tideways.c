@@ -584,6 +584,10 @@ void tw_span_timer_start(long spanId TSRMLS_DC)
 	zval *span, *starts;
 	double wt;
 
+	if (spanId == -1) {
+		return;
+	}
+
 	span = zend_compat_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
 
 	if (span == NULL) {
@@ -605,6 +609,10 @@ void tw_span_timer_stop(long spanId TSRMLS_DC)
 	zval *span, *stops;
 	double wt;
 
+	if (spanId == -1) {
+		return;
+	}
+
 	span = zend_compat_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
 
 	if (span == NULL) {
@@ -624,6 +632,10 @@ void tw_span_timer_stop(long spanId TSRMLS_DC)
 void tw_span_record_duration(long spanId, double start, double end TSRMLS_DC)
 {
 	zval *span, *timer;
+
+	if (spanId == -1) {
+		return;
+	}
 
 	span = zend_compat_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
 

@@ -10,6 +10,10 @@ long tw_span_create(char *category, size_t category_len TSRMLS_DC)
 	int idx;
 	long parent = 0;
 
+	if (TWG(spans) == NULL) {
+		return -1;
+	}
+
 	idx = zend_hash_num_elements(Z_ARRVAL_P(TWG(spans)));
 
 	// Hardcode a limit of 1500 spans for now, Daemon will re-filter again to 1000.
@@ -48,6 +52,10 @@ void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 {
 	zval *span, *span_annotations, span_annotations_value;
 
+	if (spanId == -1) {
+		return;
+	}
+
 	span = zend_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
 
 	if (span == NULL) {
@@ -72,6 +80,10 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 	zval *span, *span_annotations, span_annotations_value;
 	zval annotation_value;
 
+	if (spanId == -1) {
+		return;
+	}
+
 	span = zend_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
 
 	if (span == NULL) {
@@ -95,6 +107,10 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 {
 	zval *span, *span_annotations, span_annotations_value;
+
+	if (spanId == -1) {
+		return;
+	}
 
 	span = zend_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
 
