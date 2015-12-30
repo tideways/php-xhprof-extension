@@ -1641,6 +1641,7 @@ static void hp_exception_function_clear(TSRMLS_D) {
 
 	if (TWG(exception) != NULL) {
 		hp_ptr_dtor(TWG(exception));
+		TWG(exception) = NULL;
 	}
 }
 
@@ -3349,8 +3350,12 @@ PHP_FUNCTION(tideways_fatal_backtrace)
 
 PHP_FUNCTION(tideways_last_detected_exception)
 {
-	if (TWG(exception )!= NULL) {
+	if (TWG(exception) != NULL) {
+#if PHP_VERSION_ID >= 70000
+		RETURN_ZVAL(TWG(exception), 1, 1);
+#else
 		RETURN_ZVAL(TWG(exception), 1, 0);
+#endif
 	}
 }
 
