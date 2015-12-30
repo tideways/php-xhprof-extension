@@ -2479,29 +2479,6 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
 }
 
 /**
- * Truncates the given timeval to the nearest slot begin, where
- * the slot size is determined by intr
- *
- * @param  tv       Input timeval to be truncated in place
- * @param  intr     Time interval in microsecs - slot width
- * @return void
- * @author veeve
- */
-void hp_trunc_time(struct timeval *tv, uint64 intr)
-{
-	uint64 time_in_micro;
-
-	/* Convert to microsecs and trunc that first */
-	time_in_micro = (tv->tv_sec * 1000000) + tv->tv_usec;
-	time_in_micro /= intr;
-	time_in_micro *= intr;
-
-	/* Update tv */
-	tv->tv_sec  = (time_in_micro / 1000000);
-	tv->tv_usec = (time_in_micro % 1000000);
-}
-
-/**
  * ***********************
  * High precision timer related functions.
  * ***********************
