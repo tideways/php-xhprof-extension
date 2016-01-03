@@ -31,7 +31,7 @@ foo();
 NULL
 NULL
 
-Fatal error: Call to undefined function unknown() in %s/tests/tideways_errors_001.php on line 8
+Fatal error: Call to undefined function unknown() in %s on line 8
 array(2) {
   [0]=>
   array(4) {
