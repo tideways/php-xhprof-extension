@@ -816,13 +816,13 @@ long tw_trace_callback_mongo_cursor_next(char *symbol, zend_execute_data *data T
 	zval *queryRunProperty;
 	zval fname, *element;
 	_DECLARE_ZVAL(retval_ptr);
+	zval *__rv;
 
 	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
 		return idx;
 	}
 
 	cursor_ce = Z_OBJCE_P(object);
-	zval *__rv;
 	queryRunProperty = _zend_read_property(cursor_ce, object, "_tidewaysQueryRun", sizeof("_tidewaysQueryRun")-1, 1, __rv);
 
 	if (queryRunProperty != NULL && Z_TYPE_P(queryRunProperty) != IS_NULL) {
@@ -920,6 +920,7 @@ long tw_trace_callback_pheanstalk(char *symbol, zend_execute_data *data TSRMLS_D
 	zval *object = EX_OBJ(data);
 	zval *property;
 	long idx = -1;
+	zval *__rv;
 
 	if (Z_TYPE_P(object) != IS_OBJECT) {
 		return idx;
@@ -927,7 +928,6 @@ long tw_trace_callback_pheanstalk(char *symbol, zend_execute_data *data TSRMLS_D
 
 	pheanstalk_ce = Z_OBJCE_P(object);
 
-	zval *__rv;
 	property = _zend_read_property(pheanstalk_ce, object, "_using", sizeof("_using") - 1, 1, __rv);
 
 	if (property != NULL && Z_TYPE_P(property) == IS_STRING) {
@@ -1155,6 +1155,7 @@ long tw_trace_callback_smarty3_template(char *symbol, zend_execute_data *data TS
 	zend_class_entry *smarty_ce;
 	char *template;
 	size_t template_len;
+	zval *__rv;
 
 	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
 		template = Z_STRVAL_P(argument_element);
@@ -1167,7 +1168,6 @@ long tw_trace_callback_smarty3_template(char *symbol, zend_execute_data *data TS
 
 		smarty_ce = Z_OBJCE_P(object);
 
-		zval *__rv;
 		argument_element = _zend_read_property(smarty_ce, object, "template_resource", sizeof("template_resource") - 1, 1, __rv);
 
 		if (Z_TYPE_P(argument_element) != IS_STRING) {
@@ -1187,6 +1187,7 @@ long tw_trace_callback_doctrine_persister(char *symbol, zend_execute_data *data 
 	zval *property;
 	zend_class_entry *persister_ce, *metadata_ce;
 	zval *object = EX_OBJ(data);
+	zval *__rv;
 
 	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
 		return -1;
@@ -1194,7 +1195,6 @@ long tw_trace_callback_doctrine_persister(char *symbol, zend_execute_data *data 
 
 	persister_ce = Z_OBJCE_P(object);
 
-	zval *__rv;
 	property = _zend_read_property(persister_ce, object, "class", sizeof("class") - 1, 1, __rv);
 	if (property == NULL) {
 		property = _zend_read_property(persister_ce, object, "_class", sizeof("_class") - 1, 1, __rv);
@@ -1407,13 +1407,15 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 
 long tw_trace_callback_soap_client_dorequest(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
+	char *summary;
+	zval *argument;
+	long idx = -1;
+
 	if (ZEND_CALL_NUM_ARGS(data) < 2) {
 		return -1;
 	}
 
-	char *summary;
-	zval *argument = ZEND_CALL_ARG(data, 2);
-	long idx = -1;
+	argument = ZEND_CALL_ARG(data, 2);
 
 	if (Z_TYPE_P(argument) != IS_STRING) {
 		return idx;
@@ -1609,13 +1611,13 @@ EMPTY_SWITCH_DEFAULT_CASE()
  */
 static void hp_parse_options_from_arg(zval *args TSRMLS_DC)
 {
+	zval *zresult = NULL;
+
 	hp_clean_profiler_options_state(TSRMLS_C);
 
 	if (args == NULL) {
 		return;
 	}
-
-	zval  *zresult = NULL;
 
 	zresult = hp_zval_at_key("ignored_functions", sizeof("ignored_functions"), args);
 
@@ -1664,11 +1666,11 @@ static void hp_transaction_function_clear(TSRMLS_D) {
 
 static inline hp_function_map *hp_function_map_create(char **names)
 {
+	hp_function_map *map;
+
 	if (names == NULL) {
 		return NULL;
 	}
-
-	hp_function_map *map;
 
 	map = emalloc(sizeof(hp_function_map));
 	map->names = names;
@@ -2286,13 +2288,13 @@ static void hp_detect_exception(char *func_name, zend_execute_data *data TSRMLS_
 
 static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS_DC)
 {
+	zval *argument_element;
+
 	if (!TWG(transaction_function) ||
 		TWG(transaction_name) ||
 		strcmp(ret, ZSTR_VAL(TWG(transaction_function))) != 0) {
 		return;
 	}
-
-	zval *argument_element;
 
 	if (strcmp(ret, "Zend_Controller_Action::dispatch") == 0 ||
 			   strcmp(ret, "Enlight_Controller_Action::dispatch") == 0 ||
