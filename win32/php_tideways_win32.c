@@ -19,7 +19,7 @@
 #include <Winbase.h>
 #include <errno.h>
 #if 1
-#include "php_uprofiler_win32.h"
+#include "php_tideways_win32.h"
 
 int getrusage(int who, struct rusage * rusage)
 {
