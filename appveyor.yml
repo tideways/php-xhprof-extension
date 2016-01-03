@@ -59,7 +59,7 @@ test_script:
     - echo "phpize"
     - c:\projects\php-devpack\phpize --clean
     - echo "./configure"
-    - configure --enable-tideways
+    - configure --enable-tideways=shared
     - echo "make"
     - nmake 2> compile-errors.log 1>compile.log
     - echo "make test"
