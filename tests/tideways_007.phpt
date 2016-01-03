@@ -202,20 +202,22 @@ test_call_user_func::__construct==>foo  : ct=       1; wt=*;
 Part 2b: Standard profile without parameters
 hello: user_func test
 Part 2b output:
+call_user_func==>foo                    : ct=       1; wt=*;
 foo==>bar                               : ct=       2; wt=*;
 main()                                  : ct=       1; wt=*;
 main()==>test_call_user_func::__construct: ct=       1; wt=*;
 main()==>tideways_disable               : ct=       1; wt=*;
-test_call_user_func::__construct==>foo  : ct=       1; wt=*;
+test_call_user_func::__construct==>call_user_func: ct=       1; wt=*;
 
 Part 2c: Standard profile with empty array of ignored functions
 hello: user_func test
 Part 2c output:
+call_user_func==>foo                    : ct=       1; wt=*;
 foo==>bar                               : ct=       2; wt=*;
 main()                                  : ct=       1; wt=*;
 main()==>test_call_user_func::__construct: ct=       1; wt=*;
 main()==>tideways_disable               : ct=       1; wt=*;
-test_call_user_func::__construct==>foo  : ct=       1; wt=*;
+test_call_user_func::__construct==>call_user_func: ct=       1; wt=*;
 
 Part 3: Ignore call_user_func_array
 hello: calling foo_array
@@ -249,20 +251,22 @@ test_my_call_user_func_array_safe==>is_callable: ct=       1; mu=*; pmu=*; wt=*;
 Part 5b: Profile call_user_func_array and my_call_user_func_array_safe
 hello: my_user_func_array_safetest
 Part 5b output:
+call_user_func_array==>foo_array        : ct=       1; mu=*; pmu=*; wt=*;
 foo_array==>bar                         : ct=       2; mu=*; pmu=*; wt=*;
 main()                                  : ct=       1; mu=*; pmu=*; wt=*;
 main()==>test_my_call_user_func_array_safe: ct=       1; mu=*; pmu=*; wt=*;
 main()==>tideways_disable               : ct=       1; mu=*; pmu=*; wt=*;
-my_call_user_func_array_safe==>foo_array: ct=       1; mu=*; pmu=*; wt=*;
+my_call_user_func_array_safe==>call_user_func_array: ct=       1; mu=*; pmu=*; wt=*;
 my_call_user_func_array_safe==>is_callable: ct=       1; mu=*; pmu=*; wt=*;
 test_my_call_user_func_array_safe==>my_call_user_func_array_safe: ct=       1; mu=*; pmu=*; wt=*;
 
 Part 5c: Only ignore call_user_func_array
 hello: my_user_func_array_safetest
 Part 5c output:
+call_user_func_array==>foo_array        : ct=       1; mu=*; pmu=*; wt=*;
 foo_array==>bar                         : ct=       2; mu=*; pmu=*; wt=*;
 main()                                  : ct=       1; mu=*; pmu=*; wt=*;
 main()==>test_my_call_user_func_array_safe: ct=       1; mu=*; pmu=*; wt=*;
 main()==>tideways_disable               : ct=       1; mu=*; pmu=*; wt=*;
-test_my_call_user_func_array_safe==>foo_array: ct=       1; mu=*; pmu=*; wt=*;
+test_my_call_user_func_array_safe==>call_user_func_array: ct=       1; mu=*; pmu=*; wt=*;
 test_my_call_user_func_array_safe==>is_callable: ct=       1; mu=*; pmu=*; wt=*;
