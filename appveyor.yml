@@ -53,6 +53,8 @@ install:
   - 'echo extension=%APPVEYOR_BUILD_FOLDER%\Release_TS\php_tideways.dll >> php.ini'
   - 'echo extension=php_pdo_sqlite.dll >> php.ini'
   - 'set PATH=%cd%;%PATH%'
+  - cd c:\projects\tideways
+  - appveyor DownloadFile https://phar.phpunit.de/phpunit-4.8.15.phar
 
 test_script:
     - cd c:\projects\tideways
@@ -63,8 +65,8 @@ test_script:
     - configure --enable-tideways=shared
     - echo "make"
     - nmake 2> compile-errors.log 1>compile.log
-    #- echo "make test"
-    #- nmake test 1> test-result.log
+    - echo "make test"
+    - php phpunit.phar tests/
 
 on_failure:
   - 'dir'
