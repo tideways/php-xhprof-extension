@@ -1,3 +1,4 @@
+build: false
 environment:
   BUILD_PLATFORM: x86
   PHP_VC: 11
@@ -29,9 +30,13 @@ install:
 test_script:
     - cd c:\projects\tideways
     - Setlocal EnableDelayedExpansion
+    - echo "phpize"
     - phpize --clean
+    - echo "./configure"
     - configure --enable-tideways
+    - echo "make"
     - nmake 2> compile-errors.log 1>compile.log
+    - echo "make test"
     - php run-tests.php
 
 on_failure:
