@@ -31,7 +31,7 @@ test_script:
     - cd c:\projects\tideways
     - Setlocal EnableDelayedExpansion
     - echo "phpize"
-    - phpize --clean
+    - c:\projects\php-devpack\phpize --clean
     - echo "./configure"
     - configure --enable-tideways
     - echo "make"
@@ -41,5 +41,6 @@ test_script:
 
 on_failure:
   - 'dir'
+  - 'dir c:\projects\php-devpack'
   - 'type compile-errors.log'
   - 'type compile.log'
