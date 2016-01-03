@@ -37,7 +37,6 @@ function invoke_all() {
 tideways_enable();
 invoke_all();
 $output = tideways_disable();
-$tolerance = defined('PHP_WINDOWS_VERSION_MAJOR') ? 0.6 : 0.25;
 
 // verify output
 
@@ -45,7 +44,8 @@ function verify($expected, $actual, $description) {
 
   echo "Verifying ${description}...\n";
 
-  // 25% tolerance
+  // 25% tolerance or 60% on windows (ieks?)
+  $tolerance = defined('PHP_WINDOWS_VERSION_MAJOR') ? 0.6 : 0.25;
   $range_low = ($expected * (1-$tolerance));
   $range_high = ($expected * (1+$tolerance));
 

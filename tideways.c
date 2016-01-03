@@ -2504,20 +2504,19 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
  */
 static uint64 cycle_timer() {
 #if defined(PHP_WIN32)
-   static LARGE_INTEGER freq, start;
-   LARGE_INTEGER count;
+	LARGE_INTEGER StartingTime;
+	LARGE_INTEGER Frequency;
 
-   if (!QueryPerformanceCounter(&count)) {
-      zend_error(E_ERROR, "QueryPerformanceCounter");
-   }
-
-   if (!freq.QuadPart) { // one time initialization
-      if (!QueryPerformanceFrequency(&freq)) {
+	if (!QueryPerformanceFrequency(&Frequency)) {
 		zend_error(E_ERROR, "QueryPerformanceFrequency");
-	  }
-      start = count;
-   }
-   return (double)(count.QuadPart - start.QuadPart) * 1000000 / freq.QuadPart;
+	}
+	if (!QueryPerformanceCounter(&StartingTime)) {
+		zend_error(E_ERROR, "QueryPerformanceCounter");
+	}
+
+	StartingTime.QuadPart *= 1000000;
+	StartingTime.QuadPart /= Frequency.QuadPart;
+	return StartingTime.QuadPart;
 #else
 #ifdef __APPLE__
 	return mach_absolute_time();
