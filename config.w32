@@ -18,7 +18,7 @@ if (PHP_TIDEWAYS == "yes") {
     EXTENSION('tideways', 'spans.c');
     configure_module_dirname = old_conf_dir;
 
-    ADD_SOURCES(configure_module_dirname, "tideways.c");
     ADD_SOURCES(configure_module_dirname + "/win32", "php_tideways_win32.c");
+    ADD_SOURCES(configure_module_dirname, "tideways.c");
 	AC_DEFINE('HAVE_TIDEWAYS', 1, 'Have tideways support');
 }
