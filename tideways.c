@@ -390,11 +390,11 @@ zend_function_entry tideways_functions[] = {
 	{NULL, NULL, NULL}
 };
 
+ZEND_DECLARE_MODULE_GLOBALS(hp)
+
 /* Callback functions for the Tideways extension */
 zend_module_entry tideways_module_entry = {
-#if ZEND_MODULE_API_NO >= 20010901
 	STANDARD_MODULE_HEADER,
-#endif
 	"tideways",                        /* Name of the extension */
 	tideways_functions,                /* List of functions exposed */
 	PHP_MINIT(tideways),               /* Module init callback */
@@ -402,13 +402,13 @@ zend_module_entry tideways_module_entry = {
 	PHP_RINIT(tideways),               /* Request init callback */
 	PHP_RSHUTDOWN(tideways),           /* Request shutdown callback */
 	PHP_MINFO(tideways),               /* Module info callback */
-#if ZEND_MODULE_API_NO >= 20010901
 	TIDEWAYS_VERSION,
-#endif
-	STANDARD_MODULE_PROPERTIES
+	PHP_MODULE_GLOBALS(hp),   /* globals descriptor */
+	PHP_GINIT(hp),            /* globals ctor */
+	PHP_GSHUTDOWN(hp),        /* globals dtor */
+	NULL,                      /* post deactivate */
+	STANDARD_MODULE_PROPERTIES_EX
 };
-
-ZEND_DECLARE_MODULE_GLOBALS(hp)
 
 PHP_INI_BEGIN()
 
@@ -431,9 +431,11 @@ PHP_INI_END()
 /* Init module */
 ZEND_GET_MODULE(tideways)
 
-
-static void php_hp_init_globals(zend_hp_globals *hp_globals TSRMLS_DC)
+PHP_GINIT_FUNCTION(hp)
 {
+	hp_globals->enabled = 0;
+	hp_globals->ever_enabled = 0;
+	hp_globals->tideways_flags = 0;
 	hp_globals->transaction_function = NULL;
 	hp_globals->transaction_name = NULL;
 	hp_globals->exception_function = NULL;
@@ -442,9 +444,15 @@ static void php_hp_init_globals(zend_hp_globals *hp_globals TSRMLS_DC)
 	hp_globals->spans = NULL;
 	hp_globals->backtrace = NULL;
 	hp_globals->exception = NULL;
+	hp_globals->filtered_functions = NULL;
+	hp_globals->entries = NULL;
+	hp_globals->root = NULL;
+	hp_globals->trace_watch_callbacks = NULL;
+	hp_globals->trace_callbacks = NULL;
+	hp_globals->span_cache = NULL;
 }
 
-static void php_hp_shutdown_globals(zend_hp_globals *hp_globals)
+PHP_GSHUTDOWN_FUNCTION(hp)
 {
 }
 
@@ -457,7 +465,6 @@ PHP_MINIT_FUNCTION(tideways)
 {
 	int i;
 
-	ZEND_INIT_MODULE_GLOBALS(hp, php_hp_init_globals, php_hp_shutdown_globals);
 	REGISTER_INI_ENTRIES();
 
 	hp_register_constants(INIT_FUNC_ARGS_PASSTHRU);
