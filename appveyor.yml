@@ -7,6 +7,11 @@ environment:
 os: Windows Server 2012
 clone_folder: c:\projects\tideways
 
+init:
+    - SET PATH=c:\php;%PATH%
+    - SET PHP=1
+    - SET ANSICON=121x90 (121x90)
+
 install:
     - IF EXIST c:\php (SET PHP=0) ELSE (mkdir c:\php)
     - cd c:\php
