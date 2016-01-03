@@ -1976,9 +1976,6 @@ void hp_clean_profiler_state(TSRMLS_D)
 	TWG(ever_enabled) = 0;
 
 	hp_clean_profiler_options_state(TSRMLS_C);
-
-	hp_function_map_clear(TWG(filtered_functions));
-	TWG(filtered_functions) = NULL;
 }
 
 static void hp_transaction_name_clear(TSRMLS_D)
