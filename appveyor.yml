@@ -73,4 +73,4 @@ on_failure:
   - 'type compile.log'
 
 artifacts:
-  - path: "c:\projects\tideways\Release_TS\php_tideways.dll"
+  - path: Release_TS\php_tideways.dll
