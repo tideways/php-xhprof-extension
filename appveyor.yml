@@ -66,7 +66,7 @@ test_script:
     - echo "make"
     - nmake 2> compile-errors.log 1>compile.log
     - echo "make test"
-    - php phpunit.phar tests/
+    - php phpunit-4.8.15.phar tests/
 
 on_failure:
   - 'dir'
