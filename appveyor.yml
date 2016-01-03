@@ -70,11 +70,8 @@ test_script:
 
 on_failure:
   - 'dir'
-  - 'dir c:\projects\php-devpack'
-  - 'type Makefile'
   - 'type compile-errors.log'
   - 'type compile.log'
-  - 'type test-result.log'
 
 artifacts:
   - path: Release_TS\php_tideways.dll

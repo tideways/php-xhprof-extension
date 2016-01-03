@@ -19,7 +19,7 @@ array(4) {
   ["message"]=>
   string(32) "Call to undefined function foo()"
   ["file"]=>
-  string(%d) "%s/tests/tideways_errors_004.php"
+  string(%d) "%stideways_errors_004.php"
   ["line"]=>
   int(7)
 }

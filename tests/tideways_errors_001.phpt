@@ -17,7 +17,7 @@ function bar() {
 }
 
 register_shutdown_function(function () {
-    var_dump(tideways_fatal_backtrace());
+    var_dump(array_slice(tideways_fatal_backtrace(), 0, 2));
 });
 
 var_dump(tideways_fatal_backtrace()); // before enabled
