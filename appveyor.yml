@@ -63,8 +63,8 @@ test_script:
     - configure --enable-tideways=shared
     - echo "make"
     - nmake 2> compile-errors.log 1>compile.log
-    - echo "make test"
-    - nmake test 1> test-result.log
+    #- echo "make test"
+    #- nmake test 1> test-result.log
 
 on_failure:
   - 'dir'
