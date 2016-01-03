@@ -1,5 +1,8 @@
 --TEST--
 Tideways: Test excluding call_user_func and similar functions
+--SKIPIF--
+<?php
+if (PHP_VERSION_ID >= 70000) echo "skip: PHP 5 required\n";
 --FILE--
 <?php
 
