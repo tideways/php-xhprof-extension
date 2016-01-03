@@ -1,6 +1,6 @@
 ARG_ENABLE("tideways", "whether to enable tideways support", "no");
 
-if (PHP_UPROFILER == "yes") {
+if (PHP_TIDEWAYS == "yes") {
 	EXTENSION("tideways", "tideways.c");
     var dll = get_define('PHPDLL');
     var old_conf_dir = configure_module_dirname;
