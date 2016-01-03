@@ -24,7 +24,7 @@ install:
 test_script:
     - cd c:\projects\tideways
     - Setlocal EnableDelayedExpansion
-    - %PHP_DEVPACK%\\phpize --clean
+    - %PHP_DEVPACK%\phpize --clean
     - configure --enable-tideways
     - nmake 2> compile-errors.log 1>compile.log
     - php run-tests.php
