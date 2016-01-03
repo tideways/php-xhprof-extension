@@ -49,8 +49,9 @@ install:
   - '%PHP_SDK%\bin\phpsdk_setvars'
   - 'cd %APPVEYOR_BUILD_FOLDER%\..\php'
   - 'echo extension_dir=%APPVEYOR_BUILD_FOLDER%\..\php\ext > php.ini'
-  - 'echo extension=%APPVEYOR_BUILD_FOLDER%\ext\Release_TS\php_test.dll >> php.ini'
+  - 'echo extension=%APPVEYOR_BUILD_FOLDER%\Release_TS\php_tideways.dll >> php.ini'
   - 'echo extension=php_pdo_sqlite.dll >> php.ini'
+  - 'echo extension=php_tideways.dll >> php.ini'
   - 'set PATH=%cd%;%PATH%'
 
 test_script:
@@ -70,3 +71,6 @@ on_failure:
   - 'dir c:\projects\php-devpack'
   - 'type compile-errors.log'
   - 'type compile.log'
+
+artifacts:
+  - path: "c:\projects\tideways\Release_TS\php_tideways.dll"
