@@ -6,7 +6,7 @@ XHProf: Transaction Name Detection in Hierachical Profiling Mode
 use Symfony\Component\HttpKernel\Controller\ControllerResolver;
 use Zend\MVC\Controller\ControllerManager;
 
-require "tideways_023_classes.php";
+require __DIR__ . "/tideways_023_classes.php";
 
 abstract class Zend_Controller_Action {
     public function dispatch($method)
