@@ -24,8 +24,6 @@ extern zend_module_entry tideways_module_entry;
 
 #ifdef PHP_WIN32
 #define PHP_TIDEWAYS_API __declspec(dllexport)
-#include "win32/php_tideways_win32.h"
-#include "win32/php_tideways_win32.c"
 #else
 #define PHP_TIDEWAYS_API
 #endif
