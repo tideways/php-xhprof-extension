@@ -1203,50 +1203,46 @@ long tw_trace_callback_doctrine_persister(char *symbol, zend_execute_data *data 
 
 long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
-	zval *property, *tmp;
-	zend_class_entry *query_ce, *rsm_ce;
+	zval *property;
+	zend_class_entry *query_ce;
 	zval fname;
-	char *summary;
-	long idx = -1;
+	_DECLARE_ZVAL(retval_ptr);
 	zval *object = EX_OBJ(data);
-	HashPosition pos;
+	char *summary, *className;
+	long idx = -1;
+	int keepQuery = 0;
 
 	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
+		printf("NULL!");
 		return idx;
 	}
-
-	idx = tw_span_create("doctrine.query", 14 TSRMLS_CC);
 
 	query_ce = Z_OBJCE_P(object);
+	className = _ZCE_NAME(query_ce);
 
-	zval *__rv;
-	property = _zend_read_property(query_ce, object, "_resultSetMapping", sizeof("_resultSetMapping") - 1, 1, __rv);
-
-	if (property == NULL) {
-		property = _zend_read_property(query_ce, object, "resultSetMapping", sizeof("resultSetMapping") - 1, 1, __rv);
-	}
-
-	if (property == NULL || Z_TYPE_P(property) != IS_OBJECT) {
+	if (strcmp(className, "Doctrine\\ORM\\Query") == 0) {
+		_ZVAL_STRING(&fname, "getDQL");
+		keepQuery = 1;
+	} else if (strcmp(className, "Doctrine\\ORM\\NativeQuery") == 0) {
+		_ZVAL_STRING(&fname, "getSQL");
+	} else {
 		return idx;
 	}
 
-	rsm_ce = Z_OBJCE_P(property);
-	property = _zend_read_property(rsm_ce, property, "aliasMap", sizeof("aliasMap")-1, 1, __rv);
+	if (SUCCESS == _call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
+		if (Z_TYPE_P(retval_ptr) != IS_STRING) {
+			return idx;
+		}
 
-	if (property == NULL || Z_TYPE_P(property) != IS_ARRAY) {
-		return idx;
-	}
+		idx = tw_span_create("doctrine.query", 14 TSRMLS_CC);
+		if (keepQuery) {
+			tw_span_annotate_string(idx, "title", "DQL", 1 TSRMLS_CC);
+			tw_span_annotate_string(idx, "sql", Z_STRVAL_P(retval_ptr), 1 TSRMLS_CC);
+		} else {
+			tw_span_annotate_string(idx, "title", "Native", 1 TSRMLS_CC);
+		}
 
-	if (zend_hash_num_elements(Z_ARRVAL_P(property)) == 0) {
-		return idx;
-	}
-
-	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(property), &pos);
-
-	tmp = zend_compat_hash_get_current_data_ex(Z_ARRVAL_P(property), &pos);
-
-	if (tmp != NULL && Z_TYPE_P(tmp) == IS_STRING) {
-		tw_span_annotate_string(idx, "title", Z_STRVAL_P(tmp), 1 TSRMLS_CC);
+		zval_ptr_dtor(&retval_ptr);
 	}
 
 	return idx;
@@ -1775,8 +1771,8 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Doctrine\\ORM\\Persisters\\Entity\\BasicEntityPersister::load", cb);
 	register_trace_callback("Doctrine\\ORM\\Persisters\\Entity\\BasicEntityPersister::loadAll", cb);
 
-	//cb = tw_trace_callback_doctrine_query;
-	//register_trace_callback("Doctrine\\ORM\\AbstractQuery::execute", cb);
+	cb = tw_trace_callback_doctrine_query;
+	register_trace_callback("Doctrine\\ORM\\AbstractQuery::execute", cb);
 
 	cb = tw_trace_callback_doctrine_couchdb_request;
 	register_trace_callback("Doctrine\\CouchDB\\HTTP\\SocketClient::request", cb);

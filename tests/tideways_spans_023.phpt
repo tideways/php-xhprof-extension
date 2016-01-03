@@ -36,6 +36,6 @@ tideways_disable();
 app: 1 timers - 
 doctrine.load: 2 timers - title=Foo
 doctrine.load: 1 timers - title=Bar
-doctrine.query: 1 timers - title=Foo\Bar\Baz
-doctrine.query: 1 timers - title=Foo\Bar\Baz
-doctrine.query: 1 timers - title=Foo\Bar\Baz
+doctrine.query: 1 timers - sql=SELECT f FROM Foo\Bar\Baz title=DQL
+doctrine.query: 1 timers - sql=SELECT f FROM Foo\Bar\Baz title=DQL
+doctrine.query: 1 timers - title=Native
