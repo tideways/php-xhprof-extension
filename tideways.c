@@ -691,6 +691,13 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 	zend_fcall_info_cache fcic = empty_fcall_info_cache;
 	int args_len = ZEND_CALL_NUM_ARGS(data);
 	zval *object = EX_OBJ(data);
+	_DECLARE_ZVAL(retval);
+	_DECLARE_ZVAL(context);
+	_DECLARE_ZVAL(zargs);
+	zval *params[1];
+	zend_error_handling zeh;
+	int i;
+	long idx;
 
 	if (TWG(trace_watch_callbacks) == NULL) {
 		return -1;
@@ -704,12 +711,6 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 
 	if (twcb) {
 #endif
-		_DECLARE_ZVAL(retval);
-		_DECLARE_ZVAL(context);
-		_DECLARE_ZVAL(zargs);
-		zval *params[1];
-		zend_error_handling zeh;
-		int i;
 
 		_ALLOC_INIT_ZVAL(context);
 		array_init(context);
@@ -761,7 +762,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 		hp_ptr_dtor(context);
 		hp_ptr_dtor(zargs);
 
-		long idx = -1;
+		idx = -1;
 
 		if (retval) {
 			if (Z_TYPE_P(retval) == IS_LONG) {
