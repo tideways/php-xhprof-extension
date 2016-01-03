@@ -37,7 +37,7 @@ function invoke_all() {
 tideways_enable();
 invoke_all();
 $output = tideways_disable();
-$tolerance = isset(PHP_WINDOWS_VERSION_MAJOR) ? 0.6 : 0.25;
+$tolerance = defined('PHP_WINDOWS_VERSION_MAJOR') ? 0.6 : 0.25;
 
 // verify output
 
