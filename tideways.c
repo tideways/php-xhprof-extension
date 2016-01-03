@@ -1362,6 +1362,7 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 	char *summary;
 	long idx, *idx_ptr;
 	zval fname, *opt;
+	zval ***params_array;
 	_DECLARE_ZVAL(retval_ptr);
 
 	if (argument == NULL || Z_TYPE_P(argument) != IS_RESOURCE) {
@@ -1371,7 +1372,6 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 	_ZVAL_STRING(&fname, "curl_getinfo");
 
 #if PHP_VERSION_ID < 70000
-	zval ***params_array;
 	params_array = (zval ***) emalloc(sizeof(zval **));
 	params_array[0] = &argument;
 
@@ -1667,6 +1667,7 @@ static void hp_transaction_function_clear(TSRMLS_D) {
 static inline hp_function_map *hp_function_map_create(char **names)
 {
 	hp_function_map *map;
+	int i = 0;
 
 	if (names == NULL) {
 		return NULL;
@@ -1677,7 +1678,6 @@ static inline hp_function_map *hp_function_map_create(char **names)
 
 	memset(map->filter, 0, TIDEWAYS_FILTERED_FUNCTION_SIZE);
 
-	int i = 0;
 	for(; names[i] != NULL; i++) {
 		char *str  = names[i];
 		uint8 hash = hp_inline_hash(str);
@@ -2301,10 +2301,11 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 			   strcmp(ret, "Mage_Core_Controller_Varien_Action::dispatch") == 0 ||
 			   strcmp(ret, "Illuminate\\Routing\\Controller::callAction") == 0) {
 		zval *obj = EX_OBJ(data);
-		argument_element = ZEND_CALL_ARG(data, 1);
 		zend_class_entry *ce;
 		int len;
 		char *ctrl;
+
+		argument_element = ZEND_CALL_ARG(data, 1);
 
 		if (Z_TYPE_P(argument_element) == IS_STRING) {
 			ce = Z_OBJCE_P(obj);
@@ -2339,13 +2340,13 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 	const char        *cls = NULL;
 	char              *ret = NULL;
 	zend_function      *curr_func;
+	const char        *func = NULL;
 
 	if (!data) {
 		return NULL;
 	}
 
 #if PHP_VERSION_ID < 70000
-	const char        *func = NULL;
 	curr_func = data->function_state.function;
 	func = curr_func->common.function_name;
 
@@ -2859,11 +2860,12 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
  */
 ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int type TSRMLS_DC)
 {
+	zend_op_array  *ret;
+
 	if (!TWG(enabled) || (TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_COMPILE) > 0) {
 		return _zend_compile_file(file_handle, type TSRMLS_CC);
 	}
 
-	zend_op_array  *ret;
 	uint64 start = cycle_timer();
 
 	TWG(compile_count)++;
@@ -2880,11 +2882,12 @@ ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int 
  */
 ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filename TSRMLS_DC)
 {
+	zend_op_array  *ret;
+
 	if (!TWG(enabled) || (TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_COMPILE) > 0) {
 		return _zend_compile_string(source_string, filename TSRMLS_CC);
 	}
 
-	zend_op_array  *ret;
 	uint64 start = cycle_timer();
 
 	TWG(compile_count)++;
