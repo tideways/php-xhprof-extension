@@ -3212,7 +3212,7 @@ static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cac
 	}
 
 #if PHP_VERSION_ID < 70000
-	zend_hash_update(TWG(trace_watch_callbacks), func, func_len, &twcb, sizeof(tw_watch_callback*), NULL);
+	zend_hash_update(TWG(trace_watch_callbacks), func, func_len+1, &twcb, sizeof(tw_watch_callback*), NULL);
 #else
 	zend_hash_str_update_mem(TWG(trace_watch_callbacks), func, func_len, twcb, sizeof(tw_watch_callback));
 #endif
