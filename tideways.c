@@ -21,9 +21,15 @@
 #endif
 
 #include <stdlib.h>
+
+#ifdef PHP_WIN32
+# include "win32/time.h"
+# include "win32/unistd.h"
+#else
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#endif
 
 #if __APPLE__
 #include <mach/mach_init.h>
@@ -2491,6 +2497,9 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
  * @author cjiang
  */
 static uint64 cycle_timer() {
+#if defined(PHP_WIN32) && defined(_WIN64)
+    return __rdtsc();
+#else
 #ifdef __APPLE__
 	return mach_absolute_time();
 #else
@@ -2498,6 +2507,7 @@ static uint64 cycle_timer() {
 	clock_gettime(CLOCK_MONOTONIC, &s);
 
 	return s.tv_sec * 1000000 + s.tv_nsec / 1000;
+#endif
 #endif
 }
 

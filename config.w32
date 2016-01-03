@@ -1,0 +1,24 @@
+ARG_ENABLE("tideways", "whether to enable tideways support", "no");
+
+if (PHP_UPROFILER == "yes") {
+	EXTENSION("tideways", "tideways.c");
+    var dll = get_define('PHPDLL');
+    var old_conf_dir = configure_module_dirname;
+    
+    /* XXX tricky job here, override configure_module_dirname, define the basic extension,
+        then set it back*/
+    if (null != dll.match(/^php5/)) {
+        configure_module_dirname = configure_module_dirname + "\\php5";
+    } else if (null != dll.match(/^php7/)) {
+        configure_module_dirname = configure_module_dirname + "\\php7";
+    } else {
+        ERROR("Cannot match any known PHP version with '" + dll + "'");
+    }
+
+    EXTENSION('tideways', 'spans.c');
+    configure_module_dirname = old_conf_dir;
+
+    ADD_SOURCES(configure_module_dirname, "tideways.c");
+    ADD_SOURCES(configure_module_dirname + "/win32", "php_tideways_win32.c");
+	AC_DEFINE('HAVE_TIDEWAYS', 1, 'Have tideways support');
+}
