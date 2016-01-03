@@ -36,7 +36,7 @@ array(2) {
   [0]=>
   array(4) {
     ["file"]=>
-    string(%d) "%s/tests/tideways_errors_001.php"
+    string(%d) "%s"
     ["line"]=>
     int(4)
     ["function"]=>
@@ -48,7 +48,7 @@ array(2) {
   [1]=>
   array(4) {
     ["file"]=>
-    string(%d) "%s/tests/tideways_errors_001.php"
+    string(%d) "%s"
     ["line"]=>
     int(21)
     ["function"]=>

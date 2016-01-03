@@ -2517,7 +2517,7 @@ static uint64 cycle_timer() {
 	  }
       start = count;
    }
-   return (double)(count.QuadPart - start.QuadPart) / freq.QuadPart;
+   return (double)(count.QuadPart - start.QuadPart) * 1000000 / freq.QuadPart;
 #else
 #ifdef __APPLE__
 	return mach_absolute_time();
