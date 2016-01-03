@@ -8,23 +8,29 @@ os: Windows Server 2012
 clone_folder: c:\projects\tideways
 
 install:
-    - 'IF EXIST c:\php (SET PHP=0) ELSE (mkdir c:\php)'
-    - 'cd c:\php'
-    - 'IF %PHP%==1 appveyor DownloadFile http://windows.php.net/downloads/releases/archives/php-5.5.9-nts-Win32-VC11-x86.zip'
-    - 'IF %PHP%==1 7z x php-5.5.9-nts-Win32-VC11-x86.zip -y >nul'
-    - 'IF %PHP%==1 del /Q *.zip'
-    - 'IF %PHP%==1 cd ext'
-    - 'copy /Y c:\php\php.ini-development c:\php\php.ini'
-    - 'IF %PHP%==1 echo max_execution_time=1200 >> php.ini'
-    - 'IF %PHP%==1 echo date.timezone="UTC" >> php.ini'
-    - 'IF %PHP%==1 echo extension_dir=ext >> php.ini'
-    - 'IF %PHP%==1 echo extension=php_fileinfo.dll >> php.ini'
-    - 'IF %PHP%==1 echo extension=php_pdo_sqlite.dll >> php.ini'
+    - IF EXIST c:\php (SET PHP=0) ELSE (mkdir c:\php)
+    - cd c:\php
+    - IF %PHP%==1 appveyor DownloadFile http://windows.php.net/downloads/releases/archives/php-5.5.9-nts-Win32-VC11-x86.zip
+    - IF %PHP%==1 7z x php-5.5.9-nts-Win32-VC11-x86.zip -y >nul
+    - IF %PHP%==1 del /Q *.zip
+    - IF %PHP%==1 cd ext
+    - copy /Y c:\php\php.ini-development c:\php\php.ini
+    - IF %PHP%==1 echo max_execution_time=1200 >> php.ini
+    - IF %PHP%==1 echo date.timezone="UTC" >> php.ini
+    - IF %PHP%==1 echo extension_dir=ext >> php.ini
+    - IF %PHP%==1 echo extension=php_fileinfo.dll >> php.ini
+    - IF %PHP%==1 echo extension=php_pdo_sqlite.dll >> php.ini
 
 test_script:
-    - 'cd c:\projects\tideways'
-    - 'Setlocal EnableDelayedExpansion'
-    - '%PHP_DEVPACK%\phpize --clean'
-    - 'configure --enable-tideways'
-    - 'nmake 2> compile-errors.log 1>compile.log'
-    - 'php run-tests.php'
+    'set PATH=c:\projects\php-devpack;%PATH%'
+    - cd c:\projects\tideways
+    - Setlocal EnableDelayedExpansion
+    - phpize --clean
+    - configure --enable-tideways
+    - nmake 2> compile-errors.log 1>compile.log
+    - php run-tests.php
+
+on_failure:
+  - 'dir'
+  - 'type compile-errors.log'
+  - 'type compile.log'
