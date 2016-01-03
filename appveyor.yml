@@ -7,6 +7,7 @@ environment:
   PHP_VC: 11
   PHP_SDK: c:\projects\php-sdk
   PHP_DEVPACK: c:\projects\php-devpack
+  NO_INTERACTION: 1
 
 os: Windows Server 2012
 clone_folder: c:\projects\tideways
@@ -51,7 +52,6 @@ install:
   - 'echo extension_dir=%APPVEYOR_BUILD_FOLDER%\..\php\ext > php.ini'
   - 'echo extension=%APPVEYOR_BUILD_FOLDER%\Release_TS\php_tideways.dll >> php.ini'
   - 'echo extension=php_pdo_sqlite.dll >> php.ini'
-  - 'echo extension=php_tideways.dll >> php.ini'
   - 'set PATH=%cd%;%PATH%'
 
 test_script:
@@ -64,13 +64,15 @@ test_script:
     - echo "make"
     - nmake 2> compile-errors.log 1>compile.log
     - echo "make test"
-    - php run-tests.php
+    - nmake test 1> test-result.log
 
 on_failure:
   - 'dir'
   - 'dir c:\projects\php-devpack'
+  - 'type Makefile'
   - 'type compile-errors.log'
   - 'type compile.log'
+  - 'type test-result.log'
 
 artifacts:
   - path: Release_TS\php_tideways.dll
