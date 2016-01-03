@@ -22,7 +22,7 @@ install:
     - IF %PHP%==1 echo extension=php_pdo_sqlite.dll >> php.ini
 
 test_script:
-    'set PATH=c:\projects\php-devpack;%PATH%'
+    - 'set PATH=c:\projects\php-devpack;%PATH%'
     - cd c:\projects\tideways
     - Setlocal EnableDelayedExpansion
     - phpize --clean
