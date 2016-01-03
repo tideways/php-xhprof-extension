@@ -2501,8 +2501,21 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
  * @author cjiang
  */
 static uint64 cycle_timer() {
-#if defined(PHP_WIN32) && defined(_WIN64)
-    return __rdtsc();
+#if defined(PHP_WIN32)
+   static LARGE_INTEGER freq, start;
+   LARGE_INTEGER count;
+
+   if (!QueryPerformanceCounter(&count)) {
+      zend_error(E_ERROR, "QueryPerformanceCounter");
+   }
+
+   if (!freq.QuadPart) { // one time initialization
+      if (!QueryPerformanceFrequency(&freq)) {
+		zend_error(E_ERROR, "QueryPerformanceFrequency");
+	  }
+      start = count;
+   }
+   return (double)(count.QuadPart - start.QuadPart) / freq.QuadPart;
 #else
 #ifdef __APPLE__
 	return mach_absolute_time();
@@ -2861,12 +2874,13 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
 ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int type TSRMLS_DC)
 {
 	zend_op_array  *ret;
+	uint64 start;
 
 	if (!TWG(enabled) || (TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_COMPILE) > 0) {
 		return _zend_compile_file(file_handle, type TSRMLS_CC);
 	}
 
-	uint64 start = cycle_timer();
+	start = cycle_timer();
 
 	TWG(compile_count)++;
 
@@ -2883,12 +2897,13 @@ ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int 
 ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filename TSRMLS_DC)
 {
 	zend_op_array  *ret;
+	uint64 start;
 
 	if (!TWG(enabled) || (TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_COMPILE) > 0) {
 		return _zend_compile_string(source_string, filename TSRMLS_CC);
 	}
 
-	uint64 start = cycle_timer();
+	start = cycle_timer();
 
 	TWG(compile_count)++;
 
