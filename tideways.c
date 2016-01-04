@@ -2342,7 +2342,11 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 	const char        *cls = NULL;
 	char              *ret = NULL;
 	zend_function      *curr_func;
+#if PHP_VERSION_ID < 70000
 	const char        *func = NULL;
+#else
+	zend_string *func = NULL;
+#endif
 
 	if (!data) {
 		return NULL;
@@ -2379,7 +2383,6 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 		ret = estrdup(func);
 	}
 #else
-	zend_string *func = NULL;
 	curr_func = data->func;
 	func = curr_func->common.function_name;
 
