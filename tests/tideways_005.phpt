@@ -46,6 +46,7 @@ function verify($expected, $actual, $description) {
 
   // 25% tolerance or 60% on windows (ieks?)
   $tolerance = defined('PHP_WINDOWS_VERSION_MAJOR') ? 0.6 : 0.25;
+  $tolerance = 0.25;
   $range_low = ($expected * (1-$tolerance));
   $range_high = ($expected * (1+$tolerance));
 
