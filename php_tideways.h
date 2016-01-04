@@ -80,7 +80,9 @@ struct _zend_string {
 };
 typedef struct _zend_string zend_string;
 typedef long zend_long;
+#if !defined(zend_ulong)
 typedef ulong zend_ulong;
+#endif
 typedef int strsize_t;
 typedef zend_uint uint32_t;
 #endif
