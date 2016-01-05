@@ -3103,7 +3103,7 @@ int tw_gc_collect_cycles(void)
 	int ret;
 	long spanId;
 
-	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
+	if (!TWG(enabled) || (TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
 		return tw_original_gc_collect_cycles();
 	}
 
