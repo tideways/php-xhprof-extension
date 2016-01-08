@@ -1366,6 +1366,9 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 	zval fname, *opt;
 	zval ***params_array;
 	_DECLARE_ZVAL(retval_ptr);
+#if PHP_VERSION_ID >= 70000
+	zval params[1];
+#endif
 
 	if (argument == NULL || Z_TYPE_P(argument) != IS_RESOURCE) {
 		return -1;
@@ -1379,7 +1382,6 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 
 	if (SUCCESS == call_user_function_ex(EG(function_table), NULL, &fname, &retval_ptr, 1, params_array, 1, NULL TSRMLS_CC)) {
 #else
-	zval params[1];
 	ZVAL_RES(&params[0], Z_RES_P(argument));
 
 	if (SUCCESS == call_user_function_ex(EG(function_table), NULL, &fname, retval_ptr, 1, params, 1, NULL TSRMLS_CC)) {
