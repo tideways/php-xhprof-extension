@@ -16,6 +16,11 @@ environment:
     PHP_VC: 11
     PHP_TYPE: "Win32"
     RELEASE_FOLDER: "Release_TS"
+  - PHP_VERSION: 5.5.31
+    BUILD_PLATFORM: x86
+    PHP_VC: 11
+    PHP_TYPE: "nts-Win32"
+    RELEASE_FOLDER: "Release"
   - PHP_VERSION: 7.0.2
     BUILD_PLATFORM: x86
     PHP_VC: 14
