@@ -4,15 +4,23 @@ environment:
   - PHP_VERSION: 5.6.17
     BUILD_PLATFORM: x86
     PHP_VC: 11
+    PHP_TYPE: "Win32"
+  - PHP_VERSION: 5.6.17
+    BUILD_PLATFORM: x86
+    PHP_VC: 11
+    PHP_TYPE: "nts-Win32"
   - PHP_VERSION: 5.5.31
     BUILD_PLATFORM: x86
     PHP_VC: 11
+    PHP_TYPE: "Win32"
   - PHP_VERSION: 7.0.2
     BUILD_PLATFORM: x86
     PHP_VC: 14
+    PHP_TYPE: "Win32"
   - PHP_VERSION: 7.0.2
     BUILD_PLATFORM: x64
     PHP_VC: 14
+    PHP_TYPE: "Win32"
   PHP_SDK: c:\projects\php-sdk
   PHP_DEVPACK: c:\projects\php-devpack
   NO_INTERACTION: 1
@@ -39,7 +47,7 @@ install:
   - cd %APPVEYOR_BUILD_FOLDER%
   - echo Preparing Tideways win32 build...
   - echo Downloading PHP source code [%PHP_VERSION%]
-  - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-' + ${env:PHP_VERSION} + '-Win32-VC' + ${env:PHP_VC} + '-' + ${env:BUILD_PLATFORM} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php.zip')
+  - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-' + ${env:PHP_VERSION} + '-' + ${env:PHP_TYPE} + '-VC' + ${env:PHP_VC} + '-' + ${env:BUILD_PLATFORM} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php.zip')
   - cd ..
   - 'mkdir php && mv php.zip php\php.zip && cd php'
   - 7z.exe x php.zip | FIND /V "ing  "
@@ -50,7 +58,7 @@ install:
   - '7z.exe x ..\php-sdk.zip | FIND /V "ing  "'
   - cd ..
   - echo Downloading PHP-Devel-Pack
-  - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-devel-pack-' + ${env:PHP_VERSION} + '-Win32-VC' + ${env:PHP_VC} + '-' + ${env:BUILD_PLATFORM} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php-dev.zip')
+  - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-devel-pack-' + ${env:PHP_VERSION} + '-' + ${env:PHP_TYPE} + '-VC' + ${env:PHP_VC} + '-' + ${env:BUILD_PLATFORM} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php-dev.zip')
   - 7z.exe x php-dev.zip | FIND /V "ing  "
   - mv php-%PHP_VERSION%-devel-VC%PHP_VC%-%BUILD_PLATFORM% php-devpack
   - '"%VS110COMNTOOLS%\VsDevCmd" %BUILD_PLATFORM%'
