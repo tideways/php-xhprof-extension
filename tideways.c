@@ -3162,9 +3162,9 @@ int tw_gc_collect_cycles(void)
 #if PHP_VERSION_ID < 70000
 void tideways_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
 {
-	TSRMLS_FETCH();
 	error_handling_t  error_handling;
 	zval *backtrace;
+	TSRMLS_FETCH();
 
 #if (PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION >= 3) || PHP_MAJOR_VERSION >= 6
 	error_handling  = EG(error_handling);
