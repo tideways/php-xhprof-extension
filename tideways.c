@@ -1849,6 +1849,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("do_action", cb);
 	register_trace_callback("drupal_alter", cb);
 	register_trace_callback("Mage::dispatchEvent", cb);
+	register_trace_callback("Magento\\Framework\\Event\\Manager::dispatch", cb);
 	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch", cb);
 	register_trace_callback("Illuminate\\Events\\Dispatcher::fire", cb);
 	register_trace_callback("HookCore::exec", cb); // PrestaShop 1.6
@@ -1873,6 +1874,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_view_class;
 	register_trace_callback("Mage_Core_Block_Abstract::toHtml", cb);
+	register_trace_callback("Magento\\Framework\\View\\Element\\AbstractBlock::toHtml", cb);
 	register_trace_callback("TYPO3\\Flow\\Mvc\\View\\JsonView::render", cb);
 	register_trace_callback("TYPO3\\Fluid\\View\\AbstractTemplateView::render", cb);
 	register_trace_callback("TYPO3\\CMS\\Extbase\\Mvc\\View\\JsonView::render", cb);
@@ -1888,6 +1890,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	cb = tw_trace_callback_zend1_dispatcher_families_tx;
 	register_trace_callback("Enlight_Controller_Action::dispatch", cb);
 	register_trace_callback("Mage_Core_Controller_Varien_Action::dispatch", cb);
+	register_trace_callback("Magento\\Framework\\App\\Action\\Action::dispatch", cb);
 	register_trace_callback("Zend_Controller_Action::dispatch", cb);
 	register_trace_callback("Illuminate\\Routing\\Controller::callAction", cb);
 
