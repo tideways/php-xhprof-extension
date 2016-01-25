@@ -963,8 +963,7 @@ long tw_trace_callback_doctrine_couchdb_request(char *symbol, zend_execute_data 
 	return idx;
 }
 
-/* Mage_Core_Block_Abstract::toHtml() */
-long tw_trace_callback_magento_block(char *symbol, zend_execute_data *data TSRMLS_DC)
+long tw_trace_callback_view_class(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	zend_class_entry *ce;
 	zval *object = EX_OBJ(data);
@@ -1872,8 +1871,13 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	cb = tw_trace_callback_soap_client_dorequest;
 	register_trace_callback("SoapClient::__doRequest", cb);
 
-	cb = tw_trace_callback_magento_block;
+	cb = tw_trace_callback_view_class;
 	register_trace_callback("Mage_Core_Block_Abstract::toHtml", cb);
+	register_trace_callback("TYPO3\\Flow\\Mvc\\View\\JsonView::render", cb);
+	register_trace_callback("TYPO3\\Fluid\\View\\AbstractTemplateView::render", cb);
+	register_trace_callback("TYPO3\\CMS\\Extbase\\Mvc\\View\\JsonView::render", cb);
+	register_trace_callback("TYPO3\\CMS\\Extbase\\Mvc\\View\\NotFoundView::render", cb);
+	register_trace_callback("TYPO3\\CMS\\Fluid\\View\\AbstractTemplateView::render", cb);
 
 	cb = tw_trace_callback_view_engine;
 	register_trace_callback("Zend_View_Abstract::render", cb);
