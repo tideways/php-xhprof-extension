@@ -1283,6 +1283,26 @@ long tw_trace_callback_twig_template(char *symbol, zend_execute_data *data TSRML
 	return idx;
 }
 
+long tw_trace_callback_event_dispatchers2(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx = -1, *idx_ptr;
+	zval *arg1 = ZEND_CALL_ARG(data, 1);
+	zval *arg2 = ZEND_CALL_ARG(data, 2);
+	char *event;
+	int len;
+
+	if (arg1 && arg2 && Z_TYPE_P(arg1) == IS_STRING && Z_TYPE_P(arg2) == IS_STRING) {
+		len = Z_STRLEN_P(arg1) + Z_STRLEN_P(arg2) + 3;
+		event = (char*)emalloc(len);
+		snprintf(event, len, "%s::%s", Z_STRVAL_P(arg1), Z_STRVAL_P(arg2));
+		event[len-1] = '\0';
+
+		idx = tw_trace_callback_record_with_cache("event", 5, event, len, 1 TSRMLS_CC);
+	}
+
+	return idx;
+}
+
 long tw_trace_callback_event_dispatchers(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	long idx = -1, *idx_ptr;
@@ -1833,6 +1853,11 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch", cb);
 	register_trace_callback("Illuminate\\Events\\Dispatcher::fire", cb);
 	register_trace_callback("HookCore::exec", cb); // PrestaShop 1.6
+
+	cb = tw_trace_callback_event_dispatchers2;
+	register_trace_callback("HookCore::coreCallHook", cb); // PrestaShop 1.6
+	register_trace_callback("TYPO3\\Flow\\SignalSlot\\Dispatcher::dispatch", cb);
+	register_trace_callback("TYPO3\\CMS\\Extbase\\SignalSlot\\Dispatcher::dispatch", cb);
 
 	cb = tw_trace_callback_twig_template;
 	register_trace_callback("Twig_Template::render", cb);
