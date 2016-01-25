@@ -1772,6 +1772,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	// Silex
 	register_trace_callback("Silex\\Application::mount", cb);
 
+	cb = tw_trace_callback_php_controller;
+	register_trace_callback("ControllerCore::run", cb); // PrestaShop 1.6
+
 	cb = tw_trace_callback_doctrine_persister;
 	register_trace_callback("Doctrine\\ORM\\Persisters\\BasicEntityPersister::load", cb);
 	register_trace_callback("Doctrine\\ORM\\Persisters\\BasicEntityPersister::loadAll", cb);
@@ -1827,6 +1830,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Mage::dispatchEvent", cb);
 	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch", cb);
 	register_trace_callback("Illuminate\\Events\\Dispatcher::fire", cb);
+	register_trace_callback("HookCore::exec", cb); // PrestaShop 1.6
 
 	cb = tw_trace_callback_twig_template;
 	register_trace_callback("Twig_Template::render", cb);
