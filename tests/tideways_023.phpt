@@ -110,6 +110,18 @@ function transaction_laravel() {
     $data = tideways_disable();
 }
 
+function transaction_flow3() {
+    tideways_enable(TIDEWAYS_FLAGS_NO_SPANS, array(
+        'transaction_function' => 'TYPO3\Flow\Mvc\Controller\ActionController::callActionMethod',
+    ));
+
+    $ctrl = new \TYPO3\Flow\Mvc\Controller\FooController();
+    $ctrl->processRequest();
+
+    echo "FLOW3: " . tideways_transaction_name() . "\n";
+    $data = tideways_disable();
+}
+
 transaction_symfony2();
 transaction_zf2();
 transaction_oxid();
@@ -117,6 +129,7 @@ transaction_shopware();
 transaction_wordpress();
 transaction_zf1();
 transaction_laravel();
+transaction_flow3();
 
 --EXPECTF--
 Symfony2: foo::bar
@@ -126,3 +139,4 @@ Shopware: ShopController::listAction
 Wordpress: home
 Zend Framework 1: MyController::fooAction
 Laravel: CachetHQ\Cachet\Http\Controllers\RssController::indexAction
+FLOW3: TYPO3\Flow\Mvc\Controller\FooController::indexAction

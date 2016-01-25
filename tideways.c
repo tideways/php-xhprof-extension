@@ -2314,6 +2314,29 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 			TWG(transaction_name) = zend_string_init(ctrl, len-1, 0);
 			efree(ctrl);
 		}
+	} else if(strcmp(ret, "TYPO3\\CMS\\Extbase\\Mvc\\Controller\\ActionController::callActionMethod") == 0 ||
+			  strcmp(ret, "TYPO3\\Flow\\Mvc\\Controller\\ActionController::callActionMethod") == 0) {
+
+		zval *property;
+		zval *object = EX_OBJ(data);
+		zend_class_entry *ce = Z_OBJCE_P(object);
+		int len;
+		char *ctrl;
+
+		zval *__rv;
+		property = _zend_read_property(ce, object, "actionMethodName", sizeof("actionMethodName") - 1, 1, __rv);
+
+		if (property == NULL || Z_TYPE_P(property) != IS_STRING) {
+			return;
+		}
+
+		len = _ZCE_NAME_LENGTH(ce) + Z_STRLEN_P(property) + 3;
+		ctrl = (char*)emalloc(len);
+		snprintf(ctrl, len, "%s::%s", _ZCE_NAME(ce), Z_STRVAL_P(property));
+		ctrl[len-1] = '\0';
+
+		TWG(transaction_name) = zend_string_init(ctrl, len-1, 0);
+		efree(ctrl);
 	} else {
 		argument_element = ZEND_CALL_ARG(data, 1);
 
