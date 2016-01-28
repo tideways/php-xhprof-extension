@@ -35,6 +35,20 @@ environment:
   PHP_DEVPACK: c:\projects\php-devpack
   NO_INTERACTION: 1
 
+matrix:
+    allow_failures:
+      - PHP_VERSION: 7.0.2
+        BUILD_PLATFORM: x86
+        PHP_VC: 14
+        PHP_TYPE: "Win32"
+        RELEASE_FOLDER: "Release_TS"
+      - PHP_VERSION: 7.0.2
+        BUILD_PLATFORM: x64
+        PHP_VC: 14
+        PHP_TYPE: "Win32"
+        RELEASE_FOLDER: "Release_TS"
+
+
 os: Windows Server 2012
 clone_folder: c:\projects\tideways
 
