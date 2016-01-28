@@ -17,7 +17,7 @@ function bar() {
 }
 
 register_shutdown_function(function () {
-    var_dump(tideways_fatal_backtrace());
+    var_dump(array_slice(tideways_fatal_backtrace(), 0, 2));
 });
 
 var_dump(tideways_fatal_backtrace()); // before enabled
@@ -31,12 +31,12 @@ foo();
 NULL
 NULL
 
-Fatal error: Call to undefined function unknown() in %s/tests/tideways_errors_001.php on line 8
+Fatal error: Call to undefined function unknown() in %s on line 8
 array(2) {
   [0]=>
   array(4) {
     ["file"]=>
-    string(%d) "%s/tests/tideways_errors_001.php"
+    string(%d) "%s"
     ["line"]=>
     int(4)
     ["function"]=>
@@ -48,7 +48,7 @@ array(2) {
   [1]=>
   array(4) {
     ["file"]=>
-    string(%d) "%s/tests/tideways_errors_001.php"
+    string(%d) "%s"
     ["line"]=>
     int(21)
     ["function"]=>

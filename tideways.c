@@ -21,9 +21,17 @@
 #endif
 
 #include <stdlib.h>
+
+#ifdef PHP_WIN32
+#include "win32/time.h"
+#include "win32/unistd.h"
+#include "win32/php_tideways_win32.h"
+#include "win32/php_tideways_win32.c"
+#else
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#endif
 
 #if __APPLE__
 #include <mach/mach_init.h>
@@ -685,6 +693,13 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 	zend_fcall_info_cache fcic = empty_fcall_info_cache;
 	int args_len = ZEND_CALL_NUM_ARGS(data);
 	zval *object = EX_OBJ(data);
+	_DECLARE_ZVAL(retval);
+	_DECLARE_ZVAL(context);
+	_DECLARE_ZVAL(zargs);
+	zval *params[1];
+	zend_error_handling zeh;
+	int i;
+	long idx;
 
 	if (TWG(trace_watch_callbacks) == NULL) {
 		return -1;
@@ -698,12 +713,6 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 
 	if (twcb) {
 #endif
-		_DECLARE_ZVAL(retval);
-		_DECLARE_ZVAL(context);
-		_DECLARE_ZVAL(zargs);
-		zval *params[1];
-		zend_error_handling zeh;
-		int i;
 
 		_ALLOC_INIT_ZVAL(context);
 		array_init(context);
@@ -755,7 +764,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 		hp_ptr_dtor(context);
 		hp_ptr_dtor(zargs);
 
-		long idx = -1;
+		idx = -1;
 
 		if (retval) {
 			if (Z_TYPE_P(retval) == IS_LONG) {
@@ -809,13 +818,13 @@ long tw_trace_callback_mongo_cursor_next(char *symbol, zend_execute_data *data T
 	zval *queryRunProperty;
 	zval fname, *element;
 	_DECLARE_ZVAL(retval_ptr);
+	zval *__rv;
 
 	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
 		return idx;
 	}
 
 	cursor_ce = Z_OBJCE_P(object);
-	zval *__rv;
 	queryRunProperty = _zend_read_property(cursor_ce, object, "_tidewaysQueryRun", sizeof("_tidewaysQueryRun")-1, 1, __rv);
 
 	if (queryRunProperty != NULL && Z_TYPE_P(queryRunProperty) != IS_NULL) {
@@ -913,6 +922,7 @@ long tw_trace_callback_pheanstalk(char *symbol, zend_execute_data *data TSRMLS_D
 	zval *object = EX_OBJ(data);
 	zval *property;
 	long idx = -1;
+	zval *__rv;
 
 	if (Z_TYPE_P(object) != IS_OBJECT) {
 		return idx;
@@ -920,7 +930,6 @@ long tw_trace_callback_pheanstalk(char *symbol, zend_execute_data *data TSRMLS_D
 
 	pheanstalk_ce = Z_OBJCE_P(object);
 
-	zval *__rv;
 	property = _zend_read_property(pheanstalk_ce, object, "_using", sizeof("_using") - 1, 1, __rv);
 
 	if (property != NULL && Z_TYPE_P(property) == IS_STRING) {
@@ -1147,6 +1156,7 @@ long tw_trace_callback_smarty3_template(char *symbol, zend_execute_data *data TS
 	zend_class_entry *smarty_ce;
 	char *template;
 	size_t template_len;
+	zval *__rv;
 
 	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
 		template = Z_STRVAL_P(argument_element);
@@ -1159,7 +1169,6 @@ long tw_trace_callback_smarty3_template(char *symbol, zend_execute_data *data TS
 
 		smarty_ce = Z_OBJCE_P(object);
 
-		zval *__rv;
 		argument_element = _zend_read_property(smarty_ce, object, "template_resource", sizeof("template_resource") - 1, 1, __rv);
 
 		if (Z_TYPE_P(argument_element) != IS_STRING) {
@@ -1179,6 +1188,7 @@ long tw_trace_callback_doctrine_persister(char *symbol, zend_execute_data *data 
 	zval *property;
 	zend_class_entry *persister_ce, *metadata_ce;
 	zval *object = EX_OBJ(data);
+	zval *__rv;
 
 	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
 		return -1;
@@ -1186,7 +1196,6 @@ long tw_trace_callback_doctrine_persister(char *symbol, zend_execute_data *data 
 
 	persister_ce = Z_OBJCE_P(object);
 
-	zval *__rv;
 	property = _zend_read_property(persister_ce, object, "class", sizeof("class") - 1, 1, __rv);
 	if (property == NULL) {
 		property = _zend_read_property(persister_ce, object, "_class", sizeof("_class") - 1, 1, __rv);
@@ -1374,7 +1383,11 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 	char *summary;
 	long idx, *idx_ptr;
 	zval fname, *opt;
+	zval ***params_array;
 	_DECLARE_ZVAL(retval_ptr);
+#if PHP_VERSION_ID >= 70000
+	zval params[1];
+#endif
 
 	if (argument == NULL || Z_TYPE_P(argument) != IS_RESOURCE) {
 		return -1;
@@ -1383,13 +1396,11 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 	_ZVAL_STRING(&fname, "curl_getinfo");
 
 #if PHP_VERSION_ID < 70000
-	zval ***params_array;
 	params_array = (zval ***) emalloc(sizeof(zval **));
 	params_array[0] = &argument;
 
 	if (SUCCESS == call_user_function_ex(EG(function_table), NULL, &fname, &retval_ptr, 1, params_array, 1, NULL TSRMLS_CC)) {
 #else
-	zval params[1];
 	ZVAL_RES(&params[0], Z_RES_P(argument));
 
 	if (SUCCESS == call_user_function_ex(EG(function_table), NULL, &fname, retval_ptr, 1, params, 1, NULL TSRMLS_CC)) {
@@ -1419,13 +1430,15 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 
 long tw_trace_callback_soap_client_dorequest(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
+	char *summary;
+	zval *argument;
+	long idx = -1;
+
 	if (ZEND_CALL_NUM_ARGS(data) < 2) {
 		return -1;
 	}
 
-	char *summary;
-	zval *argument = ZEND_CALL_ARG(data, 2);
-	long idx = -1;
+	argument = ZEND_CALL_ARG(data, 2);
 
 	if (Z_TYPE_P(argument) != IS_STRING) {
 		return idx;
@@ -1621,13 +1634,13 @@ EMPTY_SWITCH_DEFAULT_CASE()
  */
 static void hp_parse_options_from_arg(zval *args TSRMLS_DC)
 {
+	zval *zresult = NULL;
+
 	hp_clean_profiler_options_state(TSRMLS_C);
 
 	if (args == NULL) {
 		return;
 	}
-
-	zval  *zresult = NULL;
 
 	zresult = hp_zval_at_key("ignored_functions", sizeof("ignored_functions"), args);
 
@@ -1676,18 +1689,18 @@ static void hp_transaction_function_clear(TSRMLS_D) {
 
 static inline hp_function_map *hp_function_map_create(char **names)
 {
+	hp_function_map *map;
+	int i = 0;
+
 	if (names == NULL) {
 		return NULL;
 	}
-
-	hp_function_map *map;
 
 	map = emalloc(sizeof(hp_function_map));
 	map->names = names;
 
 	memset(map->filter, 0, TIDEWAYS_FILTERED_FUNCTION_SIZE);
 
-	int i = 0;
 	for(; names[i] != NULL; i++) {
 		char *str  = names[i];
 		uint8 hash = hp_inline_hash(str);
@@ -2317,23 +2330,24 @@ static void hp_detect_exception(char *func_name, zend_execute_data *data TSRMLS_
 
 static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS_DC)
 {
+	zval *argument_element;
+
 	if (!TWG(transaction_function) ||
 		TWG(transaction_name) ||
 		strcmp(ret, ZSTR_VAL(TWG(transaction_function))) != 0) {
 		return;
 	}
 
-	zval *argument_element;
-
 	if (strcmp(ret, "Zend_Controller_Action::dispatch") == 0 ||
 			   strcmp(ret, "Enlight_Controller_Action::dispatch") == 0 ||
 			   strcmp(ret, "Mage_Core_Controller_Varien_Action::dispatch") == 0 ||
 			   strcmp(ret, "Illuminate\\Routing\\Controller::callAction") == 0) {
 		zval *obj = EX_OBJ(data);
-		argument_element = ZEND_CALL_ARG(data, 1);
 		zend_class_entry *ce;
 		int len;
 		char *ctrl;
+
+		argument_element = ZEND_CALL_ARG(data, 1);
 
 		if (Z_TYPE_P(argument_element) == IS_STRING) {
 			ce = Z_OBJCE_P(obj);
@@ -2391,13 +2405,17 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 	const char        *cls = NULL;
 	char              *ret = NULL;
 	zend_function      *curr_func;
+#if PHP_VERSION_ID < 70000
+	const char        *func = NULL;
+#else
+	zend_string *func = NULL;
+#endif
 
 	if (!data) {
 		return NULL;
 	}
 
 #if PHP_VERSION_ID < 70000
-	const char        *func = NULL;
 	curr_func = data->function_state.function;
 	func = curr_func->common.function_name;
 
@@ -2428,7 +2446,6 @@ static char *hp_get_function_name(zend_execute_data *data TSRMLS_DC)
 		ret = estrdup(func);
 	}
 #else
-	zend_string *func = NULL;
 	curr_func = data->func;
 	func = curr_func->common.function_name;
 
@@ -2552,6 +2569,21 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
  * @author cjiang
  */
 static uint64 cycle_timer() {
+#if defined(PHP_WIN32)
+	LARGE_INTEGER StartingTime;
+	LARGE_INTEGER Frequency;
+
+	if (!QueryPerformanceFrequency(&Frequency)) {
+		zend_error(E_ERROR, "QueryPerformanceFrequency");
+	}
+	if (!QueryPerformanceCounter(&StartingTime)) {
+		zend_error(E_ERROR, "QueryPerformanceCounter");
+	}
+
+	StartingTime.QuadPart *= 1000000;
+	StartingTime.QuadPart /= Frequency.QuadPart;
+	return StartingTime.QuadPart;
+#else
 #ifdef __APPLE__
 	return mach_absolute_time();
 #else
@@ -2559,6 +2591,7 @@ static uint64 cycle_timer() {
 	clock_gettime(CLOCK_MONOTONIC, &s);
 
 	return s.tv_sec * 1000000 + s.tv_nsec / 1000;
+#endif
 #endif
 }
 
@@ -2907,12 +2940,14 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data,
  */
 ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int type TSRMLS_DC)
 {
+	zend_op_array  *ret;
+	uint64 start;
+
 	if (!TWG(enabled) || (TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_COMPILE) > 0) {
 		return _zend_compile_file(file_handle, type TSRMLS_CC);
 	}
 
-	zend_op_array  *ret;
-	uint64 start = cycle_timer();
+	start = cycle_timer();
 
 	TWG(compile_count)++;
 
@@ -2928,12 +2963,14 @@ ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int 
  */
 ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filename TSRMLS_DC)
 {
+	zend_op_array  *ret;
+	uint64 start;
+
 	if (!TWG(enabled) || (TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_COMPILE) > 0) {
 		return _zend_compile_string(source_string, filename TSRMLS_CC);
 	}
 
-	zend_op_array  *ret;
-	uint64 start = cycle_timer();
+	start = cycle_timer();
 
 	TWG(compile_count)++;
 
@@ -3186,9 +3223,9 @@ int tw_gc_collect_cycles(void)
 #if PHP_VERSION_ID < 70000
 void tideways_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
 {
-	TSRMLS_FETCH();
 	error_handling_t  error_handling;
 	zval *backtrace;
+	TSRMLS_FETCH();
 
 #if (PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION >= 3) || PHP_MAJOR_VERSION >= 6
 	error_handling  = EG(error_handling);
