@@ -2373,7 +2373,7 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 		argument_element = ZEND_CALL_ARG(data, 1);
 
 		if (Z_TYPE_P(argument_element) == IS_STRING) {
-			TWG(transaction_name) = Z_STR_P(argument_element);
+			TWG(transaction_name) = zend_string_copy(Z_STR_P(argument_element));
 		}
 	}
 
