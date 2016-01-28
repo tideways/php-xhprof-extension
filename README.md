@@ -17,7 +17,7 @@ Profiler in production.
 ## Installation
 
 You can install the Tideways extension from source or download
-pre-compiled binaries from the [Tidways Downloads](https://tideways.io/profiler/downloads) page.
+pre-compiled binaries from the [Tideways Downloads](https://tideways.io/profiler/downloads) page.
 
 Building from source is straightforward:
 

@@ -972,8 +972,7 @@ long tw_trace_callback_doctrine_couchdb_request(char *symbol, zend_execute_data 
 	return idx;
 }
 
-/* Mage_Core_Block_Abstract::toHtml() */
-long tw_trace_callback_magento_block(char *symbol, zend_execute_data *data TSRMLS_DC)
+long tw_trace_callback_view_class(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	zend_class_entry *ce;
 	zval *object = EX_OBJ(data);
@@ -1288,6 +1287,26 @@ long tw_trace_callback_twig_template(char *symbol, zend_execute_data *data TSRML
 #if PHP_VERSION_ID >= 70000
 	zend_string_release(Z_STR(fname));
 #endif
+
+	return idx;
+}
+
+long tw_trace_callback_event_dispatchers2(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx = -1, *idx_ptr;
+	zval *arg1 = ZEND_CALL_ARG(data, 1);
+	zval *arg2 = ZEND_CALL_ARG(data, 2);
+	char *event;
+	int len;
+
+	if (arg1 && arg2 && Z_TYPE_P(arg1) == IS_STRING && Z_TYPE_P(arg2) == IS_STRING) {
+		len = Z_STRLEN_P(arg1) + Z_STRLEN_P(arg2) + 3;
+		event = (char*)emalloc(len);
+		snprintf(event, len, "%s::%s", Z_STRVAL_P(arg1), Z_STRVAL_P(arg2));
+		event[len-1] = '\0';
+
+		idx = tw_trace_callback_record_with_cache("event", 5, event, len, 1 TSRMLS_CC);
+	}
 
 	return idx;
 }
@@ -1760,6 +1779,8 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	// Symfony
 	register_trace_callback("Symfony\\Component\\HttpKernel\\Kernel::boot", cb);
 	register_trace_callback("Symfony\\Component\\EventDispatcher\\ContainerAwareEventDispatcher::lazyLoad", cb);
+	register_trace_callback("Symfony\\Component\\HttpKernel\\HttpCache\\HttpCache::lock", cb);
+	register_trace_callback("Symfony\\Component\\HttpKernel\\HttpCache\\HttpCache::forward", cb);
 	// Wordpress
 	register_trace_callback("get_sidebar", cb);
 	register_trace_callback("get_header", cb);
@@ -1784,6 +1805,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Illuminate\\Foundation\\Application::dispatch", cb);
 	// Silex
 	register_trace_callback("Silex\\Application::mount", cb);
+
+	cb = tw_trace_callback_php_controller;
+	register_trace_callback("ControllerCore::run", cb); // PrestaShop 1.6
 
 	cb = tw_trace_callback_doctrine_persister;
 	register_trace_callback("Doctrine\\ORM\\Persisters\\BasicEntityPersister::load", cb);
@@ -1838,8 +1862,15 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("do_action", cb);
 	register_trace_callback("drupal_alter", cb);
 	register_trace_callback("Mage::dispatchEvent", cb);
+	register_trace_callback("Magento\\Framework\\Event\\Manager::dispatch", cb);
 	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch", cb);
 	register_trace_callback("Illuminate\\Events\\Dispatcher::fire", cb);
+	register_trace_callback("HookCore::exec", cb); // PrestaShop 1.6
+
+	cb = tw_trace_callback_event_dispatchers2;
+	register_trace_callback("HookCore::coreCallHook", cb); // PrestaShop 1.6
+	register_trace_callback("TYPO3\\Flow\\SignalSlot\\Dispatcher::dispatch", cb);
+	register_trace_callback("TYPO3\\CMS\\Extbase\\SignalSlot\\Dispatcher::dispatch", cb);
 
 	cb = tw_trace_callback_twig_template;
 	register_trace_callback("Twig_Template::render", cb);
@@ -1854,8 +1885,14 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	cb = tw_trace_callback_soap_client_dorequest;
 	register_trace_callback("SoapClient::__doRequest", cb);
 
-	cb = tw_trace_callback_magento_block;
+	cb = tw_trace_callback_view_class;
 	register_trace_callback("Mage_Core_Block_Abstract::toHtml", cb);
+	register_trace_callback("Magento\\Framework\\View\\Element\\AbstractBlock::toHtml", cb);
+	register_trace_callback("TYPO3\\Flow\\Mvc\\View\\JsonView::render", cb);
+	register_trace_callback("TYPO3\\Fluid\\View\\AbstractTemplateView::render", cb);
+	register_trace_callback("TYPO3\\CMS\\Extbase\\Mvc\\View\\JsonView::render", cb);
+	register_trace_callback("TYPO3\\CMS\\Extbase\\Mvc\\View\\NotFoundView::render", cb);
+	register_trace_callback("TYPO3\\CMS\\Fluid\\View\\AbstractTemplateView::render", cb);
 
 	cb = tw_trace_callback_view_engine;
 	register_trace_callback("Zend_View_Abstract::render", cb);
@@ -1866,6 +1903,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	cb = tw_trace_callback_zend1_dispatcher_families_tx;
 	register_trace_callback("Enlight_Controller_Action::dispatch", cb);
 	register_trace_callback("Mage_Core_Controller_Varien_Action::dispatch", cb);
+	register_trace_callback("Magento\\Framework\\App\\Action\\Action::dispatch", cb);
 	register_trace_callback("Zend_Controller_Action::dispatch", cb);
 	register_trace_callback("Illuminate\\Routing\\Controller::callAction", cb);
 
@@ -2322,11 +2360,34 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 			TWG(transaction_name) = zend_string_init(ctrl, len-1, 0);
 			efree(ctrl);
 		}
+	} else if(strcmp(ret, "TYPO3\\CMS\\Extbase\\Mvc\\Controller\\ActionController::callActionMethod") == 0 ||
+			  strcmp(ret, "TYPO3\\Flow\\Mvc\\Controller\\ActionController::callActionMethod") == 0) {
+
+		zval *property;
+		zval *object = EX_OBJ(data);
+		zend_class_entry *ce = Z_OBJCE_P(object);
+		int len;
+		char *ctrl;
+
+		zval *__rv;
+		property = _zend_read_property(ce, object, "actionMethodName", sizeof("actionMethodName") - 1, 1, __rv);
+
+		if (property == NULL || Z_TYPE_P(property) != IS_STRING) {
+			return;
+		}
+
+		len = _ZCE_NAME_LENGTH(ce) + Z_STRLEN_P(property) + 3;
+		ctrl = (char*)emalloc(len);
+		snprintf(ctrl, len, "%s::%s", _ZCE_NAME(ce), Z_STRVAL_P(property));
+		ctrl[len-1] = '\0';
+
+		TWG(transaction_name) = zend_string_init(ctrl, len-1, 0);
+		efree(ctrl);
 	} else {
 		argument_element = ZEND_CALL_ARG(data, 1);
 
 		if (Z_TYPE_P(argument_element) == IS_STRING) {
-			TWG(transaction_name) = Z_STR_P(argument_element);
+			TWG(transaction_name) = zend_string_copy(Z_STR_P(argument_element));
 		}
 	}
 

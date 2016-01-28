@@ -30,3 +30,17 @@ namespace CachetHQ\Cachet\Http\Controllers {
         public function indexAction() {}
     }
 }
+
+namespace TYPO3\Flow\Mvc\Controller {
+    abstract class ActionController {
+        protected $actionMethodName = 'indexAction';
+
+        public function processRequest()
+        {
+            $this->callActionMethod();
+        }
+
+        protected function callActionMethod() {}
+    }
+    class FooController extends ActionController {}
+}

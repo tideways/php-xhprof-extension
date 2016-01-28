@@ -34,6 +34,9 @@ Mage::dispatchEvent('zoomzoom', array());
 do_action("foo", array("foo" => "bar"));
 drupal_alter("foo", 1, 2, 3, 4);
 
+$flow3 = new \TYPO3\Flow\SignalSlot\Dispatcher();
+$flow3->dispatch('signal', 'slot');
+
 $spans = tideways_get_spans();
 print_spans($spans);
 tideways_disable();
@@ -44,3 +47,4 @@ event: 2 timers - title=bar
 event: 2 timers - title=baz
 event: 1 timers - title=event
 event: 1 timers - title=zoomzoom
+event: 1 timers - title=signal::slot

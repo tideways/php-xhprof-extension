@@ -38,3 +38,10 @@ namespace Doctrine\Common {
         }
     }
 }
+
+namespace TYPO3\Flow\SignalSlot {
+    class Dispatcher {
+        public function dispatch($signalClassName, $signalName) {
+        }
+    }
+}
