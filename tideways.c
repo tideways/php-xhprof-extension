@@ -26,6 +26,7 @@
 #include "win32/time.h"
 #include "win32/unistd.h"
 #include "win32/php_tideways_win32.h"
+#include "win32/php_tideways_win32.c"
 #else
 #include <unistd.h>
 #include <sys/time.h>
@@ -2606,7 +2607,7 @@ static uint64 cpu_timer() {
 #else
 	struct rusage ru;
 
-	getrusage(RUSAGE_SELF, &ru);
+	tw_getrusage(RUSAGE_SELF, &ru);
 
 	return ru.ru_utime.tv_sec * 1000000 + ru.ru_utime.tv_usec +
 		ru.ru_stime.tv_sec * 1000000 + ru.ru_stime.tv_usec;

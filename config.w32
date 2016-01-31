@@ -11,6 +11,6 @@ if (PHP_TIDEWAYS == "yes") {
         ERROR("Cannot match any known PHP version with '" + dll + "'");
     }
 
-    ADD_SOURCES(configure_module_dirname + "/win32", "php_tideways_win32.c", "tideways");
+    ADD_SOURCES(configure_module_dirname + "/win32", "php_tideways_win32.c");
 	AC_DEFINE('HAVE_TIDEWAYS', 1, 'Have tideways support');
 }
