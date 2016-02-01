@@ -21,7 +21,7 @@
 #if 1
 #include "php_tideways_win32.h"
 
-int getrusage(int who, struct rusage * rusage)
+int tw_getrusage(int who, struct rusage * rusage)
 {
     FILETIME starttime;
     FILETIME exittime;

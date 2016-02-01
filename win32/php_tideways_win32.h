@@ -16,8 +16,8 @@
  *
  ***************************************************************************/
 
-#ifndef PHP_XHPROF_WIN32_H
-#define PHP_XHPROF_WIN32_H
+#ifndef PHP_TIDEWAYS_WIN32_H
+#define PHP_TIDEWAYS_WIN32_H
 
 
 /****************************************************************************
@@ -82,7 +82,7 @@ struct rusage {
     struct timeval ru_stime;    /* system time used */
 };
 #if 1
-int getrusage(int who, struct rusage * rusage);
+int tw_getrusage(int who, struct rusage * rusage);
 #endif
 
-#endif  /* PHP_XHPROF_WIN32_H */
+#endif  /* PHP_TIDEWAYS_WIN32_H */
