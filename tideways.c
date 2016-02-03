@@ -3367,6 +3367,9 @@ PHP_FUNCTION(tideways_enable)
 {
 	zend_long tideways_flags = 0;
 	zval *optional_array = NULL;
+#if defined(PHP_WIN32)
+	LARGE_INTEGER frequency;
+#endif
 
 	if (TWG(enabled)) {
 		hp_stop(TSRMLS_C);
@@ -3380,7 +3383,6 @@ PHP_FUNCTION(tideways_enable)
 	hp_parse_options_from_arg(optional_array TSRMLS_CC);
 
 #if defined(PHP_WIN32)
-	LARGE_INTEGER frequency;
 	if (!QueryPerformanceFrequency(&frequency)) {
 		zend_error(E_ERROR, "QueryPerformanceFrequency");
 	}
