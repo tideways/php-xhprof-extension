@@ -285,7 +285,7 @@ static void hp_begin(long tideways_flags TSRMLS_DC);
 static void hp_stop(TSRMLS_D);
 static void hp_end(TSRMLS_D);
 
-static uint64 cycle_timer();
+static uint64 cycle_timer(TSRMLS_C);
 
 static void hp_free_the_free_list(TSRMLS_D);
 static hp_entry_t *hp_fast_alloc_hprof_entry(TSRMLS_D);
@@ -615,7 +615,7 @@ void tw_span_timer_start(long spanId TSRMLS_DC)
 		return;
 	}
 
-	wt = get_us_from_tsc(cycle_timer() - TWG(start_time) TSRMLS_CC);
+	wt = get_us_from_tsc(cycle_timer(TSRMLS_C) - TWG(start_time) TSRMLS_CC);
 	add_next_index_long(starts, wt);
 }
 
@@ -640,7 +640,7 @@ void tw_span_timer_stop(long spanId TSRMLS_DC)
 		return;
 	}
 
-	wt = get_us_from_tsc(cycle_timer() - TWG(start_time) TSRMLS_CC);
+	wt = get_us_from_tsc(cycle_timer(TSRMLS_C) - TWG(start_time) TSRMLS_CC);
 	add_next_index_long(stops, wt);
 }
 
@@ -2568,7 +2568,7 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
  * @return 64 bit unsigned integer
  * @author cjiang
  */
-static uint64 cycle_timer() {
+static uint64 cycle_timer(TSRMLS_D) {
 #if defined(PHP_WIN32)
 	LARGE_INTEGER StartingTime;
 
@@ -2675,7 +2675,7 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 	}
 
 	/* Get start tsc counter */
-	current->tsc_start = cycle_timer();
+	current->tsc_start = cycle_timer(TSRMLS_C);
 
 	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) == 0 && data != NULL) {
 #if PHP_VERSION_ID < 70000
@@ -2726,7 +2726,7 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 	tw_trace_callback *callback;
 
 	/* Get end tsc counter */
-	tsc_end = cycle_timer();
+	tsc_end = cycle_timer(TSRMLS_C);
 	wt = get_us_from_tsc(tsc_end - top->tsc_start TSRMLS_CC);
 
 	if (TWG(tideways_flags) & TIDEWAYS_FLAGS_CPU) {
@@ -2943,13 +2943,13 @@ ZEND_DLEXPORT zend_op_array* hp_compile_file(zend_file_handle *file_handle, int 
 		return _zend_compile_file(file_handle, type TSRMLS_CC);
 	}
 
-	start = cycle_timer();
+	start = cycle_timer(TSRMLS_C);
 
 	TWG(compile_count)++;
 
 	ret = _zend_compile_file(file_handle, type TSRMLS_CC);
 
-	TWG(compile_wt) += get_us_from_tsc(cycle_timer() - start TSRMLS_CC);
+	TWG(compile_wt) += get_us_from_tsc(cycle_timer(TSRMLS_C) - start TSRMLS_CC);
 
 	return ret;
 }
@@ -2966,13 +2966,13 @@ ZEND_DLEXPORT zend_op_array* hp_compile_string(zval *source_string, char *filena
 		return _zend_compile_string(source_string, filename TSRMLS_CC);
 	}
 
-	start = cycle_timer();
+	start = cycle_timer(TSRMLS_C);
 
 	TWG(compile_count)++;
 
 	ret = _zend_compile_string(source_string, filename TSRMLS_CC);
 
-	TWG(compile_wt) += get_us_from_tsc(cycle_timer() - start TSRMLS_CC);
+	TWG(compile_wt) += get_us_from_tsc(cycle_timer(TSRMLS_C) - start TSRMLS_CC);
 
 	return ret;
 }
@@ -3001,7 +3001,7 @@ static void hp_begin(long tideways_flags TSRMLS_DC)
 
 		/* start profiling from fictitious main() */
 		TWG(root) = estrdup(ROOT_SYMBOL);
-		TWG(start_time) = cycle_timer();
+		TWG(start_time) = cycle_timer(TSRMLS_C);
 
 		if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
 			TWG(cpu_start) = cpu_timer();
