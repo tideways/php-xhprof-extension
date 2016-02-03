@@ -2577,7 +2577,7 @@ static uint64 cycle_timer() {
 	}
 
 	StartingTime.QuadPart *= 1000000;
-	StartingTime.QuadPart /= TWG(Frequency).QuadPart;
+	StartingTime.QuadPart /= TWG(frequency).QuadPart;
 	return StartingTime.QuadPart;
 #else
 #ifdef __APPLE__
