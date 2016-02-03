@@ -190,7 +190,7 @@ static zend_always_inline zval* zend_compat_hash_index_find(HashTable *ht, zend_
 	zval **tmp, *result;
 
 	if (zend_hash_index_find(ht, idx, (void **) &tmp) == FAILURE) {
-		return;
+		return NULL;
 	}
 
 	result = *tmp;
