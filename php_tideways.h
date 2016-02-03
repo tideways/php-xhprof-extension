@@ -180,6 +180,9 @@ ZEND_BEGIN_MODULE_GLOBALS(hp)
 	int compile_count;
 	double compile_wt;
 	uint64 cpu_start;
+#if defined(PHP_WIN32)
+	LARGE_INTEGER frequency;
+#endif
 ZEND_END_MODULE_GLOBALS(hp)
 
 #ifdef ZTS

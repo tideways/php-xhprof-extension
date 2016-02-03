@@ -2571,17 +2571,13 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
 static uint64 cycle_timer() {
 #if defined(PHP_WIN32)
 	LARGE_INTEGER StartingTime;
-	LARGE_INTEGER Frequency;
 
-	if (!QueryPerformanceFrequency(&Frequency)) {
-		zend_error(E_ERROR, "QueryPerformanceFrequency");
-	}
 	if (!QueryPerformanceCounter(&StartingTime)) {
 		zend_error(E_ERROR, "QueryPerformanceCounter");
 	}
 
 	StartingTime.QuadPart *= 1000000;
-	StartingTime.QuadPart /= Frequency.QuadPart;
+	StartingTime.QuadPart /= TWG(Frequency).QuadPart;
 	return StartingTime.QuadPart;
 #else
 #ifdef __APPLE__
@@ -3382,6 +3378,14 @@ PHP_FUNCTION(tideways_enable)
 	}
 
 	hp_parse_options_from_arg(optional_array TSRMLS_CC);
+
+#if defined(PHP_WIN32)
+	LARGE_INTEGER frequency;
+	if (!QueryPerformanceFrequency(&frequency)) {
+		zend_error(E_ERROR, "QueryPerformanceFrequency");
+	}
+	TWG(frequency) = frequency;
+#endif
 
 	hp_begin(tideways_flags TSRMLS_CC);
 }
