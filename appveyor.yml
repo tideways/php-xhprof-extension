@@ -61,17 +61,12 @@ init:
 install:
   - echo Setting PHP version...
   - ps: >-
-      If ($env:PHP_VERSION -Match "latest") {
-        Start-FileDownload 'http://windows.php.net/downloads/releases/sha1sum.txt'
-        $env:PHP_VERSION=type sha1sum.txt | where { $_ -match "php-(5\.6\.\d+)-src" } | foreach { $matches[1] }
-        $env:version='{build}-$(PHP_VERSION)'
-      } Else {
-        $env:version='{build}-$(PHP_VERSION)'
-      }
+       $env:version='{build}-$(PHP_VERSION)'
   - echo Initializing Build...
   - cd %APPVEYOR_BUILD_FOLDER%
   - echo Preparing Tideways win32 build...
   - echo Downloading PHP source code [%PHP_VERSION%]
+  - echo http://windows.php.net/downloads/releases/php-%PHP_VERSION%-%PHP_TYPE%-VC%PHP_VC%-%BUILD_PLATFORM%.zip
   - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-' + ${env:PHP_VERSION} + '-' + ${env:PHP_TYPE} + '-VC' + ${env:PHP_VC} + '-' + ${env:BUILD_PLATFORM} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php.zip')
   - cd ..
   - 'mkdir php && mv php.zip php\php.zip && cd php'
