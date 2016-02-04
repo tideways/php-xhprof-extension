@@ -27,6 +27,7 @@
 #include "win32/unistd.h"
 #include "win32/php_tideways_win32.h"
 #include "win32/php_tideways_win32.c"
+#include <Windows.h>
 #else
 #include <unistd.h>
 #include <sys/time.h>
