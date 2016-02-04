@@ -2570,10 +2570,11 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
  */
 static uint64 cycle_timer(TSRMLS_D) {
 #if defined(PHP_WIN32)
-	unsigned __int64 epoch = UINT64CONST(116444736000000000);
+	static const uint64_t epoch = UINT64CONST(116444736000000000);
 	FILETIME    file_time;
 	SYSTEMTIME  system_time;
 	ULARGE_INTEGER ularge;
+	struct timeval * tp;
 
 	GetSystemTime(&system_time);
 	SystemTimeToFileTime(&system_time, &file_time);
