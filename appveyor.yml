@@ -1,32 +1,32 @@
 build: false
 environment:
   matrix:
-  - PHP_VERSION: 5.6.18
+  - PHP_VERSION: 5.6
     BUILD_PLATFORM: x86
     PHP_VC: 11
     PHP_TYPE: "Win32"
     RELEASE_FOLDER: "Release_TS"
-  - PHP_VERSION: 5.6.18
+  - PHP_VERSION: 5.6
     BUILD_PLATFORM: x86
     PHP_VC: 11
     PHP_TYPE: "nts-Win32"
     RELEASE_FOLDER: "Release"
-  - PHP_VERSION: 5.5.32
+  - PHP_VERSION: 5.5
     BUILD_PLATFORM: x86
     PHP_VC: 11
     PHP_TYPE: "Win32"
     RELEASE_FOLDER: "Release_TS"
-  - PHP_VERSION: 5.5.32
+  - PHP_VERSION: 5.5
     BUILD_PLATFORM: x86
     PHP_VC: 11
     PHP_TYPE: "nts-Win32"
     RELEASE_FOLDER: "Release"
-  - PHP_VERSION: 7.0.3
+  - PHP_VERSION: 7.0
     BUILD_PLATFORM: x86
     PHP_VC: 14
     PHP_TYPE: "Win32"
     RELEASE_FOLDER: "Release_TS"
-  - PHP_VERSION: 7.0.3
+  - PHP_VERSION: 7.0
     BUILD_PLATFORM: x64
     PHP_VC: 14
     PHP_TYPE: "Win32"
@@ -37,12 +37,12 @@ environment:
 
 matrix:
     allow_failures:
-      - PHP_VERSION: 7.0.2
+      - PHP_VERSION: 7.0
         BUILD_PLATFORM: x86
         PHP_VC: 14
         PHP_TYPE: "Win32"
         RELEASE_FOLDER: "Release_TS"
-      - PHP_VERSION: 7.0.2
+      - PHP_VERSION: 7.0
         BUILD_PLATFORM: x64
         PHP_VC: 14
         PHP_TYPE: "Win32"
@@ -62,7 +62,9 @@ init:
 install:
   - echo Setting PHP version...
   - ps: >-
-       $env:version='{build}-$(PHP_VERSION)'
+      Start-FileDownload 'http://windows.php.net/downloads/releases/sha1sum.txt'
+      $env:PHP_VERSION=type sha1sum.txt | where { $_ -match "php-(" + ${env:PHP_VERSION} + ".\d+)-src" } | foreach { $matches[1] }
+      $env:version='{build}-$(PHP_VERSION)'
   - echo Initializing Build...
   - cd %APPVEYOR_BUILD_FOLDER%
   - echo Preparing Tideways win32 build...
