@@ -1,12 +1,12 @@
 build: false
 environment:
   matrix:
-  - PHP_VERSION: 5.6.17
+  - PHP_VERSION: 5.6.18
     BUILD_PLATFORM: x86
     PHP_VC: 11
     PHP_TYPE: "Win32"
     RELEASE_FOLDER: "Release_TS"
-  - PHP_VERSION: 5.6.17
+  - PHP_VERSION: 5.6.18
     BUILD_PLATFORM: x86
     PHP_VC: 11
     PHP_TYPE: "nts-Win32"
