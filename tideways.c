@@ -2570,15 +2570,20 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
  */
 static uint64 cycle_timer(TSRMLS_D) {
 #if defined(PHP_WIN32)
-	LARGE_INTEGER StartingTime;
+	unsigned __int64 epoch = UINT64CONST(116444736000000000);
+	FILETIME    file_time;
+	SYSTEMTIME  system_time;
+	ULARGE_INTEGER ularge;
 
-	if (!QueryPerformanceCounter(&StartingTime)) {
-		zend_error(E_ERROR, "QueryPerformanceCounter");
-	}
+	GetSystemTime(&system_time);
+	SystemTimeToFileTime(&system_time, &file_time);
+	ularge.LowPart = file_time.dwLowDateTime;
+	ularge.HighPart = file_time.dwHighDateTime;
 
-	StartingTime.QuadPart *= 1000000;
-	StartingTime.QuadPart /= TWG(frequency).QuadPart;
-	return StartingTime.QuadPart;
+	tp->tv_sec = (long) ((ularge.QuadPart - epoch) / 10000000L);
+	tp->tv_usec = (long) (system_time.wMilliseconds * 1000);
+
+	return tp->tv_sec * 1000000 + tp->tv_usec;
 #else
 #ifdef __APPLE__
 	return mach_absolute_time();
