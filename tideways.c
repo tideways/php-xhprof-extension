@@ -27,7 +27,6 @@
 #include "win32/unistd.h"
 #include "win32/php_tideways_win32.h"
 #include "win32/php_tideways_win32.c"
-#include <Windows.h>
 #else
 #include <unistd.h>
 #include <sys/time.h>
@@ -2571,21 +2570,15 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
  */
 static uint64 cycle_timer(TSRMLS_D) {
 #if defined(PHP_WIN32)
-	static const uint64_t epoch = ((uint64_t) 116444736000000000ULL);
-	FILETIME    file_time;
-	SYSTEMTIME  system_time;
-	ULARGE_INTEGER ularge;
-	struct timeval * tp;
+	LARGE_INTEGER StartingTime;
 
-	GetSystemTime(&system_time);
-	SystemTimeToFileTime(&system_time, &file_time);
-	ularge.LowPart = file_time.dwLowDateTime;
-	ularge.HighPart = file_time.dwHighDateTime;
+	if (!QueryPerformanceCounter(&StartingTime)) {
+		zend_error(E_ERROR, "QueryPerformanceCounter");
+	}
 
-	tp->tv_sec = (long) ((ularge.QuadPart - epoch) / 10000000L);
-	tp->tv_usec = (long) (system_time.wMilliseconds * 1000);
-
-	return tp->tv_sec * 1000000 + tp->tv_usec;
+	StartingTime.QuadPart *= 1000000;
+	StartingTime.QuadPart /= TWG(frequency).QuadPart;
+	return StartingTime.QuadPart;
 #else
 #ifdef __APPLE__
 	return mach_absolute_time();
