@@ -14,18 +14,25 @@ include_once dirname(__FILE__).'/common.php';
 
 // sleep 10000 microsecs (10 millisecs)
 function sleep_10000_micro() {
-   usleep(10000);
+   msleep(10000);
 }
 
+function msleep($expectedTicks) {
+    $start = microtime(true);
+    do {
+        $end = microtime(true);
+        $actualTicks = ($end-$start) * 1000000;
+    } while ($actualTicks < $expectedTicks);
+}
 
 // sleep 20000 microsecs (20 millisecs)
 function sleep_20000_micro() {
-   usleep(20000);
+   msleep(20000);
 }
 
 // sleep 50000 microsecs (50 millisecs)
 function sleep_50000_micro() {
-   usleep(50000);
+   msleep(50000);
 }
 
 function invoke_all() {
@@ -60,13 +67,13 @@ function verify($expected, $actual, $description) {
 }
 
 verify(10000,
-       $output["sleep_10000_micro==>usleep"]["wt"],
+       $output["sleep_10000_micro==>msleep"]["wt"],
        "sleep_10000_micro");
 verify(20000,
-       $output["sleep_20000_micro==>usleep"]["wt"],
+       $output["sleep_20000_micro==>msleep"]["wt"],
        "sleep_20000_micro");
 verify(50000,
-       $output["sleep_50000_micro==>usleep"]["wt"],
+       $output["sleep_50000_micro==>msleep"]["wt"],
        "sleep_50000_micro");
 
 ?>
