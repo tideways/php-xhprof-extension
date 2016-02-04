@@ -49,7 +49,6 @@ matrix:
         RELEASE_FOLDER: "Release_TS"
 
 
-os: Windows Server 2012
 clone_folder: c:\projects\tideways
 
 os: Windows Server 2012 R2
