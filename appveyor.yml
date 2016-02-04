@@ -52,10 +52,11 @@ matrix:
 os: Windows Server 2012
 clone_folder: c:\projects\tideways
 
+os: Windows Server 2012 R2
+
 init:
     - SET PATH=C:\Program Files (x86)\MSBuild\%PHP_VC%.0\Bin;%PATH%
     - SET PATH=c:\php;c:\projects\php-devpack;%PATH%
-    - echo %PATH%
     - SET PHP=1
     - SET ANSICON=121x90 (121x90)
 
@@ -82,7 +83,12 @@ install:
   - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-devel-pack-' + ${env:PHP_VERSION} + '-' + ${env:PHP_TYPE} + '-VC' + ${env:PHP_VC} + '-' + ${env:BUILD_PLATFORM} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php-dev.zip')
   - 7z.exe x php-dev.zip | FIND /V "ing  "
   - mv php-%PHP_VERSION%-devel-VC%PHP_VC%-%BUILD_PLATFORM% php-devpack
-  - '"%VS110COMNTOOLS%\VsDevCmd" %BUILD_PLATFORM%'
+  - ps: if($env:PHP_VC -eq '11') {
+          $env:VSCOMNTOOLS=$env:VS110COMNTOOLS
+        } elseif($env:PHP_VC -eq '14') {
+          $env:VSCOMNTOOLS=$env:VS140COMNTOOLS
+        }
+  - '"%VSCOMNTOOLS%\VsDevCmd" %BUILD_PLATFORM%'
   - echo Building PHP [%PHP_VERSION%]
   - '%PHP_SDK%\bin\phpsdk_setvars'
   - 'cd %APPVEYOR_BUILD_FOLDER%\..\php'
