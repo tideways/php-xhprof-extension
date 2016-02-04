@@ -62,9 +62,21 @@ init:
 install:
   - echo Setting PHP version...
   - ps: >-
-      Start-FileDownload 'http://windows.php.net/downloads/releases/sha1sum.txt'
-      $env:PHP_VERSION=type sha1sum.txt | where { $_ -match "php-(" + ${env:PHP_VERSION} + ".\d+)-src" } | foreach { $matches[1] }
-      $env:version='{build}-$(PHP_VERSION)'
+      If ($env:PHP_VERSION -Match "5.6") {
+        Start-FileDownload 'http://windows.php.net/downloads/releases/sha1sum.txt'
+        $env:PHP_VERSION=type sha1sum.txt | where { $_ -match "php-(5\.6\.\d+)-src" } | foreach { $matches[1] }
+        $env:version='{build}-$(PHP_VERSION)'
+      } elseif ($env:PHP_VERSION -Match "5.5") {
+        Start-FileDownload 'http://windows.php.net/downloads/releases/sha1sum.txt'
+        $env:PHP_VERSION=type sha1sum.txt | where { $_ -match "php-(5\.5\.\d+)-src" } | foreach { $matches[1] }
+        $env:version='{build}-$(PHP_VERSION)'
+      } elseif ($env:PHP_VERSION -Match "7.0") {
+        Start-FileDownload 'http://windows.php.net/downloads/releases/sha1sum.txt'
+        $env:PHP_VERSION=type sha1sum.txt | where { $_ -match "php-(7\.0\.\d+)-src" } | foreach { $matches[1] }
+        $env:version='{build}-$(PHP_VERSION)'
+      } Else {
+        $env:version='{build}-$(PHP_VERSION)'
+      }
   - echo Initializing Build...
   - cd %APPVEYOR_BUILD_FOLDER%
   - echo Preparing Tideways win32 build...
