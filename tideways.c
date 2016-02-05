@@ -2576,7 +2576,7 @@ static uint64 cycle_timer(TSRMLS_D) {
 		zend_error(E_ERROR, "gettimeofday");
 	}
 
-	return (tv.tv_sec - 1454683759) * 1000000 + tv.tv_usec;
+	return (((uint64)tv.tv_sec) - 1454683759) * 1000000 + ((uint64)tv.tv_usec);
 #else
 #ifdef __APPLE__
 	return mach_absolute_time();
