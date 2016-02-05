@@ -2572,7 +2572,7 @@ static uint64 cycle_timer(TSRMLS_D) {
 #if defined(PHP_WIN32)
 	struct timeval tv;
 
-	if (!gettimeofday(&tv, 0)) {
+	if (gettimeofday(&tv, 0)) {
 		zend_error(E_ERROR, "gettimeofday");
 	}
 
