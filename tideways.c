@@ -425,6 +425,7 @@ PHP_INI_ENTRY("tideways.auto_prepend_library", "1", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.collect", "tracing", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.monitor", "basic", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.distributed_tracing_hosts", "127.0.0.1", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("tideways.log_level", "0", PHP_INI_ALL, NULL)
 
 PHP_INI_END()
 
