@@ -142,7 +142,7 @@ array(2) {
     }
   }
   [1]=>
-  array(3) {
+  array(4) {
     ["n"]=>
     string(8) "doctrine"
     ["b"]=>
@@ -154,6 +154,11 @@ array(2) {
     array(1) {
       [0]=>
       int(%d)
+    }
+    ["a"]=>
+    array(1) {
+      ["fn"]=>
+      string(%d) "foo"
     }
   }
 }

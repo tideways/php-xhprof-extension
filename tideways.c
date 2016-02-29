@@ -2627,25 +2627,6 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 	tw_trace_callback *callback;
 	int    recurse_level = 0;
 
-	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_HIERACHICAL) == 0) {
-		if (TWG(func_hash_counters)[current->hash_code] > 0) {
-			/* Find this symbols recurse level */
-			for(p = (*entries); p; p = p->prev_hprof) {
-				if (!strcmp(current->name_hprof, p->name_hprof)) {
-					recurse_level = (p->rlvl_hprof) + 1;
-					break;
-				}
-			}
-		}
-		TWG(func_hash_counters)[current->hash_code]++;
-
-		/* Init current function's recurse level */
-		current->rlvl_hprof = recurse_level;
-	}
-
-	/* Get start tsc counter */
-	current->tsc_start = cycle_timer();
-
 	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) == 0 && data != NULL) {
 #if PHP_VERSION_ID < 70000
 		if (zend_hash_find(TWG(trace_callbacks), current->name_hprof, strlen(current->name_hprof)+1, (void **)&callback) == SUCCESS) {
@@ -2660,16 +2641,39 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 #endif
 	}
 
-	/* Get CPU usage */
-	if (TWG(tideways_flags) & TIDEWAYS_FLAGS_CPU) {
-		current->cpu_start = cpu_timer();
+	if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_HIERACHICAL) == 0) {
+		if (TWG(func_hash_counters)[current->hash_code] > 0) {
+			/* Find this symbols recurse level */
+			for(p = (*entries); p; p = p->prev_hprof) {
+				if (!strcmp(current->name_hprof, p->name_hprof)) {
+					recurse_level = (p->rlvl_hprof) + 1;
+					break;
+				}
+			}
+		}
+		TWG(func_hash_counters)[current->hash_code]++;
+
+		/* Init current function's recurse level */
+		current->rlvl_hprof = recurse_level;
+
+		/* Get CPU usage */
+		if (TWG(tideways_flags) & TIDEWAYS_FLAGS_CPU) {
+			current->cpu_start = cpu_timer();
+		}
+
+		/* Get memory usage */
+		if (TWG(tideways_flags) & TIDEWAYS_FLAGS_MEMORY) {
+			current->mu_start_hprof  = zend_memory_usage(0 TSRMLS_CC);
+			current->pmu_start_hprof = zend_memory_peak_usage(0 TSRMLS_CC);
+		}
+
+		if (current->span_id >= 0) {
+			tw_span_annotate_string(current->span_id, "fn", current->name_hprof, 1 TSRMLS_CC);
+		}
 	}
 
-	/* Get memory usage */
-	if (TWG(tideways_flags) & TIDEWAYS_FLAGS_MEMORY) {
-		current->mu_start_hprof  = zend_memory_usage(0 TSRMLS_CC);
-		current->pmu_start_hprof = zend_memory_peak_usage(0 TSRMLS_CC);
-	}
+	/* Get start tsc counter */
+	current->tsc_start = cycle_timer();
 }
 
 /**

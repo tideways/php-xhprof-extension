@@ -59,8 +59,10 @@ array(4) {
     int(%d)
   }
   ["a"]=>
-  array(1) {
+  array(2) {
     ["foo"]=>
     string(4) "1497"
+    ["fn"]=>
+    string(7) "testing"
   }
 }
