@@ -38,6 +38,7 @@
 #include "spans.h"
 #include "zend_extensions.h"
 #include "zend_exceptions.h"
+#include "zend_builtin_functions.h"
 #include "zend_gc.h"
 
 #include "ext/standard/url.h"
@@ -671,12 +672,7 @@ void tw_span_record_duration(long spanId, double start, double end TSRMLS_DC)
 
 long tw_trace_callback_php_call(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
-	long idx;
-
-	idx = tw_span_create("php", 3 TSRMLS_CC);
-	tw_span_annotate_string(idx, "title", symbol, 1 TSRMLS_CC);
-
-	return idx;
+	return tw_trace_callback_record_with_cache("php", 3, symbol, strlen(symbol), 1 TSRMLS_CC);
 }
 
 long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
