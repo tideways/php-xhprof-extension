@@ -37,6 +37,7 @@
 #include "php_tideways.h"
 #include "spans.h"
 #include "zend_extensions.h"
+#include "zend_exceptions.h"
 #include "zend_gc.h"
 
 #include "ext/standard/url.h"
