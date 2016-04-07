@@ -2,7 +2,7 @@
 #include "../php_tideways.h"
 #include "../spans.h"
 
-ZEND_DECLARE_MODULE_GLOBALS(hp)
+extern ZEND_DECLARE_MODULE_GLOBALS(hp)
 
 long tw_span_create(char *category, size_t category_len TSRMLS_DC)
 {
