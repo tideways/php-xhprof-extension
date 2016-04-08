@@ -1,0 +1,19 @@
+Tideways PHP Profiler
+Copyright (c) 2014-2016 Tideways GmbH
+
+This product includes work from the following third-party libraries:
+
+    - xhprof (https://github.com/phacility/xhprof)
+
+      Copyright (c) 2009 Facebook
+
+        Creators:
+          Changhao Jiang
+          Kannan Muthukkaruppan
+          Venkat Venkataramani
+          Haiping Zhao
+
+        Additional Contributors:
+          George Cabrera      - UI enhancements
+          Paul Saab           - FreeBSD port
+          Syseleven           - Function Arguments
