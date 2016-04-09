@@ -450,9 +450,9 @@ PHP_GINIT_FUNCTION(hp)
 #if PHP_VERSION_ID < 70000
 	hp_globals->stats_count = NULL;
 	hp_globals->spans = NULL;
+	hp_globals->exception = NULL;
 #endif
 	hp_globals->backtrace = NULL;
-	hp_globals->exception = NULL;
 	hp_globals->filtered_functions = NULL;
 	hp_globals->entries = NULL;
 	hp_globals->root = NULL;
@@ -1490,12 +1490,14 @@ PHP_RINIT_FUNCTION(tideways)
 
 	TWG(prepend_overwritten) = 0;
 	TWG(backtrace) = NULL;
-	TWG(exception) = NULL;
 	TWG(transaction_name) = NULL;
 	TWG(transaction_function) = NULL;
 #if PHP_VERSION_ID >= 70000
 	ZVAL_NULL(&TWG(spans));
 	ZVAL_NULL(&TWG(stats_count));
+	ZVAL_NULL(&TWG(exception));
+#else
+	TWG(exception) = NULL;
 #endif
 
 	if (INI_INT("tideways.auto_prepend_library") == 0) {
@@ -1681,10 +1683,15 @@ static void hp_exception_function_clear(TSRMLS_D) {
 		TWG(exception_function) = NULL;
 	}
 
+#if PHP_VERSION_ID >= 70000
+	hp_ptr_dtor(&TWG(exception));
+	ZVAL_NULL(&TWG(exception));
+#else 
 	if (TWG(exception) != NULL) {
 		hp_ptr_dtor(TWG(exception));
 		TWG(exception) = NULL;
 	}
+#endif
 }
 
 static void hp_transaction_function_clear(TSRMLS_D) {
@@ -2332,8 +2339,12 @@ static void hp_detect_exception(char *func_name, zend_execute_data *data TSRMLS_
 			exception_ce = Z_OBJCE_P(argument_element);
 
 			if (instanceof_function(exception_ce, default_ce TSRMLS_CC) == 1) {
-				Z_TRY_ADDREF_P(argument_element);
+#if PHP_VERSION_ID >= 70000
+				ZVAL_COPY(&TWG(exception), argument_element);
+#else
+				Z_ADDREF_P(argument_element);
 				TWG(exception) = argument_element;
+#endif
 				return;
 			}
 		}
@@ -3254,8 +3265,7 @@ static void tideways_throw_exception_hook(zval *exception TSRMLS_DC)
 
 	exception_ce = Z_OBJCE_P(exception);
 	if (instanceof_function(exception_ce, zend_ce_error)) {
-		TWG(exception) = (zval*)emalloc(sizeof(zval));
-		ZVAL_COPY(TWG(exception), exception);
+		ZVAL_COPY(&TWG(exception), exception);
 	}
 }
 #endif
@@ -3436,13 +3446,13 @@ PHP_FUNCTION(tideways_fatal_backtrace)
 
 PHP_FUNCTION(tideways_last_detected_exception)
 {
-	if (TWG(exception) != NULL) {
 #if PHP_VERSION_ID >= 70000
-		RETURN_ZVAL(TWG(exception), 1, 0);
+	RETURN_ZVAL(&TWG(exception), 1, 0);
 #else
+	if (TWG(exception) != NULL) {
 		RETURN_ZVAL(TWG(exception), 1, 0);
-#endif
 	}
+#endif
 }
 
 PHP_FUNCTION(tideways_last_fatal_error)

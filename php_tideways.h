@@ -140,15 +140,16 @@ ZEND_BEGIN_MODULE_GLOBALS(hp)
 #if PHP_VERSION_ID >= 70000
 	zval            stats_count;
 	zval			spans;
+	zval			exception;
 #else
 	zval            *stats_count;
 	zval			*spans;
+	zval			*exception;
 #endif
 	long			current_span_id;
 	uint64			start_time;
 
 	zval			*backtrace;
-	zval			*exception;
 
 	/* Top of the profile stack */
 	hp_entry_t      *entries;
