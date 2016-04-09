@@ -711,7 +711,11 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 		_DECLARE_ZVAL(retval);
 		_DECLARE_ZVAL(context);
 		_DECLARE_ZVAL(zargs);
+#if PHP_VERSION_ID < 70000
 		zval *params[1];
+#else
+		zval params[1];
+#endif
 		zend_error_handling zeh;
 		int i;
 
@@ -743,17 +747,19 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 #if PHP_VERSION_ID < 70000
 		params[0] = (zval *)&(context);
 #else
-		ZVAL_COPY_VALUE(&params[0], context);
+		ZVAL_COPY(&params[0], context);
+		Z_ADDREF(params[0]);
 #endif
 
 		twcb->fci.param_count = 1;
 		twcb->fci.size = sizeof(twcb->fci);
 #if PHP_VERSION_ID < 70000
 		twcb->fci.retval_ptr_ptr = &retval;
+		twcb->fci.params = (zval ***)params;
 #else
 		twcb->fci.retval = retval;
+		twcb->fci.params = params;
 #endif
-		twcb->fci.params = (zval ***)params;
 
 		fci = twcb->fci;
 		fcic = twcb->fcic;
@@ -764,6 +770,9 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 
 		hp_ptr_dtor(context);
 		hp_ptr_dtor(zargs);
+#if PHP_VERSION_ID >= 70000
+		hp_ptr_dtor(&params[0]);
+#endif
 
 		long idx = -1;
 
@@ -3299,6 +3308,12 @@ PHP_FUNCTION(tideways_span_watch)
 static void free_tw_watch_callback(zval *zv)
 {
 	tw_watch_callback *twcb = (tw_watch_callback*)Z_PTR_P(zv);
+	if (&twcb->fci.function_name) {
+		zval_ptr_dtor(&twcb->fci.function_name);
+	}
+	if (&twcb->fci.object) {
+		zval_ptr_dtor(&twcb->fci.object);
+	}
 	efree(twcb);
 }
 #else
