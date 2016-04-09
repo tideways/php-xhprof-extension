@@ -1306,6 +1306,8 @@ long tw_trace_callback_event_dispatchers2(char *symbol, zend_execute_data *data 
 		event[len-1] = '\0';
 
 		idx = tw_trace_callback_record_with_cache("event", 5, event, len, 1 TSRMLS_CC);
+
+		efree(event);
 	}
 
 	return idx;
@@ -1487,8 +1489,8 @@ PHP_RINIT_FUNCTION(tideways)
 	TWG(transaction_name) = NULL;
 	TWG(transaction_function) = NULL;
 #if PHP_VERSION_ID >= 70000
-	ZVAL_UNDEF(&TWG(spans));
-	ZVAL_UNDEF(&TWG(stats_count));
+	ZVAL_NULL(&TWG(spans));
+	ZVAL_NULL(&TWG(stats_count));
 #endif
 
 	if (INI_INT("tideways.auto_prepend_library") == 0) {
@@ -1981,6 +1983,11 @@ void hp_init_trace_callbacks(TSRMLS_D)
  */
 void hp_init_profiler_state(TSRMLS_D)
 {
+	if (!TWG(ever_enabled)) {
+		TWG(ever_enabled) = 1;
+		TWG(entries) = NULL;
+	}
+
 #if PHP_VERSION_ID >= 70000
 	hp_ptr_dtor(&TWG(stats_count));
 	array_init(&TWG(stats_count));
@@ -1988,10 +1995,6 @@ void hp_init_profiler_state(TSRMLS_D)
 	hp_ptr_dtor(&TWG(spans));
 	array_init(&TWG(spans));
 #else
-	if (!TWG(ever_enabled)) {
-		TWG(ever_enabled) = 1;
-		TWG(entries) = NULL;
-	}
 
 	if (TWG(stats_count)) {
 		hp_ptr_dtor(TWG(stats_count));
@@ -2020,9 +2023,9 @@ void hp_clean_profiler_state(TSRMLS_D)
 {
 #if PHP_VERSION_ID >= 70000
 	hp_ptr_dtor(&TWG(stats_count));
-	ZVAL_UNDEF(&TWG(stats_count));
+	ZVAL_NULL(&TWG(stats_count));
 	hp_ptr_dtor(&TWG(spans));
-	ZVAL_UNDEF(&TWG(spans));
+	ZVAL_NULL(&TWG(spans));
 #else
 	if (TWG(stats_count)) {
 		hp_ptr_dtor(TWG(stats_count));
