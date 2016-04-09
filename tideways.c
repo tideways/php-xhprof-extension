@@ -1259,6 +1259,9 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 
 		zval_ptr_dtor(&retval_ptr);
 	}
+#if PHP_VERSION_ID >= 70000
+	zend_string_release(Z_STR(fname));
+#endif
 
 	return idx;
 }
