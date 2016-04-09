@@ -137,8 +137,13 @@ ZEND_BEGIN_MODULE_GLOBALS(hp)
 	int				 prepend_overwritten;
 
 	/* Holds all the Tideways statistics */
+#if PHP_VERSION_ID >= 70000
+	zval            stats_count;
+	zval			spans;
+#else
 	zval            *stats_count;
 	zval			*spans;
+#endif
 	long			current_span_id;
 	uint64			start_time;
 
