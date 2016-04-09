@@ -1416,7 +1416,9 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 
 			idx = tw_span_create("http", 4 TSRMLS_CC);
 			tw_span_annotate_string(idx, "url", summary, 0 TSRMLS_CC);
-			return idx;
+#if PHP_VERSION_ID >= 70000
+			efree(summary);
+#endif
 		}
 
 		hp_ptr_dtor(retval_ptr);
