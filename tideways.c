@@ -256,6 +256,8 @@ ZEND_DLEXPORT void hp_execute_internal(zend_execute_data *execute_data, struct _
 #if PHP_VERSION_ID < 70000
 void (*tideways_original_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
 void tideways_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
+#else
+static void tideways_throw_exception_hook(zval *exception TSRMLS_DC);
 #endif
 
 #if PHP_VERSION_ID >= 70000
@@ -507,6 +509,8 @@ PHP_MINIT_FUNCTION(tideways)
 #if PHP_VERSION_ID < 70000
 	tideways_original_error_cb = zend_error_cb;
 	zend_error_cb = tideways_error_cb;
+#else
+	zend_throw_exception_hook = tideways_throw_exception_hook;
 #endif
 
 #if PHP_VERSION_ID >= 70000
@@ -545,6 +549,8 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 
 #if PHP_VERSION_ID < 70000
 	zend_error_cb = tideways_original_error_cb;
+#else
+	zend_throw_exception_hook = NULL;
 #endif
 
 #if PHP_VERSION_ID >= 70000
@@ -1217,7 +1223,6 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 	int keepQuery = 0;
 
 	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
-		printf("NULL!");
 		return idx;
 	}
 
@@ -3216,6 +3221,21 @@ void tideways_error_cb(int type, const char *error_filename, const uint error_li
 
 	tideways_original_error_cb(type, error_filename, error_lineno, format, args);
 }
+#else
+static void tideways_throw_exception_hook(zval *exception TSRMLS_DC)
+{
+	zval *exception_ce, *ex;
+
+	if (!exception) {
+		return;
+	}
+
+	exception_ce = Z_OBJCE_P(exception);
+	if (instanceof_function(exception_ce, zend_ce_error)) {
+		TWG(exception) = (zval*)emalloc(sizeof(zval));
+		ZVAL_COPY(TWG(exception), exception);
+	}
+}
 #endif
 
 PHP_FUNCTION(tideways_span_watch)
@@ -3392,7 +3412,7 @@ PHP_FUNCTION(tideways_last_detected_exception)
 {
 	if (TWG(exception) != NULL) {
 #if PHP_VERSION_ID >= 70000
-		RETURN_ZVAL(TWG(exception), 1, 1);
+		RETURN_ZVAL(TWG(exception), 1, 0);
 #else
 		RETURN_ZVAL(TWG(exception), 1, 0);
 #endif
