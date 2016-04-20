@@ -63,3 +63,5 @@ php7/*.lo
 php5/.libs
 php7/.libs
 /.gdb_history
+src/Tideways/*.lo
+src/Tideways/.libs

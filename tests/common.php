@@ -56,6 +56,7 @@ function print_spans($spans)
         ksort($span['a']);
         $annotations = '';
         foreach ($span['a'] as $k => $v) {
+            if ($k === 'fn') { continue; }
             $annotations .= "$k=$v ";
         }
 

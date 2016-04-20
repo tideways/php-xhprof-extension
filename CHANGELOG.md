@@ -1,3 +1,15 @@
+# Version 4.0.4
+
+- Add support for Fatal Error detection in PHP 7
+- Add log-level INI settings
+- Fix compilation with clang on OSX
+- Fix missing header include for `zend_exceptions.h` (Ondřej Surý)
+- Fix memory leaks on PHP 7
+
+# Version 4.0.3
+
+- Add PHP 7 support
+
 # Version 3.0.0
 
 - Remove SQL summarization, always keep full SQL and delegate summary

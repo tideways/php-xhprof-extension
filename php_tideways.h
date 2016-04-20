@@ -33,7 +33,7 @@ extern zend_module_entry tideways_module_entry;
 #endif
 
 /* Tideways version                           */
-#define TIDEWAYS_VERSION       "4.0.3"
+#define TIDEWAYS_VERSION       "4.0.4"
 
 /* Fictitious function name to represent top of the call tree. The paranthesis
  * in the name is to ensure we don't conflict with user function names.  */
@@ -137,13 +137,19 @@ ZEND_BEGIN_MODULE_GLOBALS(hp)
 	int				 prepend_overwritten;
 
 	/* Holds all the Tideways statistics */
+#if PHP_VERSION_ID >= 70000
+	zval            stats_count;
+	zval			spans;
+	zval			exception;
+#else
 	zval            *stats_count;
 	zval			*spans;
+	zval			*exception;
+#endif
 	long			current_span_id;
 	uint64			start_time;
 
 	zval			*backtrace;
-	zval			*exception;
 
 	/* Top of the profile stack */
 	hp_entry_t      *entries;
