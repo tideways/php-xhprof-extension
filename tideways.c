@@ -2743,7 +2743,7 @@ void hp_mode_hier_beginfn_cb(hp_entry_t **entries, hp_entry_t *current, zend_exe
 	}
 
 	/* Get start tsc counter */
-	current->tsc_start = cycle_timer();
+	current->tsc_start = cycle_timer(TSRMLS_C);
 }
 
 /**
