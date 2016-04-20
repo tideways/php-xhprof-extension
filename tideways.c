@@ -2618,7 +2618,7 @@ static uint64 cycle_timer(TSRMLS_D) {
       zend_error(E_ERROR, "QueryPerformanceCounter");
    }
 
-   return (double)(count.QuadPart) / TWG(frequency);
+   return (double)(count.QuadPart) / TWG(frequency.QuadPart);
 #else
 #ifdef __APPLE__
 	return mach_absolute_time();
