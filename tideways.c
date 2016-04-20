@@ -3448,7 +3448,7 @@ PHP_FUNCTION(tideways_enable)
 	hp_parse_options_from_arg(optional_array TSRMLS_CC);
 
 #if defined(PHP_WIN32)
-	if(!QueryPerformanceFrequency( (LARGE_INTEGER*)&frequency)
+	if (!QueryPerformanceFrequency( (LARGE_INTEGER*)&frequency)) {
 		zend_error(E_ERROR, "QueryPerformanceFrequency");
 	}
 	TWG(frequency) = (double)frequency/1000000.0;

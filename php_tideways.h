@@ -195,7 +195,7 @@ ZEND_BEGIN_MODULE_GLOBALS(hp)
 	double compile_wt;
 	uint64 cpu_start;
 #if defined(PHP_WIN32)
-	LARGE_INTEGER frequency;
+	double frequency;
 #endif
 ZEND_END_MODULE_GLOBALS(hp)
 
