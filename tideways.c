@@ -738,9 +738,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 		add_assoc_zval(context, "args", zargs);
 
 		if (object != NULL) {
-#if PHP_VERSION_ID < 70000
 			Z_TRY_ADDREF_P(object);
-#endif
 			add_assoc_zval(context, "object", object);
 		}
 
@@ -748,7 +746,6 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 		params[0] = (zval *)&(context);
 #else
 		ZVAL_COPY(&params[0], context);
-		Z_ADDREF(params[0]);
 #endif
 
 		twcb->fci.param_count = 1;
