@@ -2611,13 +2611,14 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
  */
 static uint64 cycle_timer(TSRMLS_D) {
 #if defined(PHP_WIN32)
-	struct timeval tv;
 
-	if (gettimeofday(&tv, 0)) {
-		zend_error(E_ERROR, "gettimeofday");
-	}
+   LARGE_INTEGER count;
 
-	return (((uint64)tv.tv_sec) - 1454683759) * 1000000 + ((uint64)tv.tv_usec);
+   if (!QueryPerformanceCounter(&count)) {
+      zend_error(E_ERROR, "QueryPerformanceCounter");
+   }
+
+   return (double)(count.QuadPart) / TWG(frequency);
 #else
 #ifdef __APPLE__
 	return mach_absolute_time();
