@@ -726,6 +726,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 	twcb = zend_hash_str_find_ptr(TWG(trace_watch_callbacks), symbol, strlen(symbol));
 
 	if (twcb) {
+#endif
 		_ALLOC_INIT_ZVAL(context);
 		array_init(context);
 
