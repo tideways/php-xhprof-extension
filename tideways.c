@@ -2618,7 +2618,7 @@ static uint64 cycle_timer(TSRMLS_D) {
       zend_error(E_ERROR, "QueryPerformanceCounter");
    }
 
-   return (double)(count.QuadPart) / TWG(frequency.QuadPart);
+   return double(count.QuadPart) / TWG(frequency);
 #else
 #ifdef __APPLE__
 	return mach_absolute_time();
@@ -3451,7 +3451,7 @@ PHP_FUNCTION(tideways_enable)
 	if (!QueryPerformanceFrequency(&frequency)) {
 		zend_error(E_ERROR, "QueryPerformanceFrequency");
 	}
-	TWG(frequency) = frequency;
+	TWG(frequency) = double(frequency.QuadPart)/1000000.0;
 #endif
 
 	hp_begin(tideways_flags TSRMLS_CC);
