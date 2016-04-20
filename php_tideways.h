@@ -62,6 +62,14 @@ extern zend_module_entry tideways_module_entry;
 			   ((TIDEWAYS_MAX_FILTERED_FUNCTIONS + 7)/8)
 #define TIDEWAYS_MAX_ARGUMENT_LEN 256
 
+
+#if defined( _WIN32 ) || defined( _WIN64 )
+typedef unsigned __int64 tick_t;
+#else
+#include <stdint.h>
+typedef uint64_t         tick_t;
+#endif
+
 #if !defined(uint64)
 typedef unsigned long long uint64;
 #endif

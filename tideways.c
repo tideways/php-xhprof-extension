@@ -2612,13 +2612,13 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
 static uint64 cycle_timer(TSRMLS_D) {
 #if defined(PHP_WIN32)
 
-   LARGE_INTEGER count;
+   unsigned __int64 count;
 
-   if (!QueryPerformanceCounter(&count)) {
+   if (!QueryPerformanceCounter((LARGE_INTEGER*)&count)) {
       zend_error(E_ERROR, "QueryPerformanceCounter");
    }
 
-   return (double)(count.QuadPart) / TWG(frequency);
+   return (double)count / TWG(frequency);
 #else
 #ifdef __APPLE__
 	return mach_absolute_time();
@@ -3433,7 +3433,7 @@ PHP_FUNCTION(tideways_enable)
 	zend_long tideways_flags = 0;
 	zval *optional_array = NULL;
 #if defined(PHP_WIN32)
-	LARGE_INTEGER frequency;
+	unsigned __int64 frequency;
 #endif
 
 	if (TWG(enabled)) {
@@ -3448,10 +3448,10 @@ PHP_FUNCTION(tideways_enable)
 	hp_parse_options_from_arg(optional_array TSRMLS_CC);
 
 #if defined(PHP_WIN32)
-	if (!QueryPerformanceFrequency(&frequency)) {
+	if(!QueryPerformanceFrequency( (LARGE_INTEGER*)&frequency)
 		zend_error(E_ERROR, "QueryPerformanceFrequency");
 	}
-	TWG(frequency) = (double)(frequency.QuadPart)/1000000.0;
+	TWG(frequency) = (double)frequency/1000000.0;
 #endif
 
 	hp_begin(tideways_flags TSRMLS_CC);
