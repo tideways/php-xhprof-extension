@@ -145,6 +145,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define hp_ptr_dtor(val) zval_ptr_dtor( &val )
 #define zend_string_copy(s) s
 #define zend_hash_str_update(array, key, len, value) zend_hash_update(array, key, len+1, value, sizeof(zval*), NULL)
+#define TWG_ARRVAL(val) Z_ARRVAL_P(val)
 
 #define register_trace_callback(function_name, cb) zend_hash_update(TWG(trace_callbacks), function_name, sizeof(function_name), &cb, sizeof(tw_trace_callback*), NULL);
 #define register_trace_callback_len(function_name, len, cb) zend_hash_update(TWG(trace_callbacks), function_name, len+1, &cb, sizeof(tw_trace_callback*), NULL);
@@ -162,6 +163,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _DECLARE_ZVAL(name) zval name ## _v; zval * name = &name ## _v
 #define _ALLOC_INIT_ZVAL(name) ZVAL_NULL(name)
 #define hp_ptr_dtor(val) zval_ptr_dtor(val)
+#define TWG_ARRVAL(val) Z_ARRVAL(val)
 
 
 #define register_trace_callback(function_name, cb) zend_hash_str_update_mem(TWG(trace_callbacks), function_name, strlen(function_name), &cb, sizeof(tw_trace_callback));
@@ -445,10 +447,12 @@ PHP_GINIT_FUNCTION(hp)
 	hp_globals->transaction_name = NULL;
 	hp_globals->exception_function = NULL;
 	hp_globals->trace_callbacks = NULL;
+#if PHP_VERSION_ID < 70000
 	hp_globals->stats_count = NULL;
 	hp_globals->spans = NULL;
-	hp_globals->backtrace = NULL;
 	hp_globals->exception = NULL;
+#endif
+	hp_globals->backtrace = NULL;
 	hp_globals->filtered_functions = NULL;
 	hp_globals->entries = NULL;
 	hp_globals->root = NULL;
@@ -477,8 +481,10 @@ PHP_MINIT_FUNCTION(tideways)
 	/* Get the number of available logical CPUs. */
 	TWG(timebase_factor) = get_timebase_factor();
 
+#if PHP_VERSION_ID < 70000
 	TWG(stats_count) = NULL;
 	TWG(spans) = NULL;
+#endif
 	TWG(trace_callbacks) = NULL;
 	TWG(trace_watch_callbacks) = NULL;
 	TWG(span_cache) = NULL;
@@ -604,7 +610,7 @@ void tw_span_timer_start(long spanId TSRMLS_DC)
 		return;
 	}
 
-	span = zend_compat_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
+	span = zend_compat_hash_index_find(TWG_ARRVAL(TWG(spans)), spanId);
 
 	if (span == NULL) {
 		return;
@@ -629,7 +635,7 @@ void tw_span_timer_stop(long spanId TSRMLS_DC)
 		return;
 	}
 
-	span = zend_compat_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
+	span = zend_compat_hash_index_find(TWG_ARRVAL(TWG(spans)), spanId);
 
 	if (span == NULL) {
 		return;
@@ -653,7 +659,7 @@ void tw_span_record_duration(long spanId, double start, double end TSRMLS_DC)
 		return;
 	}
 
-	span = zend_compat_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
+	span = zend_compat_hash_index_find(TWG_ARRVAL(TWG(spans)), spanId);
 
 	if (span == NULL) {
 		return;
@@ -705,7 +711,11 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 		_DECLARE_ZVAL(retval);
 		_DECLARE_ZVAL(context);
 		_DECLARE_ZVAL(zargs);
+#if PHP_VERSION_ID < 70000
 		zval *params[1];
+#else
+		zval params[1];
+#endif
 		zend_error_handling zeh;
 		int i;
 
@@ -728,26 +738,25 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 		add_assoc_zval(context, "args", zargs);
 
 		if (object != NULL) {
-#if PHP_VERSION_ID < 70000
 			Z_TRY_ADDREF_P(object);
-#endif
 			add_assoc_zval(context, "object", object);
 		}
 
 #if PHP_VERSION_ID < 70000
 		params[0] = (zval *)&(context);
 #else
-		ZVAL_COPY_VALUE(&params[0], context);
+		ZVAL_COPY(&params[0], context);
 #endif
 
 		twcb->fci.param_count = 1;
 		twcb->fci.size = sizeof(twcb->fci);
 #if PHP_VERSION_ID < 70000
 		twcb->fci.retval_ptr_ptr = &retval;
+		twcb->fci.params = (zval ***)params;
 #else
 		twcb->fci.retval = retval;
+		twcb->fci.params = params;
 #endif
-		twcb->fci.params = (zval ***)params;
 
 		fci = twcb->fci;
 		fcic = twcb->fcic;
@@ -758,6 +767,9 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 
 		hp_ptr_dtor(context);
 		hp_ptr_dtor(zargs);
+#if PHP_VERSION_ID >= 70000
+		hp_ptr_dtor(&params[0]);
+#endif
 
 		long idx = -1;
 
@@ -1253,6 +1265,9 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 
 		zval_ptr_dtor(&retval_ptr);
 	}
+#if PHP_VERSION_ID >= 70000
+	zend_string_release(Z_STR(fname));
+#endif
 
 	return idx;
 }
@@ -1300,6 +1315,8 @@ long tw_trace_callback_event_dispatchers2(char *symbol, zend_execute_data *data 
 		event[len-1] = '\0';
 
 		idx = tw_trace_callback_record_with_cache("event", 5, event, len, 1 TSRMLS_CC);
+
+		efree(event);
 	}
 
 	return idx;
@@ -1405,7 +1422,9 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 
 			idx = tw_span_create("http", 4 TSRMLS_CC);
 			tw_span_annotate_string(idx, "url", summary, 0 TSRMLS_CC);
-			return idx;
+#if PHP_VERSION_ID >= 70000
+			efree(summary);
+#endif
 		}
 
 		hp_ptr_dtor(retval_ptr);
@@ -1477,9 +1496,15 @@ PHP_RINIT_FUNCTION(tideways)
 
 	TWG(prepend_overwritten) = 0;
 	TWG(backtrace) = NULL;
-	TWG(exception) = NULL;
 	TWG(transaction_name) = NULL;
 	TWG(transaction_function) = NULL;
+#if PHP_VERSION_ID >= 70000
+	ZVAL_NULL(&TWG(spans));
+	ZVAL_NULL(&TWG(stats_count));
+	ZVAL_NULL(&TWG(exception));
+#else
+	TWG(exception) = NULL;
+#endif
 
 	if (INI_INT("tideways.auto_prepend_library") == 0) {
 		return SUCCESS;
@@ -1664,10 +1689,15 @@ static void hp_exception_function_clear(TSRMLS_D) {
 		TWG(exception_function) = NULL;
 	}
 
+#if PHP_VERSION_ID >= 70000
+	hp_ptr_dtor(&TWG(exception));
+	ZVAL_NULL(&TWG(exception));
+#else 
 	if (TWG(exception) != NULL) {
 		hp_ptr_dtor(TWG(exception));
 		TWG(exception) = NULL;
 	}
+#endif
 }
 
 static void hp_transaction_function_clear(TSRMLS_D) {
@@ -1971,20 +2001,22 @@ void hp_init_trace_callbacks(TSRMLS_D)
  */
 void hp_init_profiler_state(TSRMLS_D)
 {
-	/* Setup globals */
 	if (!TWG(ever_enabled)) {
 		TWG(ever_enabled) = 1;
 		TWG(entries) = NULL;
 	}
 
-	/* Init stats_count */
+#if PHP_VERSION_ID >= 70000
+	hp_ptr_dtor(&TWG(stats_count));
+	array_init(&TWG(stats_count));
+
+	hp_ptr_dtor(&TWG(spans));
+	array_init(&TWG(spans));
+#else
+
 	if (TWG(stats_count)) {
 		hp_ptr_dtor(TWG(stats_count));
 	}
-
-#if PHP_VERSION_ID >= 70000
-	TWG(stats_count) = (zval*)emalloc(sizeof(zval));
-#endif
 
 	_ALLOC_INIT_ZVAL(TWG(stats_count));
 	array_init(TWG(stats_count));
@@ -1993,12 +2025,9 @@ void hp_init_profiler_state(TSRMLS_D)
 		hp_ptr_dtor(TWG(spans));
 	}
 
-#if PHP_VERSION_ID >= 70000
-	TWG(spans) = (zval*)emalloc(sizeof(zval));
-#endif
-
 	_ALLOC_INIT_ZVAL(TWG(spans));
 	array_init(TWG(spans));
+#endif
 
 	hp_init_trace_callbacks(TSRMLS_C);
 }
@@ -2010,7 +2039,12 @@ void hp_init_profiler_state(TSRMLS_D)
  */
 void hp_clean_profiler_state(TSRMLS_D)
 {
-	/* Clear globals */
+#if PHP_VERSION_ID >= 70000
+	hp_ptr_dtor(&TWG(stats_count));
+	ZVAL_NULL(&TWG(stats_count));
+	hp_ptr_dtor(&TWG(spans));
+	ZVAL_NULL(&TWG(spans));
+#else
 	if (TWG(stats_count)) {
 		hp_ptr_dtor(TWG(stats_count));
 		TWG(stats_count) = NULL;
@@ -2019,6 +2053,7 @@ void hp_clean_profiler_state(TSRMLS_D)
 		hp_ptr_dtor(TWG(spans));
 		TWG(spans) = NULL;
 	}
+#endif
 
 	TWG(entries) = NULL;
 	TWG(ever_enabled) = 0;
@@ -2310,8 +2345,12 @@ static void hp_detect_exception(char *func_name, zend_execute_data *data TSRMLS_
 			exception_ce = Z_OBJCE_P(argument_element);
 
 			if (instanceof_function(exception_ce, default_ce TSRMLS_CC) == 1) {
-				Z_TRY_ADDREF_P(argument_element);
+#if PHP_VERSION_ID >= 70000
+				ZVAL_COPY(&TWG(exception), argument_element);
+#else
+				Z_ADDREF_P(argument_element);
 				TWG(exception) = argument_element;
+#endif
 				return;
 			}
 		}
@@ -2724,17 +2763,17 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
 	/* Get the stat array */
 	hp_get_function_stack(top, 2, symbol, sizeof(symbol));
 
-	counts = zend_compat_hash_find_const(Z_ARRVAL_P(TWG(stats_count)), symbol, strlen(symbol));
+	counts = zend_compat_hash_find_const(TWG_ARRVAL(TWG(stats_count)), symbol, strlen(symbol));
 
 	if (counts == NULL) {
 #if PHP_VERSION_ID >= 70000
 		counts = &count_val;
 		array_init(counts);
-		zend_hash_str_update(Z_ARRVAL_P(TWG(stats_count)), symbol, strlen(symbol), counts);
+		zend_hash_str_update(TWG_ARRVAL(TWG(stats_count)), symbol, strlen(symbol), counts);
 #else
 		MAKE_STD_ZVAL(counts);
 		array_init(counts);
-		zend_hash_update(Z_ARRVAL_P(TWG(stats_count)), symbol, strlen(symbol)+1, &counts, sizeof(zval*), NULL);
+		zend_hash_update(TWG_ARRVAL(TWG(stats_count)), symbol, strlen(symbol)+1, &counts, sizeof(zval*), NULL);
 #endif
 	}
 
@@ -3232,8 +3271,7 @@ static void tideways_throw_exception_hook(zval *exception TSRMLS_DC)
 
 	exception_ce = Z_OBJCE_P(exception);
 	if (instanceof_function(exception_ce, zend_ce_error)) {
-		TWG(exception) = (zval*)emalloc(sizeof(zval));
-		ZVAL_COPY(TWG(exception), exception);
+		ZVAL_COPY(&TWG(exception), exception);
 	}
 }
 #endif
@@ -3267,6 +3305,12 @@ PHP_FUNCTION(tideways_span_watch)
 static void free_tw_watch_callback(zval *zv)
 {
 	tw_watch_callback *twcb = (tw_watch_callback*)Z_PTR_P(zv);
+	if (&twcb->fci.function_name) {
+		zval_ptr_dtor(&twcb->fci.function_name);
+	}
+	if (&twcb->fci.object) {
+		zval_ptr_dtor(&twcb->fci.object);
+	}
 	efree(twcb);
 }
 #else
@@ -3302,6 +3346,7 @@ static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cac
 	zend_hash_update(TWG(trace_watch_callbacks), func, func_len+1, &twcb, sizeof(tw_watch_callback*), NULL);
 #else
 	zend_hash_str_update_mem(TWG(trace_watch_callbacks), func, func_len, twcb, sizeof(tw_watch_callback));
+	efree(twcb); // zend_hash_str_update_mem makes a copy
 #endif
 	cb = tw_trace_callback_watch;
 	register_trace_callback_len(func, func_len, cb);
@@ -3386,7 +3431,11 @@ PHP_FUNCTION(tideways_disable)
 
 	hp_stop(TSRMLS_C);
 
+#if PHP_VERSION_ID >= 70000
+    RETURN_ZVAL(&TWG(stats_count), 1, 0);
+#else
 	RETURN_ZVAL(TWG(stats_count), 1, 0);
+#endif
 }
 
 PHP_FUNCTION(tideways_transaction_name)
@@ -3410,13 +3459,13 @@ PHP_FUNCTION(tideways_fatal_backtrace)
 
 PHP_FUNCTION(tideways_last_detected_exception)
 {
-	if (TWG(exception) != NULL) {
 #if PHP_VERSION_ID >= 70000
-		RETURN_ZVAL(TWG(exception), 1, 0);
+	RETURN_ZVAL(&TWG(exception), 1, 0);
 #else
+	if (TWG(exception) != NULL) {
 		RETURN_ZVAL(TWG(exception), 1, 0);
-#endif
 	}
+#endif
 }
 
 PHP_FUNCTION(tideways_last_fatal_error)
@@ -3465,7 +3514,7 @@ PHP_FUNCTION(tideways_span_create)
 		return;
 	}
 
-	if (TWG(enabled )== 0) {
+	if (TWG(enabled) == 0) {
 		return;
 	}
 
@@ -3474,9 +3523,13 @@ PHP_FUNCTION(tideways_span_create)
 
 PHP_FUNCTION(tideways_get_spans)
 {
+#if PHP_VERSION_ID >= 70000
+    RETURN_ZVAL(&TWG(spans), 1, 0);
+#else
 	if (TWG(spans)) {
 		RETURN_ZVAL(TWG(spans), 1, 0);
 	}
+#endif
 }
 
 PHP_FUNCTION(tideways_span_timer_start)

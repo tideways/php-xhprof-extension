@@ -6,15 +6,15 @@ extern ZEND_DECLARE_MODULE_GLOBALS(hp)
 
 long tw_span_create(char *category, size_t category_len TSRMLS_DC)
 {
-	zval span, starts, stops, annotations;
+	zval span, starts, stops;
 	int idx;
 	long parent = 0;
 
-	if (TWG(spans) == NULL) {
+	if (Z_TYPE(TWG(spans)) != IS_ARRAY) {
 		return -1;
 	}
 
-	idx = zend_hash_num_elements(Z_ARRVAL_P(TWG(spans)));
+	idx = zend_hash_num_elements(Z_ARRVAL(TWG(spans)));
 
 	// Hardcode a limit of 1500 spans for now, Daemon will re-filter again to 1000.
 	// We assume web-requests and non-spammy worker/crons here, need a way to support
@@ -26,7 +26,6 @@ long tw_span_create(char *category, size_t category_len TSRMLS_DC)
 	array_init(&span);
 	array_init(&starts);
 	array_init(&stops);
-	array_init(&annotations);
 
 	add_assoc_stringl(&span, "n", category, category_len);
 	add_assoc_zval(&span, "b", &starts);
@@ -36,7 +35,7 @@ long tw_span_create(char *category, size_t category_len TSRMLS_DC)
 		add_assoc_long(&span, "p", parent);
 	}
 
-	zend_hash_index_update(Z_ARRVAL_P(TWG(spans)), idx, &span);
+	zend_hash_index_update(Z_ARRVAL(TWG(spans)), idx, &span);
 
 	return idx;
 }
@@ -56,7 +55,7 @@ void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 		return;
 	}
 
-	span = zend_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
+	span = zend_hash_index_find(Z_ARRVAL(TWG(spans)), spanId);
 
 	if (span == NULL) {
 		return;
@@ -84,7 +83,7 @@ void tw_span_annotate_long(long spanId, char *key, long value)
 		return;
 	}
 
-	span = zend_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
+	span = zend_hash_index_find(Z_ARRVAL(TWG(spans)), spanId);
 
 	if (span == NULL) {
 		return;
@@ -114,7 +113,7 @@ void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
 		return;
 	}
 
-	span = zend_hash_index_find(Z_ARRVAL_P(TWG(spans)), spanId);
+	span = zend_hash_index_find(Z_ARRVAL(TWG(spans)), spanId);
 
 	if (span == NULL) {
 		return;
