@@ -738,9 +738,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 		add_assoc_zval(context, "args", zargs);
 
 		if (object != NULL) {
-#if PHP_VERSION_ID < 70000
 			Z_TRY_ADDREF_P(object);
-#endif
 			add_assoc_zval(context, "object", object);
 		}
 
@@ -748,7 +746,6 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 		params[0] = (zval *)&(context);
 #else
 		ZVAL_COPY(&params[0], context);
-		Z_ADDREF(params[0]);
 #endif
 
 		twcb->fci.param_count = 1;
@@ -3349,6 +3346,7 @@ static void tideways_add_callback_watch(zend_fcall_info fci, zend_fcall_info_cac
 	zend_hash_update(TWG(trace_watch_callbacks), func, func_len+1, &twcb, sizeof(tw_watch_callback*), NULL);
 #else
 	zend_hash_str_update_mem(TWG(trace_watch_callbacks), func, func_len, twcb, sizeof(tw_watch_callback));
+	efree(twcb); // zend_hash_str_update_mem makes a copy
 #endif
 	cb = tw_trace_callback_watch;
 	register_trace_callback_len(func, func_len, cb);
