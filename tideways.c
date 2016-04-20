@@ -706,7 +706,11 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 	_DECLARE_ZVAL(retval);
 	_DECLARE_ZVAL(context);
 	_DECLARE_ZVAL(zargs);
+#if PHP_VERSION_ID < 70000
 	zval *params[1];
+#else
+	zval params[1];
+#endif
 	zend_error_handling zeh;
 	int i;
 	long idx;
@@ -722,18 +726,6 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 	twcb = zend_hash_str_find_ptr(TWG(trace_watch_callbacks), symbol, strlen(symbol));
 
 	if (twcb) {
-#endif
-		_DECLARE_ZVAL(retval);
-		_DECLARE_ZVAL(context);
-		_DECLARE_ZVAL(zargs);
-#if PHP_VERSION_ID < 70000
-		zval *params[1];
-#else
-		zval params[1];
-#endif
-		zend_error_handling zeh;
-		int i;
-
 		_ALLOC_INIT_ZVAL(context);
 		array_init(context);
 
