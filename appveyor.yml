@@ -42,7 +42,7 @@ platform:
     - x64
 
 init:
-    - SET PATH=C:\Program Files (%PLATFORM%)\MSBuild\%PHP_VC%.0\Bin;%PATH%
+    - SET PATH=C:\Program Files (x86)\MSBuild\%PHP_VC%.0\Bin;%PATH%
     - SET PATH=c:\php;c:\projects\php-devpack;%PATH%
     - SET PHP=1
     - SET ANSICON=121x90 (121x90)
