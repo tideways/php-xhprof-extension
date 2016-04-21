@@ -38,7 +38,7 @@ clone_folder: c:\projects\tideways
 os: Windows Server 2012 R2
 
 platform:
-    - x84
+    - x86
     - x64
 
 init:
