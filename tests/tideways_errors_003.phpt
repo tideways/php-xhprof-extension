@@ -12,10 +12,10 @@ register_shutdown_function(function() {
 
 foo();
 --EXPECTF--
-%s: Call to undefined function foo() in %s/tests/tideways_errors_003.php%s7
+%s: Call to undefined function foo() in %s
 Stack trace:
 #0 {main}
-  thrown in %s/tests/tideways_errors_003.php on line 7
+  thrown in %s on line 7
 array(4) {
   ["type"]=>
   int(1)
@@ -25,7 +25,7 @@ Stack trace:
 #0 {main}
   thrown"
   ["file"]=>
-  string(%d) "%s/tests/tideways_errors_003.php"
+  string(%d) "%s"
   ["line"]=>
   int(7)
 }
