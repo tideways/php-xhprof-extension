@@ -3,6 +3,9 @@ Tideways: tideways_last_fatal_error() for B/C reasons
 --SKIPIF--
 <?php
 if (PHP_VERSION_ID < 70000) { echo "skip: php7 only\n"; }
+if (defined('PHP_WINDOWS_VERSION_MAJOR')) {
+    die("skip: Windows has different output format.");
+}
 --FILE--
 <?php
 

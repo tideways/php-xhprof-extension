@@ -5,6 +5,9 @@ Tideways: Fetch Error Exception on PHP 7
 if (PHP_VERSION_ID < 70000) {
     die("skip: PHP7+");
 }
+if (defined('PHP_WINDOWS_VERSION_MAJOR')) {
+    die("skip: Windows has different output format.");
+}
 --FILE--
 <?php
 
