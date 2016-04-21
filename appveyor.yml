@@ -2,57 +2,44 @@ build: false
 environment:
   matrix:
   - PHP_VERSION: 5.6
-    BUILD_PLATFORM: x86
     PHP_VC: 11
     PHP_TYPE: "Win32"
     RELEASE_FOLDER: "Release_TS"
   - PHP_VERSION: 5.6
-    BUILD_PLATFORM: x86
     PHP_VC: 11
     PHP_TYPE: "nts-Win32"
     RELEASE_FOLDER: "Release"
   - PHP_VERSION: 5.5
-    BUILD_PLATFORM: x86
     PHP_VC: 11
     PHP_TYPE: "Win32"
     RELEASE_FOLDER: "Release_TS"
   - PHP_VERSION: 5.5
-    BUILD_PLATFORM: x86
     PHP_VC: 11
     PHP_TYPE: "nts-Win32"
     RELEASE_FOLDER: "Release"
   - PHP_VERSION: 7.0
-    BUILD_PLATFORM: x86
     PHP_VC: 14
     PHP_TYPE: "Win32"
     RELEASE_FOLDER: "Release_TS"
   - PHP_VERSION: 7.0
-    BUILD_PLATFORM: x64
     PHP_VC: 14
-    PHP_TYPE: "Win32"
-    RELEASE_FOLDER: "Release_TS"
-    platform: "x64"
+    PHP_TYPE: "nts-Win32"
+    RELEASE_FOLDER: "Release"
   PHP_SDK: c:\projects\php-sdk
   PHP_DEVPACK: c:\projects\php-devpack
   NO_INTERACTION: 1
 
 matrix:
     allow_failures:
-      - PHP_VERSION: 7.0
-        BUILD_PLATFORM: x86
-        PHP_VC: 14
-        PHP_TYPE: "Win32"
-        RELEASE_FOLDER: "Release_TS"
-      - PHP_VERSION: 7.0
-        BUILD_PLATFORM: x64
-        PHP_VC: 14
-        PHP_TYPE: "Win32"
-        RELEASE_FOLDER: "Release_TS"
-
+        - platform: x64
 
 clone_folder: c:\projects\tideways
 
 os: Windows Server 2012 R2
+
+platform:
+    - x84
+    - x64
 
 init:
     - SET PATH=C:\Program Files (x86)\MSBuild\%PHP_VC%.0\Bin;%PATH%
@@ -82,8 +69,8 @@ install:
   - cd %APPVEYOR_BUILD_FOLDER%
   - echo Preparing Tideways win32 build...
   - echo Downloading PHP source code [%PHP_VERSION%]
-  - echo http://windows.php.net/downloads/releases/php-%PHP_VERSION%-%PHP_TYPE%-VC%PHP_VC%-%BUILD_PLATFORM%.zip
-  - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-' + ${env:PHP_VERSION} + '-' + ${env:PHP_TYPE} + '-VC' + ${env:PHP_VC} + '-' + ${env:BUILD_PLATFORM} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php.zip')
+  - echo http://windows.php.net/downloads/releases/php-%PHP_VERSION%-%PHP_TYPE%-VC%PHP_VC%-%platform%.zip
+  - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-' + ${env:PHP_VERSION} + '-' + ${env:PHP_TYPE} + '-VC' + ${env:PHP_VC} + '-' + ${env:platform} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php.zip')
   - cd ..
   - 'mkdir php && mv php.zip php\php.zip && cd php'
   - 7z.exe x php.zip | FIND /V "ing  "
@@ -94,15 +81,15 @@ install:
   - '7z.exe x ..\php-sdk.zip | FIND /V "ing  "'
   - cd ..
   - echo Downloading PHP-Devel-Pack
-  - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-devel-pack-' + ${env:PHP_VERSION} + '-' + ${env:PHP_TYPE} + '-VC' + ${env:PHP_VC} + '-' + ${env:BUILD_PLATFORM} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php-dev.zip')
+  - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-devel-pack-' + ${env:PHP_VERSION} + '-' + ${env:PHP_TYPE} + '-VC' + ${env:PHP_VC} + '-' + ${env:platform} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php-dev.zip')
   - 7z.exe x php-dev.zip | FIND /V "ing  "
-  - mv php-%PHP_VERSION%-devel-VC%PHP_VC%-%BUILD_PLATFORM% php-devpack
+  - mv php-%PHP_VERSION%-devel-VC%PHP_VC%-%platform% php-devpack
   - ps: if($env:PHP_VC -eq '11') {
           $env:VSCOMNTOOLS=$env:VS110COMNTOOLS
         } elseif($env:PHP_VC -eq '14') {
           $env:VSCOMNTOOLS=$env:VS140COMNTOOLS
         }
-  - '"%VSCOMNTOOLS%\VsDevCmd" %BUILD_PLATFORM%'
+  - '"%VSCOMNTOOLS%\VsDevCmd" %platform%'
   - echo Building PHP [%PHP_VERSION%]
   - '%PHP_SDK%\bin\phpsdk_setvars'
   - 'cd %APPVEYOR_BUILD_FOLDER%\..\php'
