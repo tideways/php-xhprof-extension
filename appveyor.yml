@@ -69,8 +69,8 @@ install:
   - cd %APPVEYOR_BUILD_FOLDER%
   - echo Preparing Tideways win32 build...
   - echo Downloading PHP source code [%PHP_VERSION%]
-  - echo http://windows.php.net/downloads/releases/php-%PHP_VERSION%-%PHP_TYPE%-VC%PHP_VC%-%platform%.zip
-  - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-' + ${env:PHP_VERSION} + '-' + ${env:PHP_TYPE} + '-VC' + ${env:PHP_VC} + '-' + ${env:platform} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php.zip')
+  - echo http://windows.php.net/downloads/releases/php-%PHP_VERSION%-%PHP_TYPE%-VC%PHP_VC%-%PLATFORM%.zip
+  - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-' + ${env:PHP_VERSION} + '-' + ${env:PHP_TYPE} + '-VC' + ${env:PHP_VC} + '-' + ${env:PLATFORM} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php.zip')
   - cd ..
   - 'mkdir php && mv php.zip php\php.zip && cd php'
   - 7z.exe x php.zip | FIND /V "ing  "
@@ -81,15 +81,15 @@ install:
   - '7z.exe x ..\php-sdk.zip | FIND /V "ing  "'
   - cd ..
   - echo Downloading PHP-Devel-Pack
-  - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-devel-pack-' + ${env:PHP_VERSION} + '-' + ${env:PHP_TYPE} + '-VC' + ${env:PHP_VC} + '-' + ${env:platform} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php-dev.zip')
+  - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-devel-pack-' + ${env:PHP_VERSION} + '-' + ${env:PHP_TYPE} + '-VC' + ${env:PHP_VC} + '-' + ${env:PLATFORM} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php-dev.zip')
   - 7z.exe x php-dev.zip | FIND /V "ing  "
-  - mv php-%PHP_VERSION%-devel-VC%PHP_VC%-%platform% php-devpack
+  - mv php-%PHP_VERSION%-devel-VC%PHP_VC%-%PLATFORM% php-devpack
   - ps: if($env:PHP_VC -eq '11') {
           $env:VSCOMNTOOLS=$env:VS110COMNTOOLS
         } elseif($env:PHP_VC -eq '14') {
           $env:VSCOMNTOOLS=$env:VS140COMNTOOLS
         }
-  - '"%VSCOMNTOOLS%\VsDevCmd" %platform%'
+  - '"%VSCOMNTOOLS%\VsDevCmd" %PLATFORM%'
   - echo Building PHP [%PHP_VERSION%]
   - '%PHP_SDK%\bin\phpsdk_setvars'
   - 'cd %APPVEYOR_BUILD_FOLDER%\..\php'
