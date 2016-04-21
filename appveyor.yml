@@ -31,6 +31,7 @@ environment:
     PHP_VC: 14
     PHP_TYPE: "Win32"
     RELEASE_FOLDER: "Release_TS"
+    platform: "x64"
   PHP_SDK: c:\projects\php-sdk
   PHP_DEVPACK: c:\projects\php-devpack
   NO_INTERACTION: 1
