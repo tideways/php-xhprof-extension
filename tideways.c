@@ -139,7 +139,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _add_assoc_string_ex(arg, key, key_len, str, copy) add_assoc_string_ex(arg, key, key_len, str, copy)
 #define _add_assoc_stringl(arg, key, str, str_len, copy) add_assoc_stringl(arg, key, str, str_len, copy)
 #define _zend_read_property(scope, object, name, name_length, silent, zv) zend_read_property(scope, object, name, name_length, silent TSRMLS_CC)
-#define _call_user_function_ex(function_table, object, function_name, retval_ptr) call_user_function_ex(function_table, &object, function_name, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)
+#define tw_call_user_function_ex(function_table, object, function_name, retval_ptr) call_user_function_ex(function_table, &object, function_name, &retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)
 #define _DECLARE_ZVAL(name) zval * name
 #define _ALLOC_INIT_ZVAL(name) ALLOC_INIT_ZVAL(name)
 #define hp_ptr_dtor(val) zval_ptr_dtor( &val )
@@ -159,8 +159,8 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _add_assoc_string_ex(arg, key, key_len, str, copy) add_assoc_string_ex(arg, key, key_len-1, str)
 #define _add_assoc_stringl(arg, key, str, str_len, copy) add_assoc_stringl(arg, key, str, str_len)
 #define _zend_read_property(scope, object, name, name_length, silent, zv) zend_read_property(scope, object, name, name_length, silent, zv)
-#define _call_user_function_ex(function_table, object, function_name, retval_ptr) call_user_function_ex(function_table, object, function_name, retval_ptr, 0, NULL, 1, NULL TSRMLS_CC)
-#define _DECLARE_ZVAL(name) zval name ## _v; zval * name = &name ## _v
+#define tw_call_user_function_ex(function_table, object, function_name, retval_ptr) call_user_function_ex(function_table, object, function_name, retval_ptr, 0, NULL, 1, NULL)
+#define _DECLARE_ZVAL(name) zval name## _v; zval * name = &name## _v
 #define _ALLOC_INIT_ZVAL(name) ZVAL_NULL(name)
 #define hp_ptr_dtor(val) zval_ptr_dtor(val)
 #define TWG_ARRVAL(val) Z_ARRVAL(val)
@@ -799,7 +799,7 @@ long tw_trace_callback_mongo_cursor_io(char *symbol, zend_execute_data *data TSR
 
 	_ZVAL_STRING(&fname, "info");
 
-	if (SUCCESS == _call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
+	if (SUCCESS == tw_call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
 		if (Z_TYPE_P(retval_ptr) == IS_ARRAY) {
 			element = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "ns", sizeof("ns"));
 			if (element != NULL) {
@@ -845,7 +845,7 @@ long tw_trace_callback_mongo_cursor_next(char *symbol, zend_execute_data *data T
 
 	_ZVAL_STRING(&fname, "info");
 
-	if (SUCCESS == _call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
+	if (SUCCESS == tw_call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
 		if (Z_TYPE_P(retval_ptr) == IS_ARRAY) {
 			element = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "ns", sizeof("ns"));
 			if (element != NULL) {
@@ -879,7 +879,7 @@ long tw_trace_callback_mongo_collection(char *symbol, zend_execute_data *data TS
 	idx = tw_span_create("mongo", 5 TSRMLS_CC);
 	tw_span_annotate_string(idx, "title", symbol, 1 TSRMLS_CC);
 
-	if (SUCCESS == _call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
+	if (SUCCESS == tw_call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
 		if (Z_TYPE_P(retval_ptr) == IS_STRING) {
 			tw_span_annotate_string(idx, "collection", Z_STRVAL_P(retval_ptr), 1 TSRMLS_CC);
 		}
@@ -1250,7 +1250,7 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 		return idx;
 	}
 
-	if (SUCCESS == _call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
+	if (SUCCESS == tw_call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
 		if (Z_TYPE_P(retval_ptr) != IS_STRING) {
 			return idx;
 		}
@@ -1263,7 +1263,7 @@ long tw_trace_callback_doctrine_query(char *symbol, zend_execute_data *data TSRM
 			tw_span_annotate_string(idx, "title", "Native", 1 TSRMLS_CC);
 		}
 
-		zval_ptr_dtor(&retval_ptr);
+		hp_ptr_dtor(retval_ptr);
 	}
 #if PHP_VERSION_ID >= 70000
 	zend_string_release(Z_STR(fname));
@@ -1285,7 +1285,7 @@ long tw_trace_callback_twig_template(char *symbol, zend_execute_data *data TSRML
 
 	_ZVAL_STRING(&fname, "getTemplateName");
 
-	if (SUCCESS == _call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
+	if (SUCCESS == tw_call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
 		if (Z_TYPE_P(retval_ptr) == IS_STRING) {
 			idx = tw_trace_callback_record_with_cache("view", 4, Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr), 1 TSRMLS_CC);
 
@@ -1412,7 +1412,7 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 	zval params[1];
 	ZVAL_RES(&params[0], Z_RES_P(argument));
 
-	if (SUCCESS == call_user_function_ex(EG(function_table), NULL, &fname, retval_ptr, 1, params, 1, NULL TSRMLS_CC)) {
+	if (SUCCESS == call_user_function_ex(EG(function_table), NULL, &fname, retval_ptr, 1, params, 1, NULL)) {
 #endif
 		option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "url", sizeof("url")-1);
 
@@ -3263,7 +3263,7 @@ void tideways_error_cb(int type, const char *error_filename, const uint error_li
 #else
 static void tideways_throw_exception_hook(zval *exception TSRMLS_DC)
 {
-	zval *exception_ce, *ex;
+	zend_class_entry *exception_ce, *ex;
 
 	if (!exception) {
 		return;
@@ -3305,11 +3305,11 @@ PHP_FUNCTION(tideways_span_watch)
 static void free_tw_watch_callback(zval *zv)
 {
 	tw_watch_callback *twcb = (tw_watch_callback*)Z_PTR_P(zv);
-	if (&twcb->fci.function_name) {
+	if (Z_TYPE(twcb->fci.function_name) != IS_UNDEF) {
 		zval_ptr_dtor(&twcb->fci.function_name);
 	}
-	if (&twcb->fci.object) {
-		zval_ptr_dtor(&twcb->fci.object);
+	if (twcb->fci.object) {
+		zend_object_release(twcb->fci.object);
 	}
 	efree(twcb);
 }
@@ -3376,7 +3376,7 @@ PHP_FUNCTION(tideways_span_callback)
 		Z_TRY_ADDREF(fci.function_name);
 
 		if (fci.object != NULL) {
-			fci.object->gc.refcount++;
+			GC_REFCOUNT(fci.object)++;
 		}
 	}
 #endif
