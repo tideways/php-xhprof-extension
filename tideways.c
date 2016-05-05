@@ -961,6 +961,25 @@ long tw_trace_callback_php_controller(char *symbol, zend_execute_data *data TSRM
 	return idx;
 }
 
+long tw_trace_callback_presta_controller(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	zend_class_entry *controller_ce;
+	zval *object = EX_OBJ(data);
+	zval *property;
+	long idx = -1;
+
+	if (Z_TYPE_P(object) != IS_OBJECT) {
+		return idx;
+	}
+
+	controller_ce = Z_OBJCE_P(object);
+
+	idx = tw_span_create("php.ctrl", 8 TSRMLS_CC);
+	tw_span_annotate_string(idx, "title", _ZCE_NAME(controller_ce), 1 TSRMLS_CC);
+
+	return idx;
+}
+
 long tw_trace_callback_doctrine_couchdb_request(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	zval *method = ZEND_CALL_ARG(data, 1);
@@ -1826,7 +1845,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	// Silex
 	register_trace_callback("Silex\\Application::mount", cb);
 
-	cb = tw_trace_callback_php_controller;
+	cb = tw_trace_callback_presta_controller;
 	register_trace_callback("ControllerCore::run", cb); // PrestaShop 1.6
 
 	cb = tw_trace_callback_doctrine_persister;
