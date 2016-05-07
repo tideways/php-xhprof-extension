@@ -11,7 +11,7 @@ Profiler in production.
 ## Requirements
 
 - PHP 5.3, 5.4, 5.5 or 5.6
-- cURL and PCRE Dev Headers (`apt-get install libcurl4-openssl-dev libpcre3-dev')
+- cURL and PCRE Dev Headers (`apt-get install libcurl4-openssl-dev libpcre3-dev`)
 - Tested with Linux i386, amd64 architectures
 
 ## Installation
