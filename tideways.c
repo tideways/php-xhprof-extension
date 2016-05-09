@@ -961,6 +961,37 @@ long tw_trace_callback_php_controller(char *symbol, zend_execute_data *data TSRM
 	return idx;
 }
 
+long tw_trace_callback_eloquent_query(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	zend_class_entry *eloquent_ce;
+	zval *object = EX_OBJ(data);
+	long idx = -1;
+	zval fname;
+	_DECLARE_ZVAL(retval_ptr);
+
+	if (Z_TYPE_P(object) != IS_OBJECT) {
+		return idx;
+	}
+
+	_ZVAL_STRING(&fname, "getModel");
+
+	if (SUCCESS == tw_call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
+		if (Z_TYPE_P(retval_ptr) == IS_OBJECT) {
+			eloquent_ce = Z_OBJCE_P(retval_ptr);
+
+			idx = tw_span_create("eloquent", 8 TSRMLS_CC);
+			tw_span_annotate_string(idx, "title", _ZCE_NAME(eloquent_ce), 1 TSRMLS_CC);
+		}
+
+		hp_ptr_dtor(retval_ptr);
+	}
+#if PHP_VERSION_ID >= 70000
+	zend_string_release(Z_STR(fname));
+#endif
+
+	return idx;
+}
+
 long tw_trace_callback_presta_controller(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	zend_class_entry *controller_ce;
@@ -1842,8 +1873,13 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	// Laravel (4+5)
 	register_trace_callback("Illuminate\\Foundation\\Application::boot", cb);
 	register_trace_callback("Illuminate\\Foundation\\Application::dispatch", cb);
+	register_trace_callback("Illuminate\\Session\\Middleware\\StartSession::startSession", cb);
+	register_trace_callback("Illuminate\\Session\\Middleware\\StartSession::collectGarbage", cb);
 	// Silex
 	register_trace_callback("Silex\\Application::mount", cb);
+
+	cb = tw_trace_callback_eloquent_query;
+	register_trace_callback("Illuminate\\Database\\Eloquent\\Builder::getModels", cb);
 
 	cb = tw_trace_callback_presta_controller;
 	register_trace_callback("ControllerCore::run", cb); // PrestaShop 1.6
