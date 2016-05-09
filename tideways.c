@@ -961,6 +961,30 @@ long tw_trace_callback_php_controller(char *symbol, zend_execute_data *data TSRM
 	return idx;
 }
 
+long tw_trace_callback_eloquent_model(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	zend_class_entry *eloquent_ce;
+	zval *object = EX_OBJ(data);
+	long idx = -1;
+
+	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
+		return idx;
+	}
+
+	eloquent_ce = Z_OBJCE_P(object);
+
+	idx = tw_span_create("eloquent", 8 TSRMLS_CC);
+	tw_span_annotate_string(idx, "model", _ZCE_NAME(eloquent_ce), 1 TSRMLS_CC);
+
+#if PHP_VERSION_ID < 70000
+	tw_span_annotate_string(idx, "op", ZSTR_VAL(data->function_state->common.function_name), 1 TSRMLS_CC);
+#else
+	tw_span_annotate_string(idx, "op", ZSTR_VAL(data->func->common.function_name), 1 TSRMLS_CC);
+#endif
+
+	return idx;
+}
+
 long tw_trace_callback_eloquent_query(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	zend_class_entry *eloquent_ce;
@@ -980,7 +1004,8 @@ long tw_trace_callback_eloquent_query(char *symbol, zend_execute_data *data TSRM
 			eloquent_ce = Z_OBJCE_P(retval_ptr);
 
 			idx = tw_span_create("eloquent", 8 TSRMLS_CC);
-			tw_span_annotate_string(idx, "title", _ZCE_NAME(eloquent_ce), 1 TSRMLS_CC);
+			tw_span_annotate_string(idx, "model", _ZCE_NAME(eloquent_ce), 1 TSRMLS_CC);
+			tw_span_annotate_string(idx, "op", "get", 1 TSRMLS_CC);
 		}
 
 		hp_ptr_dtor(retval_ptr);
@@ -1880,6 +1905,12 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_eloquent_query;
 	register_trace_callback("Illuminate\\Database\\Eloquent\\Builder::getModels", cb);
+
+	cb = tw_trace_callback_eloquent_model;
+	register_trace_callback("Illuminate\\Database\\Eloquent\\Model::performInsert", cb);
+	register_trace_callback("Illuminate\\Database\\Eloquent\\Model::performUpdate", cb);
+	register_trace_callback("Illuminate\\Database\\Eloquent\\Model::delete", cb);
+	register_trace_callback("Illuminate\\Database\\Eloquent\\Model::destroy", cb);
 
 	cb = tw_trace_callback_presta_controller;
 	register_trace_callback("ControllerCore::run", cb); // PrestaShop 1.6
