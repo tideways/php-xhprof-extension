@@ -67,7 +67,7 @@ tideways_disable();
 print_spans(tideways_get_spans());
 --EXPECTF--
 app: 1 timers - cpu=%d
-mongodb: 1 timers - ns=mongodb://%s op=__construct
+mongodb: 1 timers - host=172.17.0.2 op=connect port=27017
 mongodb: 1 timers - ns=db op=executeCommand
 mongodb: 1 timers - ns=db.collection op=executeBulkWrite
 mongodb: 1 timers - ns=db.collection op=executeBulkWrite

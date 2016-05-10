@@ -787,6 +787,37 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 	return -1;
 }
 
+long tw_trace_callback_mongodb_connect(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx = -1;
+	zval *server;
+	php_url *url;
+
+	if (ZEND_CALL_NUM_ARGS(data) < 1) {
+		return idx;
+	}
+
+	server = ZEND_CALL_ARG(data, 1);
+
+	if (server == NULL || Z_TYPE_P(server) != IS_STRING) {
+		return idx;
+	}
+
+	idx = tw_span_create("mongodb", 7 TSRMLS_CC);
+
+	url = php_url_parse_ex(Z_STRVAL_P(server), Z_STRLEN_P(server));
+	tw_span_annotate_string(idx, "op", "connect", 1 TSRMLS_CC);
+	if (url->host) {
+		tw_span_annotate_string(idx, "host", url->host, 1 TSRMLS_CC);
+	}
+	if (url->port) {
+		tw_span_annotate_long(idx, "port", url->port TSRMLS_CC);
+	}
+	php_url_free(url);
+
+	return idx;
+}
+
 long tw_trace_callback_mongodb_command(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	long idx = -1;
@@ -2098,10 +2129,12 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("MongoCursor::count", cb);
 
 	cb = tw_trace_callback_mongodb_command;
-	register_trace_callback("MongoDB\\Driver\\Manager::__construct", cb);
 	register_trace_callback("MongoDB\\Driver\\Manager::executeCommand", cb);
 	register_trace_callback("MongoDB\\Driver\\Manager::executeBulkWrite", cb);
 	register_trace_callback("MongoDB\\Driver\\Manager::executeQuery", cb);
+
+	cb = tw_trace_callback_mongodb_connect;
+	register_trace_callback("MongoDB\\Driver\\Manager::__construct", cb);
 
 	cb = tw_trace_callback_predis_call;
 	register_trace_callback("Predis\\Client::__call", cb);
