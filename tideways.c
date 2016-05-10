@@ -2574,12 +2574,8 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 
 		TWG(transaction_name) = zend_string_init(ctrl, len-1, 0);
 		efree(ctrl);
-	} else if (strcmp(ret, "Controller::invokeAction") == 0) {
-		if (ZEND_CALL_NUM_ARGS(data) == 0) {
-			return;
-		}
-
-		argument_element = ZEND_CALL_ARG(data, 1);
+	} else if (strcmp(ret, "Controller::invokeAction") == 0 ||
+			   strcmp(ret, "Cake\\Controller\\Controller::invokeAction") == 0) {
 		zval *object = EX_OBJ(data);
 		zval *property, *actionName;
 		zval *__rv;
@@ -2592,7 +2588,18 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 		}
 
 		ctrl_ce = Z_OBJCE_P(object);
-		argument_element = ZEND_CALL_ARG(data, 1);
+
+		if (strcmp(ret, "Cake\\Controller\\Controller::invokeAction") == 0) {
+			// CakePHP 3 has request property on controller
+			argument_element = _zend_read_property(ctrl_ce, object, "request", sizeof("request") -1, 1, __rv);
+		} else {
+			// CakePHP 2 gets request passe as argument
+			if (ZEND_CALL_NUM_ARGS(data) == 0) {
+				return;
+			}
+
+			argument_element = ZEND_CALL_ARG(data, 1);
+		}
 
 		if (Z_TYPE_P(argument_element) != IS_OBJECT) {
 			return;
