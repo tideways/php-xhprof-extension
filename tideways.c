@@ -2523,6 +2523,11 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 			   strcmp(ret, "Enlight_Controller_Action::dispatch") == 0 ||
 			   strcmp(ret, "Mage_Core_Controller_Varien_Action::dispatch") == 0 ||
 			   strcmp(ret, "Illuminate\\Routing\\Controller::callAction") == 0) {
+
+		if (ZEND_CALL_NUM_ARGS(data) == 0) {
+			return;
+		}
+
 		zval *obj = EX_OBJ(data);
 		argument_element = ZEND_CALL_ARG(data, 1);
 		zend_class_entry *ce;
@@ -2545,9 +2550,15 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 
 		zval *property;
 		zval *object = EX_OBJ(data);
-		zend_class_entry *ce = Z_OBJCE_P(object);
+		zend_class_entry *ce;
 		int len;
 		char *ctrl;
+
+		if (object == NULL) {
+			return;
+		}
+
+		ce = Z_OBJCE_P(object);
 
 		zval *__rv;
 		property = _zend_read_property(ce, object, "actionMethodName", sizeof("actionMethodName") - 1, 1, __rv);
@@ -2563,7 +2574,56 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 
 		TWG(transaction_name) = zend_string_init(ctrl, len-1, 0);
 		efree(ctrl);
+	} else if (strcmp(ret, "Controller::invokeAction") == 0) {
+		if (ZEND_CALL_NUM_ARGS(data) == 0) {
+			return;
+		}
+
+		argument_element = ZEND_CALL_ARG(data, 1);
+		zval *object = EX_OBJ(data);
+		zval *property, *actionName;
+		zval *__rv;
+		zend_class_entry *ctrl_ce, *request_ce;
+		int len;
+		char *ctrl;
+
+		if (object == NULL) {
+			return;
+		}
+
+		ctrl_ce = Z_OBJCE_P(object);
+		argument_element = ZEND_CALL_ARG(data, 1);
+
+		if (Z_TYPE_P(argument_element) != IS_OBJECT) {
+			return;
+		}
+
+		request_ce = Z_OBJCE_P(argument_element);
+
+		property = _zend_read_property(request_ce, argument_element, "params", sizeof("params") - 1, 1, __rv);
+
+		if (property == NULL || Z_TYPE_P(property) != IS_ARRAY) {
+			return;
+		}
+
+		actionName = zend_compat_hash_find_const(Z_ARRVAL_P(property), "action", sizeof("action") - 1);
+
+		if (actionName == NULL) {
+			return;
+		}
+
+		len = _ZCE_NAME_LENGTH(ctrl_ce) + Z_STRLEN_P(actionName) + 3;
+		ctrl = (char*)emalloc(len);
+		snprintf(ctrl, len, "%s::%s", _ZCE_NAME(ctrl_ce), Z_STRVAL_P(actionName));
+		ctrl[len-1] = '\0';
+
+		TWG(transaction_name) = zend_string_init(ctrl, len-1, 0);
+		efree(ctrl);
 	} else {
+		if (ZEND_CALL_NUM_ARGS(data) == 0) {
+			return;
+		}
+
 		argument_element = ZEND_CALL_ARG(data, 1);
 
 		if (Z_TYPE_P(argument_element) == IS_STRING) {
