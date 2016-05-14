@@ -90,6 +90,7 @@ install:
           $env:VSCOMNTOOLS=$env:VS140COMNTOOLS
         }
   - '"C:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\SetEnv.cmd" /Release /%PLATFORM%'
+  -  "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %PLATFORM%'
   - '"%VSCOMNTOOLS%\VsDevCmd" %PLATFORM%'
   - echo Building PHP [%PHP_VERSION%]
   - '%PHP_SDK%\bin\phpsdk_setvars'
@@ -104,8 +105,8 @@ install:
 test_script:
     - cd c:\projects\tideways
     - Setlocal EnableDelayedExpansion
-    - echo "buildconf.bat"
-    - buildconf.bat --add-modules-dir=c:\projects\tideways
+    - echo "phpize"
+    - phpize
     - echo "./configure"
     - configure --enable-tideways=shared
     - echo "make"
