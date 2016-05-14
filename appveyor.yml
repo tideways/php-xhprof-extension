@@ -91,7 +91,7 @@ install:
   - 7z.exe x php-dev.zip | FIND /V "ing  "
   - mv php-%PHP_VERSION%-devel-VC%PHP_VC%-%PLATFORM% php-devpack
   - '"C:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\SetEnv.cmd" /Release /%PLATFORM%'
-  - '"C:\Program Files (x86)\Microsoft Visual Studio %PHP_VC%.0\VC\vcvarsall.bat" %ARCH%'
+    #- '"C:\Program Files (x86)\Microsoft Visual Studio %PHP_VC%.0\VC\vcvarsall.bat" %ARCH%'
   - '"%VSCOMNTOOLS%\VsDevCmd" %PLATFORM%'
   - echo Building PHP [%PHP_VERSION%]
   - '%PHP_SDK%\bin\phpsdk_setvars'
