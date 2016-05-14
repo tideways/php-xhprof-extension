@@ -119,6 +119,8 @@ on_failure:
   - 'dir'
   - 'type compile-errors.log'
   - 'type compile.log'
+  - 'type configure.bat'
+  - 'type config.nice.bat'
 
 artifacts:
   - path: '$(RELEASE_FOLDER)\php_tideways.dll'
