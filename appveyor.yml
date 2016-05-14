@@ -104,8 +104,8 @@ install:
 test_script:
     - cd c:\projects\tideways
     - Setlocal EnableDelayedExpansion
-    - echo "phpize"
-    - c:\projects\php-devpack\phpize --clean
+    - echo "buildconf.bat"
+    - c:\projects\php-devpack\buildconf.bat --add-modules-dir=c:\projects\tideways
     - echo "./configure"
     - configure --enable-tideways=shared
     - echo "make"
