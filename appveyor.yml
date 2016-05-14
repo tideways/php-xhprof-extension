@@ -104,6 +104,7 @@ test_script:
     - cd c:\projects\tideways
     - echo "C:\Program Files (x86)\Microsoft Visual Studio %PHP_VC%.0\VC\vcvarsall.bat %ARCH%"
     - '"C:\\Program Files (x86)\\Microsoft Visual Studio %PHP_VC%.0\\VC\\vcvarsall.bat" %ARCH%'
+    - 'type "C:\\Program Files (x86)\\Microsoft Visual Studio %PHP_VC%.0\\VC\\vcvarsall.bat"'
     - Setlocal EnableDelayedExpansion
     - echo "phpize"
     - phpize
