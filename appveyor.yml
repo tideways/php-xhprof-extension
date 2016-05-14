@@ -67,7 +67,7 @@ install:
         $env:VSCOMNTOOLS=$env:VS140COMNTOOLS
       }
       If ($env:PLATFORM -eq 'x64') {
-        $env:ARCH='amd64'
+        $env:ARCH='x86_amd64'
       } Else {
         $env:ARCH='x86'
       }
