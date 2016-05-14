@@ -89,8 +89,13 @@ install:
         } elseif($env:PHP_VC -eq '14') {
           $env:VSCOMNTOOLS=$env:VS140COMNTOOLS
         }
+  - ps: if ($env:PLATFORM -eq 'x64') {
+            $env:ARCH='amd64'
+        } else {
+            $env:ARCH='x64'
+        }
   - '"C:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\SetEnv.cmd" /Release /%PLATFORM%'
-  - '"C:\Program Files (x86)\Microsoft Visual Studio %PHP_VC%.0\VC\vcvarsall.bat" %PLATFORM%'
+  - '"C:\Program Files (x86)\Microsoft Visual Studio %PHP_VC%.0\VC\vcvarsall.bat" %ARCH%'
   - '"%VSCOMNTOOLS%\VsDevCmd" %PLATFORM%'
   - echo Building PHP [%PHP_VERSION%]
   - '%PHP_SDK%\bin\phpsdk_setvars'
