@@ -56,10 +56,18 @@ install:
       } Else {
         $env:version='{build}-$(PHP_VERSION)'
       }
-      If ($env:PHP_TYPE -Match "nts-Win32") {
-        $env:RELEASE_FOLDER="Release"
-      } Else {
-        $env:RELEASE_FOLDER="Release_TS"
+      If ($env:PLATFORM -Match "x86") {
+        If ($env:PHP_TYPE -Match "nts-Win32") {
+          $env:RELEASE_FOLDER="Release"
+        } Else {
+          $env:RELEASE_FOLDER="Release_TS"
+        }
+      } else {
+        If ($env:PHP_TYPE -Match "nts-Win32") {
+          $env:RELEASE_FOLDER="x64\Release"
+        } Else {
+          $env:RELEASE_FOLDER="x64\Release_TS"
+        }
       }
       If ($env:PHP_VC -eq '11') {
         $env:VSCOMNTOOLS=$env:VS110COMNTOOLS
@@ -104,7 +112,6 @@ test_script:
     - cd c:\projects\tideways
     - echo "C:\Program Files (x86)\Microsoft Visual Studio %PHP_VC%.0\VC\vcvarsall.bat %ARCH%"
     - '"C:\\Program Files (x86)\\Microsoft Visual Studio %PHP_VC%.0\\VC\\vcvarsall.bat" %ARCH%'
-    - 'type "C:\\Program Files (x86)\\Microsoft Visual Studio %PHP_VC%.0\\VC\\vcvarsall.bat"'
     - Setlocal EnableDelayedExpansion
     - echo "phpize"
     - phpize
