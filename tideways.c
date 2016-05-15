@@ -2130,6 +2130,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("HookCore::exec", cb); // PrestaShop 1.6
 	register_trace_callback("Cake\\Event\\EventManager::dispatch", cb);
 	register_trace_callback("CakeEventManager::dispatch", cb);
+	register_trace_callback("Phalcon\\Events\\EventManager::fire", cb);
 
 	cb = tw_trace_callback_event_dispatchers2;
 	register_trace_callback("HookCore::coreCallHook", cb); // PrestaShop 1.6
