@@ -2165,6 +2165,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("load_template", cb);
 	register_trace_callback("View::_render", cb);
 	register_trace_callback("Cake\\View\\View::_render", cb);
+	register_trace_callback("Phalcon\\Mvc\\View\\Engine\\Volt::render", cb);
+	register_trace_callback("Phalcon\\Mvc\\View\\Engine\\Php::render", cb);
+	register_trace_callback("Phalcon\\Mvc\\View\\Simple::render", cb);
 
 	cb = tw_trace_callback_zend1_dispatcher_families_tx;
 	register_trace_callback("Enlight_Controller_Action::dispatch", cb);
