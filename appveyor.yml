@@ -1,3 +1,5 @@
+version: '4.0.4.{build}'
+
 build: false
 environment:
   matrix:
