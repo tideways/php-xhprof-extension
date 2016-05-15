@@ -3,6 +3,8 @@ Tideways: CakePHP 2 Transaction Detection
 --FILE--
 <?php
 
+require_once __DIR__ . '/common.php';
+
 class CakeRequest {
     public $params;
 }
@@ -28,6 +30,9 @@ $request->params['action'] = 'foo';
 
 $ctrl->invokeAction($request);
 
-echo tideways_transaction_name();
+echo tideways_transaction_name() . "\n";
+print_spans(tideways_get_spans());
 --EXPECTF--
 UserController::foo
+app: 1 timers - 
+php.ctrl: 1 timers - title=UserController::foo

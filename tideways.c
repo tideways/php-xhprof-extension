@@ -1094,6 +1094,79 @@ long tw_trace_callback_presta_controller(char *symbol, zend_execute_data *data T
 	return idx;
 }
 
+zend_string *tw_extract_cakephp_controller_name(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	zval *object = EX_OBJ(data);
+	zval *property, *actionName, *argument_element;
+	zval *__rv;
+	zend_class_entry *ctrl_ce, *request_ce;
+	zend_string *ctrl_str;
+	int len;
+	char *ctrl;
+
+	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
+		return NULL;
+	}
+
+	ctrl_ce = Z_OBJCE_P(object);
+
+	if (strcmp(symbol, "Cake\\Controller\\Controller::invokeAction") == 0) {
+		// CakePHP 3 has request property on controller
+		argument_element = _zend_read_property(ctrl_ce, object, "request", sizeof("request") -1, 1, __rv);
+	} else {
+		// CakePHP 2 gets request passe as argument
+		if (ZEND_CALL_NUM_ARGS(data) == 0) {
+			return NULL;
+		}
+
+		argument_element = ZEND_CALL_ARG(data, 1);
+	}
+
+	if (Z_TYPE_P(argument_element) != IS_OBJECT) {
+		return NULL;
+	}
+
+	request_ce = Z_OBJCE_P(argument_element);
+
+	property = _zend_read_property(request_ce, argument_element, "params", sizeof("params") - 1, 1, __rv);
+
+	if (property == NULL || Z_TYPE_P(property) != IS_ARRAY) {
+		return NULL;
+	}
+
+	actionName = zend_compat_hash_find_const(Z_ARRVAL_P(property), "action", sizeof("action") - 1);
+
+	if (actionName == NULL) {
+		return NULL;
+	}
+
+	len = _ZCE_NAME_LENGTH(ctrl_ce) + Z_STRLEN_P(actionName) + 3;
+	ctrl = (char*)emalloc(len);
+	snprintf(ctrl, len, "%s::%s", _ZCE_NAME(ctrl_ce), Z_STRVAL_P(actionName));
+	ctrl[len-1] = '\0';
+
+	ctrl_str = zend_string_init(ctrl, len - 1, 0);
+	efree(ctrl);
+	return ctrl_str;
+}
+
+long tw_trace_callback_cakephp_controller(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx = -1;
+	zend_string *ctrl;
+
+	ctrl = tw_extract_cakephp_controller_name(symbol, data);
+
+	if (ctrl != NULL) {
+		idx = tw_span_create("php.ctrl", 8 TSRMLS_CC);
+		tw_span_annotate_string(idx, "title", ZSTR_VAL(ctrl), 1 TSRMLS_CC);
+
+		zend_string_release(ctrl);
+	}
+
+	return idx;
+}
+
 long tw_trace_callback_doctrine_couchdb_request(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	zval *method = ZEND_CALL_ARG(data, 1);
@@ -1973,6 +2046,10 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	cb = tw_trace_callback_presta_controller;
 	register_trace_callback("ControllerCore::run", cb); // PrestaShop 1.6
 
+	cb = tw_trace_callback_cakephp_controller;
+	register_trace_callback("Controller::invokeAction", cb);
+	register_trace_callback("Cake\\Controller\\Controller::invokeAction", cb);
+
 	cb = tw_trace_callback_doctrine_persister;
 	register_trace_callback("Doctrine\\ORM\\Persisters\\BasicEntityPersister::load", cb);
 	register_trace_callback("Doctrine\\ORM\\Persisters\\BasicEntityPersister::loadAll", cb);
@@ -2576,56 +2653,14 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 		efree(ctrl);
 	} else if (strcmp(ret, "Controller::invokeAction") == 0 ||
 			   strcmp(ret, "Cake\\Controller\\Controller::invokeAction") == 0) {
-		zval *object = EX_OBJ(data);
-		zval *property, *actionName;
-		zval *__rv;
-		zend_class_entry *ctrl_ce, *request_ce;
-		int len;
-		char *ctrl;
 
-		if (object == NULL) {
+		zend_string *ctrl = tw_extract_cakephp_controller_name(ret, data TSRMLS_CC);
+
+		if (ctrl == NULL) {
 			return;
 		}
 
-		ctrl_ce = Z_OBJCE_P(object);
-
-		if (strcmp(ret, "Cake\\Controller\\Controller::invokeAction") == 0) {
-			// CakePHP 3 has request property on controller
-			argument_element = _zend_read_property(ctrl_ce, object, "request", sizeof("request") -1, 1, __rv);
-		} else {
-			// CakePHP 2 gets request passe as argument
-			if (ZEND_CALL_NUM_ARGS(data) == 0) {
-				return;
-			}
-
-			argument_element = ZEND_CALL_ARG(data, 1);
-		}
-
-		if (Z_TYPE_P(argument_element) != IS_OBJECT) {
-			return;
-		}
-
-		request_ce = Z_OBJCE_P(argument_element);
-
-		property = _zend_read_property(request_ce, argument_element, "params", sizeof("params") - 1, 1, __rv);
-
-		if (property == NULL || Z_TYPE_P(property) != IS_ARRAY) {
-			return;
-		}
-
-		actionName = zend_compat_hash_find_const(Z_ARRVAL_P(property), "action", sizeof("action") - 1);
-
-		if (actionName == NULL) {
-			return;
-		}
-
-		len = _ZCE_NAME_LENGTH(ctrl_ce) + Z_STRLEN_P(actionName) + 3;
-		ctrl = (char*)emalloc(len);
-		snprintf(ctrl, len, "%s::%s", _ZCE_NAME(ctrl_ce), Z_STRVAL_P(actionName));
-		ctrl[len-1] = '\0';
-
-		TWG(transaction_name) = zend_string_init(ctrl, len-1, 0);
-		efree(ctrl);
+		TWG(transaction_name) = ctrl;
 	} else {
 		if (ZEND_CALL_NUM_ARGS(data) == 0) {
 			return;
