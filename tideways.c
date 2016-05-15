@@ -1532,9 +1532,30 @@ long tw_trace_callback_event_dispatchers(char *symbol, zend_execute_data *data T
 {
 	long idx = -1, *idx_ptr;
 	zval *argument_element = ZEND_CALL_ARG(data, 1);
+	zval fname;
+	_DECLARE_ZVAL(retval_ptr);
 
-	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
-		idx = tw_trace_callback_record_with_cache("event", 5, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element), 1 TSRMLS_CC);
+	if (argument_element) {
+		if (Z_TYPE_P(argument_element) == IS_STRING) {
+			idx = tw_trace_callback_record_with_cache("event", 5, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element), 1 TSRMLS_CC);
+		} else if (Z_TYPE_P(argument_element) == IS_OBJECT && (
+					strcmp(symbol, "Cake\\Event\\EventManager::dispatch") == 0 ||
+					strcmp(symbol, "CakeEventManager::dispatch") == 0)) {
+			// Special Handling for CakePHP 2&3 getting passed Event instance
+
+			_ZVAL_STRING(&fname, "name");
+
+			if (SUCCESS == tw_call_user_function_ex(EG(function_table), argument_element, &fname, retval_ptr)) {
+				if (Z_TYPE_P(retval_ptr) == IS_STRING) {
+					idx = tw_trace_callback_record_with_cache("event", 5, Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr), 1 TSRMLS_CC);
+				}
+				hp_ptr_dtor(retval_ptr);
+			}
+
+#if PHP_VERSION_ID >= 70000
+			zend_string_release(Z_STR(fname));
+#endif
+		}
 	}
 
 	return idx;
@@ -2107,6 +2128,8 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch", cb);
 	register_trace_callback("Illuminate\\Events\\Dispatcher::fire", cb);
 	register_trace_callback("HookCore::exec", cb); // PrestaShop 1.6
+	register_trace_callback("Cake\\Event\\EventManager::dispatch", cb);
+	register_trace_callback("CakeEventManager::dispatch", cb);
 
 	cb = tw_trace_callback_event_dispatchers2;
 	register_trace_callback("HookCore::coreCallHook", cb); // PrestaShop 1.6
@@ -2140,6 +2163,8 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Illuminate\\View\\Engines\\CompilerEngine::get", cb);
 	register_trace_callback("Smarty::fetch", cb);
 	register_trace_callback("load_template", cb);
+	register_trace_callback("View::_render", cb);
+	register_trace_callback("Cake\\View\\View::_render", cb);
 
 	cb = tw_trace_callback_zend1_dispatcher_families_tx;
 	register_trace_callback("Enlight_Controller_Action::dispatch", cb);

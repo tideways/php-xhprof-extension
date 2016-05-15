@@ -24,3 +24,26 @@ function apply_filters($name, $params) {
 function drupal_alter($name, $args) {
     usleep(100);
 }
+
+class CakeEventManager {
+    public function dispatch($event) {
+        if (is_string($event)) {
+            $event = new CakeEvent($event);
+        }
+    }
+}
+
+class CakeEvent
+{
+    private $name;
+
+    public function __construct($name)
+    {
+        $this->name = $name;
+    }
+
+    public function name()
+    {
+        return $this->name;
+    }
+}

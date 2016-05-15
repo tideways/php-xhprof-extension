@@ -37,6 +37,14 @@ drupal_alter("foo", 1, 2, 3, 4);
 $flow3 = new \TYPO3\Flow\SignalSlot\Dispatcher();
 $flow3->dispatch('signal', 'slot');
 
+$cake2 = new CakeEventManager();
+$cake2->dispatch('cake2-1');
+$cake2->dispatch(new CakeEvent('cake2-2'));
+
+$cake3 = new \Cake\Event\EventManager();
+$cake3->dispatch('cake3-1');
+$cake3->dispatch(new Cake\Event\Event('cake3-2'));
+
 $spans = tideways_get_spans();
 print_spans($spans);
 tideways_disable();
@@ -48,3 +56,7 @@ event: 2 timers - title=baz
 event: 1 timers - title=event
 event: 1 timers - title=zoomzoom
 event: 1 timers - title=signal::slot
+event: 1 timers - title=cake2-1
+event: 1 timers - title=cake2-2
+event: 1 timers - title=cake3-1
+event: 1 timers - title=cake3-2
