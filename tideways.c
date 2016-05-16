@@ -2131,7 +2131,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("HookCore::exec", cb); // PrestaShop 1.6
 	register_trace_callback("Cake\\Event\\EventManager::dispatch", cb);
 	register_trace_callback("CakeEventManager::dispatch", cb);
-	register_trace_callback("Phalcon\\Events\\EventManager::fire", cb);
+	register_trace_callback("Phalcon\\Events\\Manager::fire", cb);
 	register_trace_callback("yii\\base\\Component::trigger", cb);
 	register_trace_callback("CComponent::raiseEvent", cb); // yii 1
 
@@ -2172,6 +2172,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Phalcon\\Mvc\\View\\Engine\\Volt::render", cb);
 	register_trace_callback("Phalcon\\Mvc\\View\\Engine\\Php::render", cb);
 	register_trace_callback("Phalcon\\Mvc\\View\\Simple::render", cb);
+	register_trace_callback("Phalcon\\Mvc\\View::render", cb);
 	register_trace_callback("yii\\base\\View::renderFile", cb);
 	register_trace_callback("CBaseController::renderFile", cb); // yii 1
 
