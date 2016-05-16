@@ -2690,6 +2690,36 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 		}
 
 		TWG(transaction_name) = ctrl;
+	} else if (strcmp(ret, "Phalcon\\Mvc\\Router::getMatchedRoute") == 0) {
+		zval *object = EX_OBJ(data), *__rv;
+		zval fname;
+		zend_string *ctrl;
+		zend_class_entry *router_ce;
+		_DECLARE_ZVAL(retval_ptr);
+
+		if (object == NULL) {
+			return;
+		}
+
+		router_ce = Z_OBJCE_P(object);
+		object = _zend_read_property(router_ce, object, "_matchedRoute", sizeof("_matchedRoute")-1, 1, __rv);
+
+		if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
+			return;
+		}
+
+		_ZVAL_STRING(&fname, "getPattern");
+
+		if (SUCCESS == tw_call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
+			if (Z_TYPE_P(retval_ptr) == IS_STRING) {
+				TWG(transaction_name) = zend_string_copy(Z_STR_P(retval_ptr));
+			}
+			hp_ptr_dtor(retval_ptr);
+		}
+
+#if PHP_VERSION_ID >= 70000
+		zend_string_release(Z_STR(fname));
+#endif
 	} else if (strcmp(ret, "Phalcon\\Dispatcher::getReturnedValue") == 0) {
 		zval *object = EX_OBJ(data);
 		zval fname;
