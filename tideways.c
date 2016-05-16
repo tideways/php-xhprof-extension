@@ -126,6 +126,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define RETURN_STR_COPY(s)    RETURN_STRINGL(estrdup(s->val), s->len, 0)
 #define Z_STR_P(z)			  zend_string_init(Z_STRVAL_P(z), Z_STRLEN_P(z), 0)
 #define ZSTR_VAL(zstr)  (zstr)->val
+#define ZSTR_LEN(zstr)  (zstr)->len
 
 #define ZEND_CALL_NUM_ARGS(call) hp_num_execute_arguments(call)
 #define ZEND_CALL_ARG(call, n) hp_get_execute_argument(call, n-1)
@@ -837,7 +838,7 @@ long tw_trace_callback_mongodb_command(char *symbol, zend_execute_data *data TSR
 	tw_span_annotate_string(idx, "ns", Z_STRVAL_P(namespace), 1 TSRMLS_CC);
 
 #if PHP_VERSION_ID < 70000
-	tw_span_annotate_string(idx, "op", ZSTR_VAL(data->function_state->common.function_name), 1 TSRMLS_CC);
+	tw_span_annotate_string(idx, "op", data->function_state.function->common.function_name, 1 TSRMLS_CC);
 #else
 	tw_span_annotate_string(idx, "op", ZSTR_VAL(data->func->common.function_name), 1 TSRMLS_CC);
 #endif
@@ -1035,7 +1036,7 @@ long tw_trace_callback_eloquent_model(char *symbol, zend_execute_data *data TSRM
 	tw_span_annotate_string(idx, "model", _ZCE_NAME(eloquent_ce), 1 TSRMLS_CC);
 
 #if PHP_VERSION_ID < 70000
-	tw_span_annotate_string(idx, "op", ZSTR_VAL(data->function_state->common.function_name), 1 TSRMLS_CC);
+	tw_span_annotate_string(idx, "op", data->function_state.function->common.function_name, 1 TSRMLS_CC);
 #else
 	tw_span_annotate_string(idx, "op", ZSTR_VAL(data->func->common.function_name), 1 TSRMLS_CC);
 #endif
@@ -2636,7 +2637,7 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 			   strcmp(ret, "Mage_Core_Controller_Varien_Action::dispatch") == 0 ||
 			   strcmp(ret, "Illuminate\\Routing\\Controller::callAction") == 0 ||
 			   strcmp(ret, "yii\\base\\Module::runAction") == 0 ||
-			   strcmp(ret, "CController::run") == 0) // yii 1 {
+			   strcmp(ret, "CController::run") == 0) { // yii 1
 
 		if (ZEND_CALL_NUM_ARGS(data) == 0) {
 			return;
