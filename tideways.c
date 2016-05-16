@@ -2690,6 +2690,73 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 		}
 
 		TWG(transaction_name) = ctrl;
+	} else if (strcmp(ret, "Phalcon\\Dispatcher::getReturnedValue") == 0) {
+		zval *object = EX_OBJ(data);
+		zval fname;
+		zend_string *ctrl = NULL, *action = NULL;
+		char *tx;
+		strsize_t len;
+		_DECLARE_ZVAL(retval_ptr);
+
+		if (object == NULL) {
+			return;
+		}
+
+		_ZVAL_STRING(&fname, "getControllerName");
+
+		if (SUCCESS == tw_call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
+			if (Z_TYPE_P(retval_ptr) == IS_STRING) {
+				ctrl = zend_string_copy(Z_STR_P(retval_ptr));
+			}
+			hp_ptr_dtor(retval_ptr);
+		}
+
+#if PHP_VERSION_ID >= 70000
+		zend_string_release(Z_STR(fname));
+#endif
+
+		if (ctrl == NULL) {
+			return;
+		}
+
+		if (ZSTR_LEN(ctrl) == 0) {
+			zend_string_release(ctrl);
+			return;
+		}
+
+		_ZVAL_STRING(&fname, "getActionName");
+
+		if (SUCCESS == tw_call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
+			if (Z_TYPE_P(retval_ptr) == IS_STRING) {
+				action = zend_string_copy(Z_STR_P(retval_ptr));
+			}
+			hp_ptr_dtor(retval_ptr);
+		}
+
+#if PHP_VERSION_ID >= 70000
+		zend_string_release(Z_STR(fname));
+#endif
+
+		if (action == NULL) {
+			zend_string_release(ctrl);
+			return;
+		}
+
+		if (ZSTR_LEN(action) == 0) {
+			zend_string_release(ctrl);
+			zend_string_release(action);
+			return;
+		}
+
+		len = ZSTR_LEN(ctrl) + ZSTR_LEN(action) + 3;
+		tx = (char*)emalloc(len);
+		snprintf(tx, len, "%s::%s", ZSTR_VAL(ctrl), ZSTR_VAL(action));
+		tx[len-1] = '\0';
+
+		TWG(transaction_name) = zend_string_init(tx, len - 1, 0);
+		zend_string_release(action);
+		zend_string_release(ctrl);
+		efree(tx);
 	} else {
 		if (ZEND_CALL_NUM_ARGS(data) == 0) {
 			return;
