@@ -2131,6 +2131,8 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Cake\\Event\\EventManager::dispatch", cb);
 	register_trace_callback("CakeEventManager::dispatch", cb);
 	register_trace_callback("Phalcon\\Events\\EventManager::fire", cb);
+	register_trace_callback("yii\\base\\Component::trigger", cb);
+	register_trace_callback("CComponent::raiseEvent", cb); // yii 1
 
 	cb = tw_trace_callback_event_dispatchers2;
 	register_trace_callback("HookCore::coreCallHook", cb); // PrestaShop 1.6
@@ -2169,6 +2171,8 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Phalcon\\Mvc\\View\\Engine\\Volt::render", cb);
 	register_trace_callback("Phalcon\\Mvc\\View\\Engine\\Php::render", cb);
 	register_trace_callback("Phalcon\\Mvc\\View\\Simple::render", cb);
+	register_trace_callback("yii\\base\\View::renderFile", cb);
+	register_trace_callback("CBaseController::renderFile", cb); // yii 1
 
 	cb = tw_trace_callback_zend1_dispatcher_families_tx;
 	register_trace_callback("Enlight_Controller_Action::dispatch", cb);
@@ -2176,6 +2180,8 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Magento\\Framework\\App\\Action\\Action::dispatch", cb);
 	register_trace_callback("Zend_Controller_Action::dispatch", cb);
 	register_trace_callback("Illuminate\\Routing\\Controller::callAction", cb);
+	register_trace_callback("yii\\base\\Module::runAction", cb);
+	register_trace_callback("CController::run", cb); // yii 1
 
 	cb = tw_trace_callback_symfony_resolve_arguments_tx;
 	register_trace_callback("Symfony\\Component\\HttpKernel\\Controller\\ControllerResolver::getArguments", cb);
@@ -2630,7 +2636,7 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 			   strcmp(ret, "Mage_Core_Controller_Varien_Action::dispatch") == 0 ||
 			   strcmp(ret, "Illuminate\\Routing\\Controller::callAction") == 0 ||
 			   strcmp(ret, "yii\\base\\Module::runAction") == 0 ||
-			   strcmp(ret, "CController::run") == 0) {
+			   strcmp(ret, "CController::run") == 0) // yii 1 {
 
 		if (ZEND_CALL_NUM_ARGS(data) == 0) {
 			return;
