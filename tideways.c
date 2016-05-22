@@ -1647,7 +1647,7 @@ long tw_trace_callback_elasticsearch_perform_request(char *symbol, zend_execute_
 
 	MAKE_STD_ZVAL(tmp);
 	ZVAL_LONG(tmp, idx);
-	zend_hash_str_update(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1, tmp);
+	zend_hash_str_update(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1, &tmp);
 #endif
 
 	return -1;
