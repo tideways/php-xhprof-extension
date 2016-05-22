@@ -1634,11 +1634,12 @@ long tw_trace_callback_elasticsearch_perform_request(char *symbol, zend_execute_
 		return -1;
 	}
 
-	tw_span_timer_start(idx TSRMLS_CC);
 	tw_span_annotate_string(idx, "es.method", Z_STRVAL_P(method), 1 TSRMLS_CC);
 	tw_span_annotate_string(idx, "es.path", Z_STRVAL_P(uri), 1 TSRMLS_CC);
 
 	if (strcmp("Elasticsearch\\Connections\\Connection::performRequest", symbol) == 0) {
+		tw_span_timer_start(idx TSRMLS_CC);
+
 #if PHP_VERSION_ID >= 70000
 		zval tmp;
 		ZVAL_LONG(&tmp, idx);
