@@ -5,8 +5,14 @@ extension=mongodb.so
 --SKIPIF--
 <?php
 if (!extension_loaded('mongodb')) {
-    var_dump(get_loaded_extensions());
     echo 'skip: required extension "mongodb"';
+    exit;
+}
+
+$host = isset($_SERVER['MONGO_HOST']) ? $_SERVER['MONGO_HOST'] : '127.0.0.1:27017';
+
+if (!@fopen($host)) {
+    echo 'skip: no mongodb is running';
     exit;
 }
 --FILE--
