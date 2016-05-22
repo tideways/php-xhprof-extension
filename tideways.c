@@ -1616,6 +1616,68 @@ long tw_trace_callback_fastcgi_finish_request(char *symbol, zend_execute_data *d
 	return -1;
 }
 
+long tw_trace_callback_elasticsearch_perform_request(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx;
+	zval *method, *uri;
+
+	if (ZEND_CALL_NUM_ARGS(data) < 2) {
+		return -1;
+	}
+
+	idx = tw_span_create("elasticsearch", 13 TSRMLS_CC);
+
+	method = ZEND_CALL_ARG(data, 1);
+	uri = ZEND_CALL_ARG(data, 2);
+
+	if (method == NULL || uri == NULL || Z_TYPE_P(method) != IS_STRING || Z_TYPE_P(uri) != IS_STRING) {
+		return -1;
+	}
+
+	tw_span_timer_start(idx TSRMLS_CC);
+	tw_span_annotate_string(idx, "es.method", Z_STRVAL_P(method), 1 TSRMLS_CC);
+	tw_span_annotate_string(idx, "es.path", Z_STRVAL_P(uri), 1 TSRMLS_CC);
+
+#if PHP_VERSION_ID >= 70000
+	zval tmp;
+	ZVAL_LONG(&tmp, idx);
+	zend_hash_str_update(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1, &tmp);
+#else
+	zval *tmp;
+
+	MAKE_STD_ZVAL(tmp);
+	ZVAL_LONG(tmp, idx);
+	zend_hash_str_update(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1, tmp);
+#endif
+
+	return -1;
+}
+
+long tw_trace_callback_elasticsearch_wait_request(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx;
+	zval *spanId, *object;
+	zend_class_entry *endpoint_ce;
+
+	spanId = zend_compat_hash_find_const(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1);
+
+	if (spanId == NULL || Z_TYPE_P(spanId) != IS_LONG) {
+		return -1;
+	}
+
+	idx = Z_LVAL_P(spanId);
+	tw_span_timer_stop(idx TSRMLS_CC);
+
+	object = EX_OBJ(data);
+
+	if (Z_TYPE_P(object) == IS_OBJECT) {
+		endpoint_ce = Z_OBJCE_P(object);
+		tw_span_annotate_string(idx, "endpoint", _ZCE_NAME(endpoint_ce), 1 TSRMLS_CC);
+	}
+
+	return -1;
+}
+
 long tw_trace_callback_curl_multi_add(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	zval *curl_handle;
@@ -2246,6 +2308,12 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_curl_multi_remove;
 	register_trace_callback("curl_multi_remove_handle", cb);
+
+	cb = tw_trace_callback_elasticsearch_perform_request;
+	register_trace_callback("Elasticsearch\\Connections\\Connection::performRequest", cb);
+
+	cb = tw_trace_callback_elasticsearch_wait_request;
+	register_trace_callback("Elasticsearch\\Endpoints\\AbstractEndpoint::resultOrFuture", cb);
 
 	cb = tw_trace_callback_sql_functions;
 	register_trace_callback("PDO::exec", cb);
