@@ -1638,19 +1638,23 @@ long tw_trace_callback_elasticsearch_perform_request(char *symbol, zend_execute_
 	tw_span_annotate_string(idx, "es.method", Z_STRVAL_P(method), 1 TSRMLS_CC);
 	tw_span_annotate_string(idx, "es.path", Z_STRVAL_P(uri), 1 TSRMLS_CC);
 
+	if (strcmp("Elasticsearch\\Connections\\Connection::performRequest", symbol) == 0) {
 #if PHP_VERSION_ID >= 70000
-	zval tmp;
-	ZVAL_LONG(&tmp, idx);
-	zend_hash_str_update(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1, &tmp);
+		zval tmp;
+		ZVAL_LONG(&tmp, idx);
+		zend_hash_str_update(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1, &tmp);
 #else
-	zval *tmp;
+		zval *tmp;
 
-	MAKE_STD_ZVAL(tmp);
-	ZVAL_LONG(tmp, idx);
-	zend_hash_str_update(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1, &tmp);
+		MAKE_STD_ZVAL(tmp);
+		ZVAL_LONG(tmp, idx);
+		zend_hash_str_update(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1, &tmp);
 #endif
 
-	return -1;
+		return -1;
+	}
+
+	return idx;
 }
 
 long tw_trace_callback_elasticsearch_wait_request(char *symbol, zend_execute_data *data TSRMLS_DC)
@@ -2311,6 +2315,8 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
 	cb = tw_trace_callback_elasticsearch_perform_request;
 	register_trace_callback("Elasticsearch\\Connections\\Connection::performRequest", cb);
+	register_trace_callback("Elasticsearch\\Connections\\GuzzleConnection::performRequest", cb);
+	register_trace_callback("Elasticsearch\\Connections\\CurlMultiConnection::performRequest", cb);
 
 	cb = tw_trace_callback_elasticsearch_wait_request;
 	register_trace_callback("Elasticsearch\\Endpoints\\AbstractEndpoint::resultOrFuture", cb);
