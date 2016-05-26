@@ -3,9 +3,10 @@ Tideways: Skip require/include and eval profiling
 --FILE--
 <?php
 
+require_once dirname(__FILE__) . "/common.php";
+
 tideways_enable(TIDEWAYS_FLAGS_NO_COMPILE);
 
-require_once dirname(__FILE__) . "/common.php";
 include dirname(__FILE__) . "/tideways_004_inc.php";
 
 eval("function evaledfoo() {}");
@@ -19,7 +20,7 @@ echo "\n";
 abc,def,ghi
 I am in foo()...
 main()                                  : ct=       1; wt=*;
-main()==>dirname                        : ct=       2; wt=*;
+main()==>dirname                        : ct=       1; wt=*;
 main()==>evaledfoo                      : ct=       1; wt=*;
 main()==>explode                        : ct=       1; wt=*;
 main()==>foo                            : ct=       1; wt=*;

@@ -12,14 +12,15 @@ if (!extension_loaded('curl')) {
 require_once __DIR__ . '/common.php';
 
 tideways_enable(TIDEWAYS_FLAGS_NO_HIERACHICAL);
+http_cli_server_start();
 
 $ch1 = curl_init();
 $ch2 = curl_init();
 
-curl_setopt($ch1, CURLOPT_URL, "http://localhost/");
+curl_setopt($ch1, CURLOPT_URL, PHP_HTTP_SERVER_ADDRESS);
 curl_setopt($ch1, CURLOPT_HEADER, 0);
 curl_setopt($ch1, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch2, CURLOPT_URL, "http://localhost/");
+curl_setopt($ch2, CURLOPT_URL, PHP_HTTP_SERVER_ADDRESS);
 curl_setopt($ch2, CURLOPT_HEADER, 0);
 curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
 

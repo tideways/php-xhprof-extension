@@ -1854,7 +1854,6 @@ long tw_trace_callback_curl_multi_add(char *symbol, zend_execute_data *data TSRM
 long tw_trace_callback_curl_multi_remove(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	zval *curl_handle, *spanId, *option;
-	char *summary;
 	long curl_handle_res;
 	long netIn = 0;
 	long idx;
@@ -1903,13 +1902,7 @@ long tw_trace_callback_curl_multi_remove(char *symbol, zend_execute_data *data T
 			option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "url", sizeof("url")-1);
 
 			if (option && Z_TYPE_P(option) == IS_STRING) {
-				summary = hp_get_file_summary(Z_STRVAL_P(option), Z_STRLEN_P(option) TSRMLS_CC);
-
-
-				tw_span_annotate_string(idx, "url", summary, 0 TSRMLS_CC);
-#if PHP_VERSION_ID >= 70000
-				efree(summary);
-#endif
+				tw_span_annotate_string(idx, "url", Z_STRVAL_P(option), 1 TSRMLS_CC);
 			}
 
 			option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "http_code", sizeof("http_code")-1);
@@ -1970,7 +1963,6 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 {
 	zval *argument = ZEND_CALL_ARG(data, 1);
 	zval *option;
-	char *summary;
 	long idx, *idx_ptr;
 	zval fname, *opt;
 	_DECLARE_ZVAL(retval_ptr);
@@ -1996,14 +1988,8 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 		option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "url", sizeof("url")-1);
 
 		if (option && Z_TYPE_P(option) == IS_STRING) {
-			summary = hp_get_file_summary(Z_STRVAL_P(option), Z_STRLEN_P(option) TSRMLS_CC);
-
-
 			idx = tw_span_create("http", 4 TSRMLS_CC);
-			tw_span_annotate_string(idx, "url", summary, 0 TSRMLS_CC);
-#if PHP_VERSION_ID >= 70000
-			efree(summary);
-#endif
+			tw_span_annotate_string(idx, "url", Z_STRVAL_P(option), 1 TSRMLS_CC);
 		}
 
 		hp_ptr_dtor(retval_ptr);
