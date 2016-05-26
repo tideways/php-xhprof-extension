@@ -43,6 +43,7 @@
 
 #include "ext/standard/url.h"
 #include "ext/pdo/php_pdo_driver.h"
+#include "ext/pcre/php_pcre.h"
 #include "zend_stream.h"
 
 #if PHP_VERSION_ID < 70000
@@ -312,6 +313,7 @@ static inline hp_function_map *hp_function_map_create(char **names);
 static inline void hp_function_map_clear(hp_function_map *map);
 static inline int hp_function_map_exists(hp_function_map *map, uint8 hash_code, char *curr_func);
 static inline int hp_function_map_filter_collision(hp_function_map *map, uint8 hash);
+zval *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC);
 
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_enable, 0, 0, 0)
@@ -524,7 +526,7 @@ PHP_MINIT_FUNCTION(tideways)
 #if PHP_VERSION_ID >= 70000
 	tw_original_gc_collect_cycles = gc_collect_cycles;
 	gc_collect_cycles = tw_gc_collect_cycles;
-#endif 
+#endif
 
 	_zend_execute_internal = zend_execute_internal;
 	zend_execute_internal = hp_execute_internal;
@@ -563,7 +565,7 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 
 #if PHP_VERSION_ID >= 70000
 	gc_collect_cycles = tw_original_gc_collect_cycles;
-#endif 
+#endif
 
 	UNREGISTER_INI_ENTRIES();
 
@@ -1563,6 +1565,73 @@ long tw_trace_callback_event_dispatchers(char *symbol, zend_execute_data *data T
 	return idx;
 }
 
+long tw_trace_callback_pdo_connect(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx = -1;
+	zval *dsn, *match;
+	_DECLARE_ZVAL(return_value);
+	_DECLARE_ZVAL(subpats);
+	pcre_cache_entry *pce;
+
+	if (ZEND_CALL_NUM_ARGS(data) < 1) {
+		return idx;
+	}
+
+	dsn = ZEND_CALL_ARG(data, 1);
+
+	if (dsn == NULL || Z_TYPE_P(dsn) != IS_STRING) {
+		return idx;
+	}
+
+	if (match = tw_pcre_match("(^(mysql|sqlite|pgsql|odbc|oci):)", sizeof("(^(mysql|sqlite|pgsql|odbc|oci):)")-1, dsn TSRMLS_CC)) {
+		idx = tw_span_create("sql", 3 TSRMLS_CC);
+		tw_span_annotate_string(idx, "db.type", Z_STRVAL_P(match), 1 TSRMLS_CC);
+
+		if (match = tw_pcre_match("(host=([^;\\s]+))", sizeof("(host=([^;\\s]+))")-1, dsn TSRMLS_CC)) {
+			tw_span_annotate_string(idx, "peer.host",  Z_STRVAL_P(match), 1 TSRMLS_CC);
+		}
+
+		if (match = tw_pcre_match("(port=([^;\\s]+))", sizeof("(port=([^;\\s]+))")-1, dsn TSRMLS_CC)) {
+			tw_span_annotate_string(idx, "peer.port",  Z_STRVAL_P(match), 1 TSRMLS_CC);
+		}
+
+		if (match = tw_pcre_match("(dbname=([^;\\s]+))", sizeof("(dbname=([^;\\s]+))")-1, dsn TSRMLS_CC)) {
+			tw_span_annotate_string(idx, "db.name",  Z_STRVAL_P(match), 1 TSRMLS_CC);
+		}
+	}
+
+	return idx;
+}
+
+zval *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC)
+{
+	zval *match;
+	_DECLARE_ZVAL(return_value);
+	_DECLARE_ZVAL(subpats);
+	pcre_cache_entry *pce;
+
+	if ((pce = pcre_get_compiled_regex_cache(pattern, len TSRMLS_CC)) == NULL) {
+		return NULL;
+	}
+
+	_ALLOC_INIT_ZVAL(return_value);
+	_ALLOC_INIT_ZVAL(subpats);
+
+	pce->refcount++;
+	php_pcre_match_impl(pce, Z_STRVAL_P(subject), Z_STRLEN_P(subject), return_value, subpats, 0, 1, 0, 0);
+	pce->refcount--;
+
+	if (Z_LVAL_P(return_value) > 0 && Z_TYPE_P(subpats) == IS_ARRAY) {
+		match = zend_compat_hash_index_find(Z_ARRVAL_P(subpats), 1);
+
+		if (match && Z_TYPE_P(match) == IS_STRING) {
+			return match;
+		}
+	}
+
+	return NULL;
+}
+
 long tw_trace_callback_pdo_stmt_execute(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	long idx;
@@ -1707,7 +1776,7 @@ long tw_trace_callback_curl_multi_add(char *symbol, zend_execute_data *data TSRM
 	zval tmp;
 	ZVAL_LONG(&tmp, idx);
 	zend_hash_index_update(TWG(span_cache), curl_handle_res, &tmp);
-#else 
+#else
 	zval *tmp;
 
 	MAKE_STD_ZVAL(tmp);
@@ -2140,7 +2209,7 @@ static void hp_exception_function_clear(TSRMLS_D) {
 #if PHP_VERSION_ID >= 70000
 	hp_ptr_dtor(&TWG(exception));
 	ZVAL_NULL(&TWG(exception));
-#else 
+#else
 	if (TWG(exception) != NULL) {
 		hp_ptr_dtor(TWG(exception));
 		TWG(exception) = NULL;
@@ -2335,6 +2404,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("PDO::commit", cb);
 	register_trace_callback("mysqli::commit", cb);
 	register_trace_callback("mysqli_commit", cb);
+
+	cb = tw_trace_callback_pdo_connect;
+	register_trace_callback("PDO::__construct", cb);
 
 	cb = tw_trace_callback_pdo_stmt_execute;
 	register_trace_callback("PDOStatement::execute", cb);
