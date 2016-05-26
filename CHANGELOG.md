@@ -1,7 +1,7 @@
 # Version 4.0.5
 
 - Added Elasticsearch PHP Support
-- Added curl_multi support when `curl_multi_add_handle` and curl_multi_remove_handle` are called.
+- Added curl_multi support when `curl_multi_add_handle` and `curl_multi_remove_handle` are called.
 - Added Laravel Eloquent ORM support
 - Added CakePHP 2 & 3 Support
 - Added New MongoDB Extension support
