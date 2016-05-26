@@ -40,6 +40,7 @@ print_spans(tideways_get_spans());
 tideways_disable();
 --EXPECTF--
 app: 1 timers - 
+sql: 1 timers - db.type=sqlite
 sql: 1 timers - sql=CREATE TABLE baz (id INTEGER)
 sql: 1 timers - sql=SELECT 'foo' FROM 'baz'
 sql: 1 timers - sql=INSERT INTO baz (id) VALUES (1)

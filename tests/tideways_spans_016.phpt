@@ -6,6 +6,10 @@ if(!extension_loaded('mysqli')) {
     echo "skip: mysqli not installed\n";
     exit();
 }
+if (!fsockopen('127.0.0.1', 3306)) {
+    echo "skip: no MySQL running on localhost:3306\n";
+    exit();
+}
 --FILE--
 <?php
 
@@ -22,5 +26,6 @@ print_spans(tideways_get_spans());
 tideways_disable();
 --EXPECTF--
 app: 1 timers - 
+sql: 1 timers - db.name=information_schema db.type=mysql peer.host=127.0.0.1
 sql: 1 timers - sql=SELECT * FROM TABLES LIMIT 1
 sql: 1 timers - title=execute
