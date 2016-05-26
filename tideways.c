@@ -1941,6 +1941,8 @@ long tw_trace_callback_curl_multi_remove(char *symbol, zend_execute_data *data T
 #else
 	zend_string_release(Z_STR(fname));
 #endif
+
+	return -1;
 }
 
 long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC)
