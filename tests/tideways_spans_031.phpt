@@ -23,5 +23,5 @@ tideways_disable();
 print_spans(tideways_get_spans());
 --EXPECTF--
 app: 1 timers - cpu=%d
-sql: 1 timers - db.name=mysql peer.host=127.0.0.1 peer.port=3306 db.type=mysql
+sql: 1 timers - db.name=mysql db.type=mysql peer.host=127.0.0.1 peer.port=3306
 sql: 1 timers - sql=SELECT 1
