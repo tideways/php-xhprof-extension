@@ -1581,10 +1581,6 @@ long tw_trace_callback_mysqli_connect(char *symbol, zend_execute_data *data TSRM
 
 	if (Z_TYPE_P(arg) == IS_STRING) {
 		tw_span_annotate_string(idx, "peer.host", Z_STRVAL_P(arg), 1 TSRMLS_CC);
-	} else if (strcmp(symbol, "mysql_connect") == 0) {
-		tw_span_annotate_string(idx, "peer.host", INI_STR("mysql.default_host"), 1 TSRMLS_CC);
-	} else {
-		tw_span_annotate_string(idx, "peer.host", INI_STR("mysqli.default_host"), 1 TSRMLS_CC);
 	}
 
 	if (ZEND_CALL_NUM_ARGS(data) > 3) {
@@ -1602,8 +1598,6 @@ long tw_trace_callback_mysqli_connect(char *symbol, zend_execute_data *data TSRM
 			tw_span_annotate_string(idx, "peer.port", Z_STRVAL_P(arg), 1 TSRMLS_CC);
 		} else if (Z_TYPE_P(arg) == IS_LONG) {
 			tw_span_annotate_long(idx, "peer.port", Z_LVAL_P(arg) TSRMLS_CC);
-		} else {
-			tw_span_annotate_string(idx, "peer.port", INI_STR("mysqli.default_port"), 1 TSRMLS_CC);
 		}
 	}
 
