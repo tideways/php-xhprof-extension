@@ -11,12 +11,12 @@ tideways_enable(TIDEWAYS_FLAGS_NO_HIERACHICAL);
 $connection = new \Elasticsearch\Connections\Connection();
 $connection->performRequest('GET', '/idx1/type2/_search');
 $endpoint = new \Elasticsearch\Endpoints\SomeEndpoint();
-$endpoint->resultOrFuture([]);
+$endpoint->resultOrFuture(array());
 
 $connection = new \Elasticsearch\Connections\Connection();
 $connection->performRequest('GET', '/idx3/type1');
 $endpoint = new \Elasticsearch\Endpoints\AnotherEndpoint();
-$endpoint->resultOrFuture([]);
+$endpoint->resultOrFuture(array());
 
 tideways_disable();
 print_spans(tideways_get_spans());

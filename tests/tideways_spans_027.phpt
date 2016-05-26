@@ -37,11 +37,13 @@ class User extends Model {
 }
 
 tideways_enable();
-(new Builder($user = new User()))->getModels();
+$builder = new Builder($user = new User());
+$builder->getModels();
 $user->performUpdate();
 $user->performInsert();
 $user->delete();
-(new Builder("not an object"))->getModels();
+$builder = new Builder("not an object");
+$builder->getModels();
 tideways_disable();
 print_spans(tideways_get_spans());
 

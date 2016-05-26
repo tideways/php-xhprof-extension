@@ -7,7 +7,7 @@ namespace yii\base;
 
 abstract class Module
 {
-    public function runAction($actionId, $params = [])
+    public function runAction($actionId, $params = array())
     {
     }
 }

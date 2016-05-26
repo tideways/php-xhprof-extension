@@ -169,7 +169,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define hp_ptr_dtor(val) zval_ptr_dtor(val)
 #define TWG_ARRVAL(val) Z_ARRVAL(val)
 #define tw_resource_handle(zv) Z_RES_P(zv)->handle
-#define tw_pcre_match_impl(pce, zv, retval, parts, global, use_flags, flags, offset) php_pcre_match_impl(pce, Z_STR_P(subject), return_value, parts, global, use_flags, flags, offset)
+#define tw_pcre_match_impl(pce, zv, retval, parts, global, use_flags, flags, offset) php_pcre_match_impl(pce, Z_STRVAL_P(subject), Z_STRLEN_P(subject), return_value, parts, global, use_flags, flags, offset)
 
 #define register_trace_callback(function_name, cb) zend_hash_str_update_mem(TWG(trace_callbacks), function_name, strlen(function_name), &cb, sizeof(tw_trace_callback));
 #define register_trace_callback_len(function_name, len, cb) zend_hash_str_update_mem(TWG(trace_callbacks), function_name, len, &cb, sizeof(tw_trace_callback));
@@ -1650,10 +1650,21 @@ zval *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC)
 	_DECLARE_ZVAL(return_value);
 	_DECLARE_ZVAL(subpats);
 	pcre_cache_entry *pce;
+#if PHP_VERSION_ID >= 70000
+	zend_string *pattern_str;
+
+	pattern_str = zend_string_init(pattern, len, 0);
+
+	if ((pce = pcre_get_compiled_regex_cache(pattern_str)) == NULL) {
+		zend_string_release(pattern_str);
+		return NULL;
+	}
+#else
 
 	if ((pce = pcre_get_compiled_regex_cache(pattern, len TSRMLS_CC)) == NULL) {
 		return NULL;
 	}
+#endif
 
 	_ALLOC_INIT_ZVAL(return_value);
 	_ALLOC_INIT_ZVAL(subpats);
@@ -1666,9 +1677,17 @@ zval *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC)
 		match = zend_compat_hash_index_find(Z_ARRVAL_P(subpats), 1);
 
 		if (match && Z_TYPE_P(match) == IS_STRING) {
+#if PHP_VERSION_ID >= 70000
+			zend_string_release(pattern_str);
+#endif
+
 			return match;
 		}
 	}
+
+#if PHP_VERSION_ID >= 70000
+	zend_string_release(pattern_str);
+#endif
 
 	return NULL;
 }
@@ -2451,7 +2470,11 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	cb = tw_trace_callback_mysqli_connect;
 	register_trace_callback("mysql_connect", cb);
 	register_trace_callback("mysqli_connect", cb);
+#if PHP_VERSION_ID >= 70000
+	register_trace_callback("mysqli::__construct", cb);
+#else
 	register_trace_callback("mysqli::mysqli", cb);
+#endif
 
 	cb = tw_trace_callback_pdo_connect;
 	register_trace_callback("PDO::__construct", cb);
