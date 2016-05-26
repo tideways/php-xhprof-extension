@@ -1,3 +1,14 @@
+# Version 4.0.5
+
+- Added Elasticsearch PHP Support
+- Added curl_multi support when `curl_multi_add_handle` and curl_multi_remove_handle` are called.
+- Added Laravel Eloquent ORM support
+- Added CakePHP 2 & 3 Support
+- Added New MongoDB Extension support
+- Added PDO, ext/mysql and ext/mysqli Connect Host+Database Name support
+- Added Yii 1 & 2 Support
+- Added Phalcon Support (for spans, no transaction detection)
+
 # Version 4.0.4
 
 - Add support for Fatal Error detection in PHP 7
