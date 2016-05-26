@@ -149,6 +149,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define zend_hash_str_update(array, key, len, value) zend_hash_update(array, key, len+1, value, sizeof(zval*), NULL)
 #define TWG_ARRVAL(val) Z_ARRVAL_P(val)
 #define tw_resource_handle(zv) Z_LVAL_P(zv)
+#define tw_pcre_match_impl(pce, zv, retval, parts, global, use_flags, flags, offset) php_pcre_match_impl(pce, Z_STRVAL_P(subject), Z_STRLEN_P(subject), return_value, parts, global, use_flags, flags, offset TSRMLS_CC)
 
 #define register_trace_callback(function_name, cb) zend_hash_update(TWG(trace_callbacks), function_name, sizeof(function_name), &cb, sizeof(tw_trace_callback*), NULL);
 #define register_trace_callback_len(function_name, len, cb) zend_hash_update(TWG(trace_callbacks), function_name, len+1, &cb, sizeof(tw_trace_callback*), NULL);
@@ -168,6 +169,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define hp_ptr_dtor(val) zval_ptr_dtor(val)
 #define TWG_ARRVAL(val) Z_ARRVAL(val)
 #define tw_resource_handle(zv) Z_RES_P(zv)->handle
+#define tw_pcre_match_impl(pce, zv, retval, parts, global, use_flags, flags, offset) php_pcre_match_impl(pce, Z_STR_P(subject), return_value, parts, global, use_flags, flags, offset)
 
 #define register_trace_callback(function_name, cb) zend_hash_str_update_mem(TWG(trace_callbacks), function_name, strlen(function_name), &cb, sizeof(tw_trace_callback));
 #define register_trace_callback_len(function_name, len, cb) zend_hash_str_update_mem(TWG(trace_callbacks), function_name, len, &cb, sizeof(tw_trace_callback));
@@ -1657,7 +1659,7 @@ zval *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC)
 	_ALLOC_INIT_ZVAL(subpats);
 
 	pce->refcount++;
-	php_pcre_match_impl(pce, Z_STRVAL_P(subject), Z_STRLEN_P(subject), return_value, subpats, 0, 1, 0, 0);
+	tw_pcre_match_impl(pce, subject, return_value, subpats, 0, 1, 0, 0);
 	pce->refcount--;
 
 	if (Z_LVAL_P(return_value) > 0 && Z_TYPE_P(subpats) == IS_ARRAY) {
