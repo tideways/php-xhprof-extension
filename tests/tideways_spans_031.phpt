@@ -16,7 +16,7 @@ include __DIR__ . "/common.php";
 
 tideways_enable();
 
-$pdo = new PDO('mysql:host=127.0.0.1;dbname=mysql;port=3306');
+$pdo = new PDO('mysql:host=127.0.0.1;dbname=mysql;port=3306', 'root', '');
 $pdo->query('SELECT 1');
 
 tideways_disable();

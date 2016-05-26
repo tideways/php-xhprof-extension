@@ -6,6 +6,10 @@ if (!extension_loaded('curl')) {
     echo "skip: curl required\n";
     die;
 }
+if (PHP_VERSION_ID < 54000) {
+    echo "skip: PHP 5.4+ only test\n";
+    exit();
+}
 --FILE--
 <?php
 
