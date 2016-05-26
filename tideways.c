@@ -2609,6 +2609,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("MongoDB\\Driver\\Manager::executeCommand", cb);
 	register_trace_callback("MongoDB\\Driver\\Manager::executeBulkWrite", cb);
 	register_trace_callback("MongoDB\\Driver\\Manager::executeQuery", cb);
+	register_trace_callback("MongoDB\\Driver\\Server::executeCommand", cb);
+	register_trace_callback("MongoDB\\Driver\\Server::executeBulkWrite", cb);
+	register_trace_callback("MongoDB\\Driver\\Server::executeQuery", cb);
 
 	cb = tw_trace_callback_mongodb_connect;
 	register_trace_callback("MongoDB\\Driver\\Manager::__construct", cb);
