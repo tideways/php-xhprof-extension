@@ -1565,6 +1565,51 @@ long tw_trace_callback_event_dispatchers(char *symbol, zend_execute_data *data T
 	return idx;
 }
 
+long tw_trace_callback_mysqli_connect(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx = -1;
+	zval *arg;
+
+	if (ZEND_CALL_NUM_ARGS(data) < 1) {
+		return idx;
+	}
+
+	idx = tw_span_create("sql", 3 TSRMLS_CC);
+	tw_span_annotate_string(idx, "db.type", "mysql", 1 TSRMLS_CC);
+
+	arg = ZEND_CALL_ARG(data, 1);
+
+	if (Z_TYPE_P(arg) == IS_STRING) {
+		tw_span_annotate_string(idx, "peer.host", Z_STRVAL_P(arg), 1 TSRMLS_CC);
+	} else if (strcmp(symbol, "mysql_connect") == 0) {
+		tw_span_annotate_string(idx, "peer.host", INI_STR("mysql.default_host"), 1 TSRMLS_CC);
+	} else {
+		tw_span_annotate_string(idx, "peer.host", INI_STR("mysqli.default_host"), 1 TSRMLS_CC);
+	}
+
+	if (ZEND_CALL_NUM_ARGS(data) > 3) {
+		arg = ZEND_CALL_ARG(data, 4);
+
+		if (Z_TYPE_P(arg) == IS_STRING && Z_STRLEN_P(arg) > 0) {
+			tw_span_annotate_string(idx, "db.name", Z_STRVAL_P(arg), 1 TSRMLS_CC);
+		}
+	}
+
+	if (ZEND_CALL_NUM_ARGS(data) > 4) {
+		arg = ZEND_CALL_ARG(data, 5);
+
+		if (Z_TYPE_P(arg) == IS_STRING) {
+			tw_span_annotate_string(idx, "peer.port", Z_STRVAL_P(arg), 1 TSRMLS_CC);
+		} else if (Z_TYPE_P(arg) == IS_LONG) {
+			tw_span_annotate_long(idx, "peer.port", Z_LVAL_P(arg) TSRMLS_CC);
+		} else {
+			tw_span_annotate_string(idx, "peer.port", INI_STR("mysqli.default_port"), 1 TSRMLS_CC);
+		}
+	}
+
+	return idx;
+}
+
 long tw_trace_callback_pdo_connect(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	long idx = -1;
@@ -2404,6 +2449,11 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("PDO::commit", cb);
 	register_trace_callback("mysqli::commit", cb);
 	register_trace_callback("mysqli_commit", cb);
+
+	cb = tw_trace_callback_mysqli_connect;
+	register_trace_callback("mysql_connect", cb);
+	register_trace_callback("mysqli_connect", cb);
+	register_trace_callback("mysqli::mysqli", cb);
 
 	cb = tw_trace_callback_pdo_connect;
 	register_trace_callback("PDO::__construct", cb);
