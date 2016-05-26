@@ -1161,7 +1161,7 @@ long tw_trace_callback_cakephp_controller(char *symbol, zend_execute_data *data 
 	long idx = -1;
 	zend_string *ctrl;
 
-	ctrl = tw_extract_cakephp_controller_name(symbol, data);
+	ctrl = tw_extract_cakephp_controller_name(symbol, data TSRMLS_CC);
 
 	if (ctrl != NULL) {
 		idx = tw_span_create("php.ctrl", 8 TSRMLS_CC);
