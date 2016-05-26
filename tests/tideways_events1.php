@@ -45,3 +45,28 @@ namespace TYPO3\Flow\SignalSlot {
         }
     }
 }
+
+namespace Cake\Event {
+    class EventManager {
+        public function dispatch($event) {
+            if (is_string($event)) {
+                $event = new Event($event);
+            }
+        }
+    }
+
+    class Event
+    {
+        private $name;
+
+        public function __construct($name)
+        {
+            $this->name = $name;
+        }
+
+        public function name()
+        {
+            return $this->name;
+        }
+    }
+}

@@ -43,6 +43,7 @@
 
 #include "ext/standard/url.h"
 #include "ext/pdo/php_pdo_driver.h"
+#include "ext/pcre/php_pcre.h"
 #include "zend_stream.h"
 
 #if PHP_VERSION_ID < 70000
@@ -126,6 +127,7 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define RETURN_STR_COPY(s)    RETURN_STRINGL(estrdup(s->val), s->len, 0)
 #define Z_STR_P(z)			  zend_string_init(Z_STRVAL_P(z), Z_STRLEN_P(z), 0)
 #define ZSTR_VAL(zstr)  (zstr)->val
+#define ZSTR_LEN(zstr)  (zstr)->len
 
 #define ZEND_CALL_NUM_ARGS(call) hp_num_execute_arguments(call)
 #define ZEND_CALL_ARG(call, n) hp_get_execute_argument(call, n-1)
@@ -146,6 +148,8 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define zend_string_copy(s) s
 #define zend_hash_str_update(array, key, len, value) zend_hash_update(array, key, len+1, value, sizeof(zval*), NULL)
 #define TWG_ARRVAL(val) Z_ARRVAL_P(val)
+#define tw_resource_handle(zv) Z_LVAL_P(zv)
+#define tw_pcre_match_impl(pce, zv, retval, parts, global, use_flags, flags, offset) php_pcre_match_impl(pce, Z_STRVAL_P(subject), Z_STRLEN_P(subject), return_value, parts, global, use_flags, flags, offset TSRMLS_CC)
 
 #define register_trace_callback(function_name, cb) zend_hash_update(TWG(trace_callbacks), function_name, sizeof(function_name), &cb, sizeof(tw_trace_callback*), NULL);
 #define register_trace_callback_len(function_name, len, cb) zend_hash_update(TWG(trace_callbacks), function_name, len+1, &cb, sizeof(tw_trace_callback*), NULL);
@@ -164,7 +168,8 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define _ALLOC_INIT_ZVAL(name) ZVAL_NULL(name)
 #define hp_ptr_dtor(val) zval_ptr_dtor(val)
 #define TWG_ARRVAL(val) Z_ARRVAL(val)
-
+#define tw_resource_handle(zv) Z_RES_P(zv)->handle
+#define tw_pcre_match_impl(pce, zv, retval, parts, global, use_flags, flags, offset) php_pcre_match_impl(pce, Z_STRVAL_P(subject), Z_STRLEN_P(subject), return_value, parts, global, use_flags, flags, offset)
 
 #define register_trace_callback(function_name, cb) zend_hash_str_update_mem(TWG(trace_callbacks), function_name, strlen(function_name), &cb, sizeof(tw_trace_callback));
 #define register_trace_callback_len(function_name, len, cb) zend_hash_str_update_mem(TWG(trace_callbacks), function_name, len, &cb, sizeof(tw_trace_callback));
@@ -310,6 +315,7 @@ static inline hp_function_map *hp_function_map_create(char **names);
 static inline void hp_function_map_clear(hp_function_map *map);
 static inline int hp_function_map_exists(hp_function_map *map, uint8 hash_code, char *curr_func);
 static inline int hp_function_map_filter_collision(hp_function_map *map, uint8 hash);
+zval *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC);
 
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_enable, 0, 0, 0)
@@ -522,7 +528,7 @@ PHP_MINIT_FUNCTION(tideways)
 #if PHP_VERSION_ID >= 70000
 	tw_original_gc_collect_cycles = gc_collect_cycles;
 	gc_collect_cycles = tw_gc_collect_cycles;
-#endif 
+#endif
 
 	_zend_execute_internal = zend_execute_internal;
 	zend_execute_internal = hp_execute_internal;
@@ -561,7 +567,7 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
 
 #if PHP_VERSION_ID >= 70000
 	gc_collect_cycles = tw_original_gc_collect_cycles;
-#endif 
+#endif
 
 	UNREGISTER_INI_ENTRIES();
 
@@ -787,6 +793,64 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 	return -1;
 }
 
+long tw_trace_callback_mongodb_connect(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx = -1;
+	zval *server;
+	php_url *url;
+
+	if (ZEND_CALL_NUM_ARGS(data) < 1) {
+		return idx;
+	}
+
+	server = ZEND_CALL_ARG(data, 1);
+
+	if (server == NULL || Z_TYPE_P(server) != IS_STRING) {
+		return idx;
+	}
+
+	idx = tw_span_create("mongodb", 7 TSRMLS_CC);
+
+	url = php_url_parse_ex(Z_STRVAL_P(server), Z_STRLEN_P(server));
+	tw_span_annotate_string(idx, "op", "connect", 1 TSRMLS_CC);
+	if (url->host) {
+		tw_span_annotate_string(idx, "host", url->host, 1 TSRMLS_CC);
+	}
+	if (url->port) {
+		tw_span_annotate_long(idx, "port", url->port TSRMLS_CC);
+	}
+	php_url_free(url);
+
+	return idx;
+}
+
+long tw_trace_callback_mongodb_command(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx = -1;
+	zval *namespace;
+
+	if (ZEND_CALL_NUM_ARGS(data) < 1) {
+		return idx;
+	}
+
+	namespace = ZEND_CALL_ARG(data, 1);
+
+	if (namespace == NULL || Z_TYPE_P(namespace) != IS_STRING) {
+		return idx;
+	}
+
+	idx = tw_span_create("mongodb", 7 TSRMLS_CC);
+	tw_span_annotate_string(idx, "ns", Z_STRVAL_P(namespace), 1 TSRMLS_CC);
+
+#if PHP_VERSION_ID < 70000
+	tw_span_annotate_string(idx, "op", data->function_state.function->common.function_name, 1 TSRMLS_CC);
+#else
+	tw_span_annotate_string(idx, "op", ZSTR_VAL(data->func->common.function_name), 1 TSRMLS_CC);
+#endif
+
+	return idx;
+}
+
 long tw_trace_callback_mongo_cursor_io(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	long idx = -1;
@@ -961,6 +1025,62 @@ long tw_trace_callback_php_controller(char *symbol, zend_execute_data *data TSRM
 	return idx;
 }
 
+long tw_trace_callback_eloquent_model(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	zend_class_entry *eloquent_ce;
+	zval *object = EX_OBJ(data);
+	long idx = -1;
+
+	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
+		return idx;
+	}
+
+	eloquent_ce = Z_OBJCE_P(object);
+
+	idx = tw_span_create("eloquent", 8 TSRMLS_CC);
+	tw_span_annotate_string(idx, "model", _ZCE_NAME(eloquent_ce), 1 TSRMLS_CC);
+
+#if PHP_VERSION_ID < 70000
+	tw_span_annotate_string(idx, "op", data->function_state.function->common.function_name, 1 TSRMLS_CC);
+#else
+	tw_span_annotate_string(idx, "op", ZSTR_VAL(data->func->common.function_name), 1 TSRMLS_CC);
+#endif
+
+	return idx;
+}
+
+long tw_trace_callback_eloquent_query(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	zend_class_entry *eloquent_ce;
+	zval *object = EX_OBJ(data);
+	long idx = -1;
+	zval fname;
+	_DECLARE_ZVAL(retval_ptr);
+
+	if (Z_TYPE_P(object) != IS_OBJECT) {
+		return idx;
+	}
+
+	_ZVAL_STRING(&fname, "getModel");
+
+	if (SUCCESS == tw_call_user_function_ex(EG(function_table), object, &fname, retval_ptr)) {
+		if (Z_TYPE_P(retval_ptr) == IS_OBJECT) {
+			eloquent_ce = Z_OBJCE_P(retval_ptr);
+
+			idx = tw_span_create("eloquent", 8 TSRMLS_CC);
+			tw_span_annotate_string(idx, "model", _ZCE_NAME(eloquent_ce), 1 TSRMLS_CC);
+			tw_span_annotate_string(idx, "op", "get", 1 TSRMLS_CC);
+		}
+
+		hp_ptr_dtor(retval_ptr);
+	}
+#if PHP_VERSION_ID >= 70000
+	zend_string_release(Z_STR(fname));
+#endif
+
+	return idx;
+}
+
 long tw_trace_callback_presta_controller(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	zend_class_entry *controller_ce;
@@ -976,6 +1096,79 @@ long tw_trace_callback_presta_controller(char *symbol, zend_execute_data *data T
 
 	idx = tw_span_create("php.ctrl", 8 TSRMLS_CC);
 	tw_span_annotate_string(idx, "title", _ZCE_NAME(controller_ce), 1 TSRMLS_CC);
+
+	return idx;
+}
+
+zend_string *tw_extract_cakephp_controller_name(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	zval *object = EX_OBJ(data);
+	zval *property, *actionName, *argument_element;
+	zval *__rv;
+	zend_class_entry *ctrl_ce, *request_ce;
+	zend_string *ctrl_str;
+	int len;
+	char *ctrl;
+
+	if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
+		return NULL;
+	}
+
+	ctrl_ce = Z_OBJCE_P(object);
+
+	if (strcmp(symbol, "Cake\\Controller\\Controller::invokeAction") == 0) {
+		// CakePHP 3 has request property on controller
+		argument_element = _zend_read_property(ctrl_ce, object, "request", sizeof("request") -1, 1, __rv);
+	} else {
+		// CakePHP 2 gets request passe as argument
+		if (ZEND_CALL_NUM_ARGS(data) == 0) {
+			return NULL;
+		}
+
+		argument_element = ZEND_CALL_ARG(data, 1);
+	}
+
+	if (Z_TYPE_P(argument_element) != IS_OBJECT) {
+		return NULL;
+	}
+
+	request_ce = Z_OBJCE_P(argument_element);
+
+	property = _zend_read_property(request_ce, argument_element, "params", sizeof("params") - 1, 1, __rv);
+
+	if (property == NULL || Z_TYPE_P(property) != IS_ARRAY) {
+		return NULL;
+	}
+
+	actionName = zend_compat_hash_find_const(Z_ARRVAL_P(property), "action", sizeof("action") - 1);
+
+	if (actionName == NULL) {
+		return NULL;
+	}
+
+	len = _ZCE_NAME_LENGTH(ctrl_ce) + Z_STRLEN_P(actionName) + 3;
+	ctrl = (char*)emalloc(len);
+	snprintf(ctrl, len, "%s::%s", _ZCE_NAME(ctrl_ce), Z_STRVAL_P(actionName));
+	ctrl[len-1] = '\0';
+
+	ctrl_str = zend_string_init(ctrl, len - 1, 0);
+	efree(ctrl);
+	return ctrl_str;
+}
+
+long tw_trace_callback_cakephp_controller(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx = -1;
+	zend_string *ctrl;
+
+	ctrl = tw_extract_cakephp_controller_name(symbol, data TSRMLS_CC);
+
+	if (ctrl != NULL) {
+		idx = tw_span_create("php.ctrl", 8 TSRMLS_CC);
+		tw_span_annotate_string(idx, "title", ZSTR_VAL(ctrl), 1 TSRMLS_CC);
+
+		zend_string_release(ctrl);
+	}
 
 	return idx;
 }
@@ -1345,12 +1538,158 @@ long tw_trace_callback_event_dispatchers(char *symbol, zend_execute_data *data T
 {
 	long idx = -1, *idx_ptr;
 	zval *argument_element = ZEND_CALL_ARG(data, 1);
+	zval fname;
+	_DECLARE_ZVAL(retval_ptr);
 
-	if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
-		idx = tw_trace_callback_record_with_cache("event", 5, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element), 1 TSRMLS_CC);
+	if (argument_element) {
+		if (Z_TYPE_P(argument_element) == IS_STRING) {
+			idx = tw_trace_callback_record_with_cache("event", 5, Z_STRVAL_P(argument_element), Z_STRLEN_P(argument_element), 1 TSRMLS_CC);
+		} else if (Z_TYPE_P(argument_element) == IS_OBJECT && (
+					strcmp(symbol, "Cake\\Event\\EventManager::dispatch") == 0 ||
+					strcmp(symbol, "CakeEventManager::dispatch") == 0)) {
+			// Special Handling for CakePHP 2&3 getting passed Event instance
+
+			_ZVAL_STRING(&fname, "name");
+
+			if (SUCCESS == tw_call_user_function_ex(EG(function_table), argument_element, &fname, retval_ptr)) {
+				if (Z_TYPE_P(retval_ptr) == IS_STRING) {
+					idx = tw_trace_callback_record_with_cache("event", 5, Z_STRVAL_P(retval_ptr), Z_STRLEN_P(retval_ptr), 1 TSRMLS_CC);
+				}
+				hp_ptr_dtor(retval_ptr);
+			}
+
+#if PHP_VERSION_ID >= 70000
+			zend_string_release(Z_STR(fname));
+#endif
+		}
 	}
 
 	return idx;
+}
+
+long tw_trace_callback_mysqli_connect(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx = -1;
+	zval *arg;
+
+	if (ZEND_CALL_NUM_ARGS(data) < 1) {
+		return idx;
+	}
+
+	idx = tw_span_create("sql", 3 TSRMLS_CC);
+	tw_span_annotate_string(idx, "db.type", "mysql", 1 TSRMLS_CC);
+
+	arg = ZEND_CALL_ARG(data, 1);
+
+	if (Z_TYPE_P(arg) == IS_STRING) {
+		tw_span_annotate_string(idx, "peer.host", Z_STRVAL_P(arg), 1 TSRMLS_CC);
+	}
+
+	if (ZEND_CALL_NUM_ARGS(data) > 3) {
+		arg = ZEND_CALL_ARG(data, 4);
+
+		if (Z_TYPE_P(arg) == IS_STRING && Z_STRLEN_P(arg) > 0) {
+			tw_span_annotate_string(idx, "db.name", Z_STRVAL_P(arg), 1 TSRMLS_CC);
+		}
+	}
+
+	if (ZEND_CALL_NUM_ARGS(data) > 4) {
+		arg = ZEND_CALL_ARG(data, 5);
+
+		if (Z_TYPE_P(arg) == IS_STRING) {
+			tw_span_annotate_string(idx, "peer.port", Z_STRVAL_P(arg), 1 TSRMLS_CC);
+		} else if (Z_TYPE_P(arg) == IS_LONG) {
+			tw_span_annotate_long(idx, "peer.port", Z_LVAL_P(arg) TSRMLS_CC);
+		}
+	}
+
+	return idx;
+}
+
+long tw_trace_callback_pdo_connect(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx = -1;
+	zval *dsn, *match;
+	_DECLARE_ZVAL(return_value);
+	_DECLARE_ZVAL(subpats);
+	pcre_cache_entry *pce;
+
+	if (ZEND_CALL_NUM_ARGS(data) < 1) {
+		return idx;
+	}
+
+	dsn = ZEND_CALL_ARG(data, 1);
+
+	if (dsn == NULL || Z_TYPE_P(dsn) != IS_STRING) {
+		return idx;
+	}
+
+	if (match = tw_pcre_match("(^(mysql|sqlite|pgsql|odbc|oci):)", sizeof("(^(mysql|sqlite|pgsql|odbc|oci):)")-1, dsn TSRMLS_CC)) {
+		idx = tw_span_create("sql", 3 TSRMLS_CC);
+		tw_span_annotate_string(idx, "db.type", Z_STRVAL_P(match), 1 TSRMLS_CC);
+
+		if (match = tw_pcre_match("(host=([^;\\s]+))", sizeof("(host=([^;\\s]+))")-1, dsn TSRMLS_CC)) {
+			tw_span_annotate_string(idx, "peer.host",  Z_STRVAL_P(match), 1 TSRMLS_CC);
+		}
+
+		if (match = tw_pcre_match("(port=([^;\\s]+))", sizeof("(port=([^;\\s]+))")-1, dsn TSRMLS_CC)) {
+			tw_span_annotate_string(idx, "peer.port",  Z_STRVAL_P(match), 1 TSRMLS_CC);
+		}
+
+		if (match = tw_pcre_match("(dbname=([^;\\s]+))", sizeof("(dbname=([^;\\s]+))")-1, dsn TSRMLS_CC)) {
+			tw_span_annotate_string(idx, "db.name",  Z_STRVAL_P(match), 1 TSRMLS_CC);
+		}
+	}
+
+	return idx;
+}
+
+zval *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC)
+{
+	zval *match;
+	_DECLARE_ZVAL(return_value);
+	_DECLARE_ZVAL(subpats);
+	pcre_cache_entry *pce;
+#if PHP_VERSION_ID >= 70000
+	zend_string *pattern_str;
+
+	pattern_str = zend_string_init(pattern, len, 0);
+
+	if ((pce = pcre_get_compiled_regex_cache(pattern_str)) == NULL) {
+		zend_string_release(pattern_str);
+		return NULL;
+	}
+#else
+
+	if ((pce = pcre_get_compiled_regex_cache(pattern, len TSRMLS_CC)) == NULL) {
+		return NULL;
+	}
+#endif
+
+	_ALLOC_INIT_ZVAL(return_value);
+	_ALLOC_INIT_ZVAL(subpats);
+
+	pce->refcount++;
+	tw_pcre_match_impl(pce, subject, return_value, subpats, 0, 1, 0, 0);
+	pce->refcount--;
+
+	if (Z_LVAL_P(return_value) > 0 && Z_TYPE_P(subpats) == IS_ARRAY) {
+		match = zend_compat_hash_index_find(Z_ARRVAL_P(subpats), 1);
+
+		if (match && Z_TYPE_P(match) == IS_STRING) {
+#if PHP_VERSION_ID >= 70000
+			zend_string_release(pattern_str);
+#endif
+
+			return match;
+		}
+	}
+
+#if PHP_VERSION_ID >= 70000
+	zend_string_release(pattern_str);
+#endif
+
+	return NULL;
 }
 
 long tw_trace_callback_pdo_stmt_execute(char *symbol, zend_execute_data *data TSRMLS_DC)
@@ -1406,11 +1745,224 @@ long tw_trace_callback_fastcgi_finish_request(char *symbol, zend_execute_data *d
 	return -1;
 }
 
+long tw_trace_callback_elasticsearch_perform_request(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx;
+	zval *method, *uri;
+
+	if (ZEND_CALL_NUM_ARGS(data) < 2) {
+		return -1;
+	}
+
+	idx = tw_span_create("elasticsearch", 13 TSRMLS_CC);
+
+	method = ZEND_CALL_ARG(data, 1);
+	uri = ZEND_CALL_ARG(data, 2);
+
+	if (method == NULL || uri == NULL || Z_TYPE_P(method) != IS_STRING || Z_TYPE_P(uri) != IS_STRING) {
+		return -1;
+	}
+
+	tw_span_annotate_string(idx, "es.method", Z_STRVAL_P(method), 1 TSRMLS_CC);
+	tw_span_annotate_string(idx, "es.path", Z_STRVAL_P(uri), 1 TSRMLS_CC);
+
+	if (strcmp("Elasticsearch\\Connections\\Connection::performRequest", symbol) == 0) {
+		tw_span_timer_start(idx TSRMLS_CC);
+
+#if PHP_VERSION_ID >= 70000
+		zval tmp;
+		ZVAL_LONG(&tmp, idx);
+		zend_hash_str_update(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1, &tmp);
+#else
+		zval *tmp;
+
+		MAKE_STD_ZVAL(tmp);
+		ZVAL_LONG(tmp, idx);
+		zend_hash_str_update(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1, &tmp);
+#endif
+
+		return -1;
+	}
+
+	return idx;
+}
+
+long tw_trace_callback_elasticsearch_wait_request(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx;
+	zval *spanId, *object;
+	zend_class_entry *endpoint_ce;
+
+	spanId = zend_compat_hash_find_const(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1);
+
+	if (spanId == NULL || Z_TYPE_P(spanId) != IS_LONG) {
+		return -1;
+	}
+
+	idx = Z_LVAL_P(spanId);
+	tw_span_timer_stop(idx TSRMLS_CC);
+
+	object = EX_OBJ(data);
+
+	if (Z_TYPE_P(object) == IS_OBJECT) {
+		endpoint_ce = Z_OBJCE_P(object);
+		tw_span_annotate_string(idx, "endpoint", _ZCE_NAME(endpoint_ce), 1 TSRMLS_CC);
+	}
+
+	return -1;
+}
+
+long tw_trace_callback_curl_multi_add(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	zval *curl_handle;
+	long curl_handle_res;
+	long idx;
+
+	if (ZEND_CALL_NUM_ARGS(data) < 2) {
+		return -1;
+	}
+
+	curl_handle = ZEND_CALL_ARG(data, 2);
+
+	if (curl_handle == NULL || Z_TYPE_P(curl_handle) != IS_RESOURCE) {
+		return -1;
+	}
+
+	curl_handle_res = tw_resource_handle(curl_handle);
+
+	idx = tw_span_create("http", 4 TSRMLS_CC);
+
+#if PHP_VERSION_ID >= 70000
+	zval tmp;
+	ZVAL_LONG(&tmp, idx);
+	zend_hash_index_update(TWG(span_cache), curl_handle_res, &tmp);
+#else
+	zval *tmp;
+
+	MAKE_STD_ZVAL(tmp);
+	ZVAL_LONG(tmp, idx);
+
+	zend_hash_index_update(TWG(span_cache), curl_handle_res, (void *) &tmp, sizeof(zval *), NULL);
+#endif
+	tw_span_timer_start(idx TSRMLS_CC);
+
+	// do not return idx here, otherwise the span gets closed immediately
+	// but we need to wait for curl_multi_remove_handle() call.
+	return -1;
+}
+
+long tw_trace_callback_curl_multi_remove(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	zval *curl_handle, *spanId, *option;
+	long curl_handle_res;
+	long netIn = 0;
+	long idx;
+	zval fname, *opt;
+#if PHP_VERSION_ID < 70000
+	zval ***params_array;
+#else
+	zval params[1];
+#endif
+	_DECLARE_ZVAL(retval_ptr);
+
+	if (ZEND_CALL_NUM_ARGS(data) < 2) {
+		return -1;
+	}
+
+	curl_handle = ZEND_CALL_ARG(data, 2);
+
+	if (curl_handle == NULL || Z_TYPE_P(curl_handle) != IS_RESOURCE) {
+		return -1;
+	}
+
+	curl_handle_res = tw_resource_handle(curl_handle);
+	spanId = zend_compat_hash_index_find(TWG(span_cache), curl_handle_res);
+
+	if (spanId == NULL || Z_TYPE_P(spanId) != IS_LONG) {
+		return -1;
+	}
+
+	idx = Z_LVAL_P(spanId);
+
+	tw_span_timer_stop(idx TSRMLS_CC);
+
+	_ZVAL_STRING(&fname, "curl_getinfo");
+
+#if PHP_VERSION_ID < 70000
+	params_array = (zval ***) emalloc(sizeof(zval **));
+	params_array[0] = &curl_handle;
+
+	if (SUCCESS == call_user_function_ex(EG(function_table), NULL, &fname, &retval_ptr, 1, params_array, 1, NULL TSRMLS_CC)) {
+#else
+	ZVAL_RES(&params[0], Z_RES_P(curl_handle));
+
+	if (SUCCESS == call_user_function_ex(EG(function_table), NULL, &fname, retval_ptr, 1, params, 1, NULL)) {
+#endif
+		if (Z_TYPE_P(retval_ptr) == IS_ARRAY) {
+			option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "url", sizeof("url")-1);
+
+			if (option && Z_TYPE_P(option) == IS_STRING) {
+				tw_span_annotate_string(idx, "url", Z_STRVAL_P(option), 1 TSRMLS_CC);
+			}
+
+			option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "http_code", sizeof("http_code")-1);
+
+			if (option && Z_TYPE_P(option) == IS_LONG) {
+				tw_span_annotate_long(idx, "http.status_code", Z_LVAL_P(option) TSRMLS_CC);
+			}
+
+			option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "primary_ip", sizeof("primary_ip")-1);
+
+			if (option && Z_TYPE_P(option) == IS_STRING) {
+				tw_span_annotate_string(idx, "peer.ipv4", Z_STRVAL_P(option), 1 TSRMLS_CC);
+			}
+
+			option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "primary_port", sizeof("primary_port")-1);
+
+			if (option && Z_TYPE_P(option) == IS_LONG) {
+				tw_span_annotate_long(idx, "peer.port", Z_LVAL_P(option) TSRMLS_CC);
+			}
+
+			option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "request_size", sizeof("request_size")-1);
+
+			if (option && Z_TYPE_P(option) == IS_LONG) {
+				tw_span_annotate_long(idx, "net.out", Z_LVAL_P(option) TSRMLS_CC);
+			}
+
+			option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "download_content_length", sizeof("download_content_length")-1);
+
+			if (option) {
+				if (Z_TYPE_P(option) == IS_DOUBLE) {
+					netIn = (long)Z_DVAL_P(option);
+				} else if (Z_TYPE_P(option) == IS_LONG) {
+					netIn = Z_LVAL_P(option);
+				}
+			}
+
+			option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "header_size", sizeof("header_size")-1);
+
+			if (option && Z_TYPE_P(option) == IS_LONG) {
+				netIn += Z_LVAL_P(option);
+				tw_span_annotate_long(idx, "net.in", netIn TSRMLS_CC);
+			}
+		}
+
+		hp_ptr_dtor(retval_ptr);
+	}
+
+#if PHP_VERSION_ID < 70000
+	efree(params_array);
+#else
+	zend_string_release(Z_STR(fname));
+#endif
+
+	return -1;
+}
+
 long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	zval *argument = ZEND_CALL_ARG(data, 1);
 	zval *option;
-	char *summary;
 	long idx, *idx_ptr;
 	zval fname, *opt;
 	_DECLARE_ZVAL(retval_ptr);
@@ -1436,14 +1988,8 @@ long tw_trace_callback_curl_exec(char *symbol, zend_execute_data *data TSRMLS_DC
 		option = zend_compat_hash_find_const(Z_ARRVAL_P(retval_ptr), "url", sizeof("url")-1);
 
 		if (option && Z_TYPE_P(option) == IS_STRING) {
-			summary = hp_get_file_summary(Z_STRVAL_P(option), Z_STRLEN_P(option) TSRMLS_CC);
-
-
 			idx = tw_span_create("http", 4 TSRMLS_CC);
-			tw_span_annotate_string(idx, "url", summary, 0 TSRMLS_CC);
-#if PHP_VERSION_ID >= 70000
-			efree(summary);
-#endif
+			tw_span_annotate_string(idx, "url", Z_STRVAL_P(option), 1 TSRMLS_CC);
 		}
 
 		hp_ptr_dtor(retval_ptr);
@@ -1711,7 +2257,7 @@ static void hp_exception_function_clear(TSRMLS_D) {
 #if PHP_VERSION_ID >= 70000
 	hp_ptr_dtor(&TWG(exception));
 	ZVAL_NULL(&TWG(exception));
-#else 
+#else
 	if (TWG(exception) != NULL) {
 		hp_ptr_dtor(TWG(exception));
 		TWG(exception) = NULL;
@@ -1842,11 +2388,26 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	// Laravel (4+5)
 	register_trace_callback("Illuminate\\Foundation\\Application::boot", cb);
 	register_trace_callback("Illuminate\\Foundation\\Application::dispatch", cb);
+	register_trace_callback("Illuminate\\Session\\Middleware\\StartSession::startSession", cb);
+	register_trace_callback("Illuminate\\Session\\Middleware\\StartSession::collectGarbage", cb);
 	// Silex
 	register_trace_callback("Silex\\Application::mount", cb);
 
+	cb = tw_trace_callback_eloquent_query;
+	register_trace_callback("Illuminate\\Database\\Eloquent\\Builder::getModels", cb);
+
+	cb = tw_trace_callback_eloquent_model;
+	register_trace_callback("Illuminate\\Database\\Eloquent\\Model::performInsert", cb);
+	register_trace_callback("Illuminate\\Database\\Eloquent\\Model::performUpdate", cb);
+	register_trace_callback("Illuminate\\Database\\Eloquent\\Model::delete", cb);
+	register_trace_callback("Illuminate\\Database\\Eloquent\\Model::destroy", cb);
+
 	cb = tw_trace_callback_presta_controller;
 	register_trace_callback("ControllerCore::run", cb); // PrestaShop 1.6
+
+	cb = tw_trace_callback_cakephp_controller;
+	register_trace_callback("Controller::invokeAction", cb);
+	register_trace_callback("Cake\\Controller\\Controller::invokeAction", cb);
 
 	cb = tw_trace_callback_doctrine_persister;
 	register_trace_callback("Doctrine\\ORM\\Persisters\\BasicEntityPersister::load", cb);
@@ -1864,6 +2425,20 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	cb = tw_trace_callback_curl_exec;
 	register_trace_callback("curl_exec", cb);
 
+	cb = tw_trace_callback_curl_multi_add;
+	register_trace_callback("curl_multi_add_handle", cb);
+
+	cb = tw_trace_callback_curl_multi_remove;
+	register_trace_callback("curl_multi_remove_handle", cb);
+
+	cb = tw_trace_callback_elasticsearch_perform_request;
+	register_trace_callback("Elasticsearch\\Connections\\Connection::performRequest", cb);
+	register_trace_callback("Elasticsearch\\Connections\\GuzzleConnection::performRequest", cb);
+	register_trace_callback("Elasticsearch\\Connections\\CurlMultiConnection::performRequest", cb);
+
+	cb = tw_trace_callback_elasticsearch_wait_request;
+	register_trace_callback("Elasticsearch\\Endpoints\\AbstractEndpoint::resultOrFuture", cb);
+
 	cb = tw_trace_callback_sql_functions;
 	register_trace_callback("PDO::exec", cb);
 	register_trace_callback("PDO::query", cb);
@@ -1877,6 +2452,18 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("PDO::commit", cb);
 	register_trace_callback("mysqli::commit", cb);
 	register_trace_callback("mysqli_commit", cb);
+
+	cb = tw_trace_callback_mysqli_connect;
+	register_trace_callback("mysql_connect", cb);
+	register_trace_callback("mysqli_connect", cb);
+#if PHP_VERSION_ID >= 70000
+	register_trace_callback("mysqli::__construct", cb);
+#else
+	register_trace_callback("mysqli::mysqli", cb);
+#endif
+
+	cb = tw_trace_callback_pdo_connect;
+	register_trace_callback("PDO::__construct", cb);
 
 	cb = tw_trace_callback_pdo_stmt_execute;
 	register_trace_callback("PDOStatement::execute", cb);
@@ -1905,6 +2492,11 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch", cb);
 	register_trace_callback("Illuminate\\Events\\Dispatcher::fire", cb);
 	register_trace_callback("HookCore::exec", cb); // PrestaShop 1.6
+	register_trace_callback("Cake\\Event\\EventManager::dispatch", cb);
+	register_trace_callback("CakeEventManager::dispatch", cb);
+	register_trace_callback("Phalcon\\Events\\Manager::fire", cb);
+	register_trace_callback("yii\\base\\Component::trigger", cb);
+	register_trace_callback("CComponent::raiseEvent", cb); // yii 1
 
 	cb = tw_trace_callback_event_dispatchers2;
 	register_trace_callback("HookCore::coreCallHook", cb); // PrestaShop 1.6
@@ -1938,6 +2530,14 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Illuminate\\View\\Engines\\CompilerEngine::get", cb);
 	register_trace_callback("Smarty::fetch", cb);
 	register_trace_callback("load_template", cb);
+	register_trace_callback("View::_render", cb);
+	register_trace_callback("Cake\\View\\View::_render", cb);
+	register_trace_callback("Phalcon\\Mvc\\View\\Engine\\Volt::render", cb);
+	register_trace_callback("Phalcon\\Mvc\\View\\Engine\\Php::render", cb);
+	register_trace_callback("Phalcon\\Mvc\\View\\Simple::render", cb);
+	register_trace_callback("Phalcon\\Mvc\\View::render", cb);
+	register_trace_callback("yii\\base\\View::renderFile", cb);
+	register_trace_callback("CBaseController::renderFile", cb); // yii 1
 
 	cb = tw_trace_callback_zend1_dispatcher_families_tx;
 	register_trace_callback("Enlight_Controller_Action::dispatch", cb);
@@ -1945,6 +2545,8 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("Magento\\Framework\\App\\Action\\Action::dispatch", cb);
 	register_trace_callback("Zend_Controller_Action::dispatch", cb);
 	register_trace_callback("Illuminate\\Routing\\Controller::callAction", cb);
+	register_trace_callback("yii\\base\\Module::runAction", cb);
+	register_trace_callback("CController::run", cb); // yii 1
 
 	cb = tw_trace_callback_symfony_resolve_arguments_tx;
 	register_trace_callback("Symfony\\Component\\HttpKernel\\Controller\\ControllerResolver::getArguments", cb);
@@ -2002,6 +2604,14 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("MongoCursor::rewind", cb);
 	register_trace_callback("MongoCursor::doQuery", cb);
 	register_trace_callback("MongoCursor::count", cb);
+
+	cb = tw_trace_callback_mongodb_command;
+	register_trace_callback("MongoDB\\Driver\\Manager::executeCommand", cb);
+	register_trace_callback("MongoDB\\Driver\\Manager::executeBulkWrite", cb);
+	register_trace_callback("MongoDB\\Driver\\Manager::executeQuery", cb);
+
+	cb = tw_trace_callback_mongodb_connect;
+	register_trace_callback("MongoDB\\Driver\\Manager::__construct", cb);
 
 	cb = tw_trace_callback_predis_call;
 	register_trace_callback("Predis\\Client::__call", cb);
@@ -2389,7 +2999,14 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 	if (strcmp(ret, "Zend_Controller_Action::dispatch") == 0 ||
 			   strcmp(ret, "Enlight_Controller_Action::dispatch") == 0 ||
 			   strcmp(ret, "Mage_Core_Controller_Varien_Action::dispatch") == 0 ||
-			   strcmp(ret, "Illuminate\\Routing\\Controller::callAction") == 0) {
+			   strcmp(ret, "Illuminate\\Routing\\Controller::callAction") == 0 ||
+			   strcmp(ret, "yii\\base\\Module::runAction") == 0 ||
+			   strcmp(ret, "CController::run") == 0) { // yii 1
+
+		if (ZEND_CALL_NUM_ARGS(data) == 0) {
+			return;
+		}
+
 		zval *obj = EX_OBJ(data);
 		argument_element = ZEND_CALL_ARG(data, 1);
 		zend_class_entry *ce;
@@ -2412,9 +3029,15 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 
 		zval *property;
 		zval *object = EX_OBJ(data);
-		zend_class_entry *ce = Z_OBJCE_P(object);
+		zend_class_entry *ce;
 		int len;
 		char *ctrl;
+
+		if (object == NULL) {
+			return;
+		}
+
+		ce = Z_OBJCE_P(object);
 
 		zval *__rv;
 		property = _zend_read_property(ce, object, "actionMethodName", sizeof("actionMethodName") - 1, 1, __rv);
@@ -2430,7 +3053,21 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
 
 		TWG(transaction_name) = zend_string_init(ctrl, len-1, 0);
 		efree(ctrl);
+	} else if (strcmp(ret, "Controller::invokeAction") == 0 ||
+			   strcmp(ret, "Cake\\Controller\\Controller::invokeAction") == 0) {
+
+		zend_string *ctrl = tw_extract_cakephp_controller_name(ret, data TSRMLS_CC);
+
+		if (ctrl == NULL) {
+			return;
+		}
+
+		TWG(transaction_name) = ctrl;
 	} else {
+		if (ZEND_CALL_NUM_ARGS(data) == 0) {
+			return;
+		}
+
 		argument_element = ZEND_CALL_ARG(data, 1);
 
 		if (Z_TYPE_P(argument_element) == IS_STRING) {
@@ -3507,21 +4144,6 @@ PHP_FUNCTION(tideways_last_fatal_error)
 		add_assoc_long_ex(return_value, "line", sizeof("line")-1, PG(last_error_lineno));
 #endif
 	}
-}
-
-#if PHP_VERSION_ID < 70000
-static int tw_convert_to_string(void *pDest TSRMLS_DC)
-{
-	zval **zv = (zval **) pDest;
-#else
-static int tw_convert_to_string(zval *pDest TSRMLS_DC)
-{
-	zval *zv = pDest;
-#endif
-
-	convert_to_string_ex(zv);
-
-	return ZEND_HASH_APPLY_KEEP;
 }
 
 PHP_FUNCTION(tideways_span_create)
