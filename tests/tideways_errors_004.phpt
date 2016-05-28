@@ -12,14 +12,14 @@ register_shutdown_function(function() {
 
 foo();
 --EXPECTF--
-Fatal error: Call to undefined function foo() in %s/tests/tideways_errors_004.php on line 7
+Fatal error: Call to undefined function foo() in %s on line 7
 array(4) {
   ["type"]=>
   int(1)
   ["message"]=>
   string(32) "Call to undefined function foo()"
   ["file"]=>
-  string(%d) "%s/tests/tideways_errors_004.php"
+  string(%d) "%s"
   ["line"]=>
   int(7)
 }

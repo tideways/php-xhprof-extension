@@ -16,4 +16,9 @@ This product includes work from the following third-party libraries:
         Additional Contributors:
           George Cabrera      - UI enhancements
           Paul Saab           - FreeBSD port
-          Syseleven           - Function Arguments
+
+    - SysEleven - Function Arguments Patch
+      https://github.com/syseleven/xhprof/tree/fnargs
+          
+    - Benjamin Carl (c) 2010-2012
+      Windows Support for XHProf

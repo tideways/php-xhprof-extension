@@ -1,0 +1,16 @@
+ARG_ENABLE("tideways", "whether to enable tideways support", "no");
+
+if (PHP_TIDEWAYS == "yes") {
+	EXTENSION("tideways", "tideways.c");
+    var dll = get_define('PHPDLL');
+    if (null != dll.match(/^php5/)) {
+        ADD_SOURCES(configure_module_dirname + "/php5", "spans.c", "tideways");
+    } else if (null != dll.match(/^php7/)) {
+        ADD_SOURCES(configure_module_dirname + "/php7", "spans.c", "tideways");
+    } else {
+        ERROR("Cannot match any known PHP version with '" + dll + "'");
+    }
+
+    ADD_SOURCES(configure_module_dirname + "/win32", "php_tideways_win32.c");
+	AC_DEFINE('HAVE_TIDEWAYS', 1, 'Have tideways support');
+}

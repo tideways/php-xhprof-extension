@@ -13,7 +13,7 @@ include_once dirname(__FILE__).'/common.php';
 
 tideways_enable(0, array('slow_php_call_treshold' => 50000000));
 
-$pdo = new PDO('sqlite:memory:', 'root', '');
+$pdo = new PDO('sqlite::memory:', 'root', '');
 
 $pdo->exec("CREATE TABLE baz (id INTEGER)");
 

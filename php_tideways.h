@@ -62,6 +62,14 @@ extern zend_module_entry tideways_module_entry;
 			   ((TIDEWAYS_MAX_FILTERED_FUNCTIONS + 7)/8)
 #define TIDEWAYS_MAX_ARGUMENT_LEN 256
 
+
+#if defined( _WIN32 ) || defined( _WIN64 )
+typedef unsigned __int64 tick_t;
+#else
+#include <stdint.h>
+typedef uint64_t         tick_t;
+#endif
+
 #if !defined(uint64)
 typedef unsigned long long uint64;
 #endif
@@ -186,6 +194,9 @@ ZEND_BEGIN_MODULE_GLOBALS(hp)
 	int compile_count;
 	double compile_wt;
 	uint64 cpu_start;
+#if defined(PHP_WIN32)
+	double frequency;
+#endif
 ZEND_END_MODULE_GLOBALS(hp)
 
 #ifdef ZTS

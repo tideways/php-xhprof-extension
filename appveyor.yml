@@ -1,0 +1,133 @@
+version: '4.0.4.{build}'
+
+build: false
+environment:
+  matrix:
+  - PHP_VERSION: 5.6
+    PHP_TYPE: "Win32"
+  - PHP_VERSION: 5.6
+    PHP_TYPE: "nts-Win32"
+  - PHP_VERSION: 5.5
+    PHP_TYPE: "Win32"
+  - PHP_VERSION: 5.5
+    PHP_TYPE: "nts-Win32"
+  - PHP_VERSION: 7.0
+    PHP_TYPE: "Win32"
+  - PHP_VERSION: 7.0
+    PHP_TYPE: "nts-Win32"
+  PHP_SDK: c:\projects\php-sdk
+  PHP_DEVPACK: c:\projects\php-devpack
+  NO_INTERACTION: 1
+
+matrix:
+    allow_failures:
+        - platform: x64
+
+clone_folder: c:\projects\tideways
+
+os: Windows Server 2012 R2
+
+platform:
+    - x86
+    - x64
+
+init:
+    - SET PATH=C:\Program Files (x86)\MSBuild\%PHP_VC%.0\Bin;%PATH%
+    - SET PATH=c:\php;c:\projects\php-devpack;%PATH%
+    - SET PHP=1
+    - SET ANSICON=121x90 (121x90)
+
+install:
+  - echo Setting PHP version...
+  - ps: >-
+      If ($env:PHP_VERSION -Match "5.6") {
+        Start-FileDownload 'http://windows.php.net/downloads/releases/sha1sum.txt'
+        $env:PHP_VERSION=type sha1sum.txt | where { $_ -match "php-(5\.6\.\d+)-src" } | foreach { $matches[1] }
+        $env:version='{build}-$(PHP_VERSION)'
+        $env:PHP_VC=11
+      } elseif ($env:PHP_VERSION -Match "5.5") {
+        Start-FileDownload 'http://windows.php.net/downloads/releases/sha1sum.txt'
+        $env:PHP_VERSION=type sha1sum.txt | where { $_ -match "php-(5\.5\.\d+)-src" } | foreach { $matches[1] }
+        $env:version='{build}-$(PHP_VERSION)'
+        $env:PHP_VC=11
+      } elseif ($env:PHP_VERSION -Match "7.0") {
+        Start-FileDownload 'http://windows.php.net/downloads/releases/sha1sum.txt'
+        $env:PHP_VERSION=type sha1sum.txt | where { $_ -match "php-(7\.0\.\d+)-src" } | foreach { $matches[1] }
+        $env:version='{build}-$(PHP_VERSION)'
+        $env:PHP_VC=14
+      } Else {
+        $env:version='{build}-$(PHP_VERSION)'
+      }
+      If ($env:PLATFORM -Match "x86") {
+        If ($env:PHP_TYPE -Match "nts-Win32") {
+          $env:RELEASE_FOLDER="Release"
+        } Else {
+          $env:RELEASE_FOLDER="Release_TS"
+        }
+      } else {
+        If ($env:PHP_TYPE -Match "nts-Win32") {
+          $env:RELEASE_FOLDER="x64\Release"
+        } Else {
+          $env:RELEASE_FOLDER="x64\Release_TS"
+        }
+      }
+      If ($env:PHP_VC -eq '11') {
+        $env:VSCOMNTOOLS=$env:VS110COMNTOOLS
+      } elseif ($env:PHP_VC -eq '14') {
+        $env:VSCOMNTOOLS=$env:VS140COMNTOOLS
+      }
+      If ($env:PLATFORM -eq 'x64') {
+        $env:ARCH='x86_amd64'
+      } Else {
+        $env:ARCH='x86'
+      }
+  - echo Initializing Build with %PHP_VC% for %ARCH%...
+  - cd %APPVEYOR_BUILD_FOLDER%
+  - echo Preparing Tideways win32 build...
+  - echo Downloading PHP source code [%PHP_VERSION%]
+  - echo http://windows.php.net/downloads/releases/php-%PHP_VERSION%-%PHP_TYPE%-VC%PHP_VC%-%PLATFORM%.zip
+  - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-' + ${env:PHP_VERSION} + '-' + ${env:PHP_TYPE} + '-VC' + ${env:PHP_VC} + '-' + ${env:PLATFORM} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php.zip')
+  - cd ..
+  - 'mkdir php && mv php.zip php\php.zip && cd php'
+  - 7z.exe x php.zip | FIND /V "ing  "
+  - cd ..
+  - echo Downloading PHP-SDK
+  - mkdir php-sdk && cd php-sdk
+  - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/php-sdk/php-sdk-binary-tools-20110915.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php-sdk.zip')
+  - '7z.exe x ..\php-sdk.zip | FIND /V "ing  "'
+  - cd ..
+  - echo Downloading PHP-Devel-Pack
+  - ps: (new-object net.webclient).DownloadFile('http://windows.php.net/downloads/releases/php-devel-pack-' + ${env:PHP_VERSION} + '-' + ${env:PHP_TYPE} + '-VC' + ${env:PHP_VC} + '-' + ${env:PLATFORM} + '.zip', ${env:APPVEYOR_BUILD_FOLDER} + '\..\php-dev.zip')
+  - 7z.exe x php-dev.zip | FIND /V "ing  "
+  - mv php-%PHP_VERSION%-devel-VC%PHP_VC%-%PLATFORM% php-devpack
+  - echo Building PHP [%PHP_VERSION%]
+  - '%PHP_SDK%\bin\phpsdk_setvars'
+  - 'cd %APPVEYOR_BUILD_FOLDER%\..\php'
+  - 'echo extension_dir=%APPVEYOR_BUILD_FOLDER%\..\php\ext > php.ini'
+  - 'echo extension=%APPVEYOR_BUILD_FOLDER%\%RELEASE_FOLDER%\php_tideways.dll >> php.ini'
+  - 'echo extension=php_pdo_sqlite.dll >> php.ini'
+  - 'set PATH=%cd%;%PATH%'
+  - cd c:\projects\tideways
+  - appveyor DownloadFile https://phar.phpunit.de/phpunit-4.8.15.phar
+
+test_script:
+    - cd c:\projects\tideways
+    - echo "C:\Program Files (x86)\Microsoft Visual Studio %PHP_VC%.0\VC\vcvarsall.bat %ARCH%"
+    - '"C:\\Program Files (x86)\\Microsoft Visual Studio %PHP_VC%.0\\VC\\vcvarsall.bat" %ARCH%'
+    - Setlocal EnableDelayedExpansion
+    - echo "phpize"
+    - phpize
+    - echo "./configure"
+    - configure --enable-tideways=shared
+    - echo "make"
+    - nmake 2> compile-errors.log 1>compile.log
+    - echo "make test"
+    - php phpunit-4.8.15.phar tests/
+
+on_failure:
+  - 'dir'
+  - 'type compile-errors.log'
+  - 'type compile.log'
+
+artifacts:
+  - path: '$(RELEASE_FOLDER)\php_tideways.dll'
