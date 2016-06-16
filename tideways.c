@@ -1644,6 +1644,14 @@ long tw_trace_callback_pdo_connect(char *symbol, zend_execute_data *data TSRMLS_
 	return idx;
 }
 
+long tw_trace_callback_oci_connect(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+	long idx = tw_span_create("sql", 3 TSRMLS_CC);
+	tw_span_annotate_string(idx, "db.type", "oci", 1 TSRMLS_CC);
+
+	return idx;
+}
+
 zval *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC)
 {
 	zval *match;
@@ -1707,7 +1715,7 @@ long tw_trace_callback_pdo_stmt_execute(char *symbol, zend_execute_data *data TS
 	return idx;
 }
 
-long tw_trace_callback_mysqli_stmt_execute(char *symbol, zend_execute_data *data TSRMLS_DC)
+long tw_trace_callback_sql_execute(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
 	return tw_trace_callback_record_with_cache("sql", 3, "execute", 7, 1 TSRMLS_CC);
 }
@@ -1722,7 +1730,7 @@ long tw_trace_callback_sql_functions(char *symbol, zend_execute_data *data TSRML
 	zval *argument_element;
 	long idx;
 
-	if (strcmp(symbol, "mysqli_query") == 0 || strcmp(symbol, "mysqli_prepare") == 0) {
+	if (strcmp(symbol, "mysqli_query") == 0 || strcmp(symbol, "mysqli_prepare") == 0 || strcmp(symbol, "oci_parse") == 0) {
 		argument_element = ZEND_CALL_ARG(data, 2);
 	} else {
 		argument_element = ZEND_CALL_ARG(data, 1);
@@ -2447,11 +2455,13 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("mysqli::query", cb);
 	register_trace_callback("mysqli::prepare", cb);
 	register_trace_callback("mysqli_prepare", cb);
+	register_trace_callback("oci_parse", cb);
 
 	cb = tw_trace_callback_sql_commit;
 	register_trace_callback("PDO::commit", cb);
 	register_trace_callback("mysqli::commit", cb);
 	register_trace_callback("mysqli_commit", cb);
+	register_trace_callback("oci_commit", cb);
 
 	cb = tw_trace_callback_mysqli_connect;
 	register_trace_callback("mysql_connect", cb);
@@ -2462,15 +2472,21 @@ void hp_init_trace_callbacks(TSRMLS_D)
 	register_trace_callback("mysqli::mysqli", cb);
 #endif
 
+	cb = tw_trace_callback_oci_connect;
+	register_trace_callback("oci_connect", cb);
+	register_trace_callback("oci_pconnect", cb);
+	register_trace_callback("oci_new_connect", cb);
+
 	cb = tw_trace_callback_pdo_connect;
 	register_trace_callback("PDO::__construct", cb);
 
 	cb = tw_trace_callback_pdo_stmt_execute;
 	register_trace_callback("PDOStatement::execute", cb);
 
-	cb = tw_trace_callback_mysqli_stmt_execute;
+	cb = tw_trace_callback_sql_execute;
 	register_trace_callback("mysqli_stmt_execute", cb);
 	register_trace_callback("mysqli_stmt::execute", cb);
+	register_trace_callback("oci_execute", cb);
 
 	cb = tw_trace_callback_pgsql_query;
 	register_trace_callback("pg_query", cb);
