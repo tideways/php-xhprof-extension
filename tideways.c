@@ -223,6 +223,37 @@ static zend_always_inline zval *zend_compat_hash_get_current_data_ex(HashTable *
 #endif
 }
 
+static zend_always_inline long zend_compat_hash_find_long(HashTable *ht, char *key, strsize_t len)
+{
+#if PHP_VERSION_ID < 70000
+    long *idx_ptr = NULL;
+
+    if (zend_hash_find(ht, key, len+1, (void **)&idx_ptr) == SUCCESS) {
+        return *idx_ptr;
+    }
+#else
+    long idx;
+    zval *zv;
+
+    if (zv = zend_hash_str_find(ht, key, len)) {
+        return Z_LVAL_P(zv);
+    }
+#endif
+
+    return -1;
+}
+static zend_always_inline void zend_compat_hash_update_long(HashTable *ht, char *key, strsize_t len, long number)
+{
+#if PHP_VERSION_ID < 70000
+    zend_hash_update(ht, key, len+1, &number, sizeof(long), NULL);
+#else
+    zval zv;
+
+    ZVAL_LONG(&zv, number);
+    zend_hash_str_update(ht, key, len, &zv);
+#endif
+}
+
 typedef long (*tw_trace_callback)(char *symbol, zend_execute_data *data TSRMLS_DC);
 
 #if PHP_VERSION_ID >= 70000
@@ -574,27 +605,16 @@ PHP_MSHUTDOWN_FUNCTION(tideways)
     return SUCCESS;
 }
 
-long tw_trace_callback_record_with_cache(char *category, int category_len, char *summary, int summary_len, int copy TSRMLS_DC)
+long tw_trace_callback_record_with_cache(char *category, int category_len, char *summary, strsize_t summary_len, int copy TSRMLS_DC)
 {
-    long idx, *idx_ptr = NULL;
+    long idx;
 
-#if PHP_VERSION_ID < 70000
-    if (zend_hash_find(TWG(span_cache), summary, strlen(summary)+1, (void **)&idx_ptr) == SUCCESS) {
-        idx = *idx_ptr;
-    } else {
+    idx = zend_compat_hash_find_long(TWG(span_cache), summary, summary_len);
+
+    if (idx == -1) {
         idx = tw_span_create(category, category_len TSRMLS_CC);
-        zend_hash_update(TWG(span_cache), summary, strlen(summary)+1, &idx, sizeof(long), NULL);
+        zend_compat_hash_update_long(TWG(span_cache), summary, summary_len, idx);
     }
-#else
-    zval zidx, *zidx_ptr;
-    if (zidx_ptr = zend_hash_str_find(TWG(span_cache), summary, strlen(summary))) {
-        idx = Z_LVAL_P(zidx_ptr);
-    } else {
-        idx = tw_span_create(category, category_len TSRMLS_CC);
-        ZVAL_LONG(&zidx, idx);
-        zend_hash_str_update(TWG(span_cache), summary, strlen(summary), &zidx);
-    }
-#endif
 
     tw_span_annotate_string(idx, "title", summary, copy TSRMLS_CC);
 
@@ -1217,7 +1237,7 @@ long tw_trace_callback_view_engine(char *symbol, zend_execute_data *data TSRMLS_
 
     view = hp_get_base_filename(Z_STRVAL_P(name));
 
-    return tw_trace_callback_record_with_cache("view", 4, view, strlen(view)+1, 1 TSRMLS_CC);
+    return tw_trace_callback_record_with_cache("view", 4, view, strlen(view), 1 TSRMLS_CC);
 }
 
 /* Applies to Enlight, Mage and Zend1 */
@@ -1773,18 +1793,10 @@ long tw_trace_callback_elasticsearch_perform_request(char *symbol, zend_execute_
     if (strcmp("Elasticsearch\\Connections\\Connection::performRequest", symbol) == 0) {
         tw_span_timer_start(idx TSRMLS_CC);
 
-#if PHP_VERSION_ID >= 70000
-        zval tmp;
-        ZVAL_LONG(&tmp, idx);
-        zend_hash_str_update(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1, &tmp);
-#else
-        zend_hash_update(TWG(span_cache),"elasticsearch-php", sizeof("elasticsearch-php"), &idx, sizeof(long), NULL);
-#endif
-
-        return -1;
+        zend_compat_hash_update_long(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1, idx);
     }
 
-    return idx;
+    return -1;
 }
 
 long tw_trace_callback_elasticsearch_wait_request(char *symbol, zend_execute_data *data TSRMLS_DC)
@@ -1793,14 +1805,9 @@ long tw_trace_callback_elasticsearch_wait_request(char *symbol, zend_execute_dat
     zval *spanId, *object;
     zend_class_entry *endpoint_ce;
 
-#if PHP_VERSION_ID < 70000
-    if (zend_hash_find(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php"), (void **)&idx_ptr) == SUCCESS) {
-        idx = *idx_ptr;
-#else
-    if (spanId = zend_hash_str_find(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1)) {
-        idx = Z_LVAL_P(spanId);
-#endif
-    } else {
+    idx = zend_compat_hash_find_long(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1);
+
+    if (idx == -1) {
         return -1;
     }
 
