@@ -1295,7 +1295,6 @@ long tw_trace_callback_oxid_tx(char *symbol, zend_execute_data *data TSRMLS_DC)
         copy = 0;
     } else {
         ret = Z_STRVAL_P(sClass);
-        len = Z_STRLEN_P(sClass);
         copy = 1;
     }
 
@@ -1303,7 +1302,7 @@ long tw_trace_callback_oxid_tx(char *symbol, zend_execute_data *data TSRMLS_DC)
         return -1;
     }
 
-    return tw_trace_callback_record_with_cache("php.ctrl", 8, ret, len, copy TSRMLS_CC);
+    return tw_trace_callback_record_with_cache("php.ctrl", 8, ret, strlen(ret), copy TSRMLS_CC);
 }
 
 /* $resolver->getArguments($request, $controller); */
