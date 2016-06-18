@@ -59,7 +59,7 @@ extern zend_module_entry tideways_module_entry;
 /* Constant for ignoring functions, transparent to hierarchical profile */
 #define TIDEWAYS_MAX_FILTERED_FUNCTIONS  256
 #define TIDEWAYS_FILTERED_FUNCTION_SIZE                           \
-			   ((TIDEWAYS_MAX_FILTERED_FUNCTIONS + 7)/8)
+               ((TIDEWAYS_MAX_FILTERED_FUNCTIONS + 7)/8)
 #define TIDEWAYS_MAX_ARGUMENT_LEN 256
 
 #if !defined(uint64)
@@ -98,25 +98,25 @@ typedef zend_uint uint32_t;
  * profile operation, recursion depth, and the name of the function being
  * profiled. */
 typedef struct hp_entry_t {
-	char                   *name_hprof;                       /* function name */
-	int                     rlvl_hprof;        /* recursion level for function */
-	uint64                  tsc_start;         /* start value for wall clock timer */
-	uint64					cpu_start;		   /* start value for CPU clock timer */
-	long int                mu_start_hprof;                    /* memory usage */
-	long int                pmu_start_hprof;              /* peak memory usage */
-	struct hp_entry_t      *prev_hprof;    /* ptr to prev entry being profiled */
-	uint8                   hash_code;     /* hash_code for the function name  */
-	long int				span_id; /* span id of this entry if any, otherwise -1 */
+    char                   *name_hprof;                       /* function name */
+    int                     rlvl_hprof;        /* recursion level for function */
+    uint64                  tsc_start;         /* start value for wall clock timer */
+    uint64                  cpu_start;         /* start value for CPU clock timer */
+    long int                mu_start_hprof;                    /* memory usage */
+    long int                pmu_start_hprof;              /* peak memory usage */
+    struct hp_entry_t      *prev_hprof;    /* ptr to prev entry being profiled */
+    uint8                   hash_code;     /* hash_code for the function name  */
+    long int                span_id; /* span id of this entry if any, otherwise -1 */
 } hp_entry_t;
 
 typedef struct hp_function_map {
-	char **names;
-	uint8 filter[TIDEWAYS_FILTERED_FUNCTION_SIZE];
+    char **names;
+    uint8 filter[TIDEWAYS_FILTERED_FUNCTION_SIZE];
 } hp_function_map;
 
 typedef struct tw_watch_callback {
-	zend_fcall_info fci;
-	zend_fcall_info_cache fcic;
+    zend_fcall_info fci;
+    zend_fcall_info_cache fcic;
 } tw_watch_callback;
 
 /* Tideways's global state.
@@ -126,66 +126,66 @@ typedef struct tw_watch_callback {
  * hp_clean_profiler_state() */
 ZEND_BEGIN_MODULE_GLOBALS(hp)
 
-	/*       ----------   Global attributes:  -----------       */
+    /*       ----------   Global attributes:  -----------       */
 
-	/* Indicates if Tideways is currently enabled */
-	int              enabled;
+    /* Indicates if Tideways is currently enabled */
+    int              enabled;
 
-	/* Indicates if Tideways was ever enabled during this request */
-	int              ever_enabled;
+    /* Indicates if Tideways was ever enabled during this request */
+    int              ever_enabled;
 
-	int				 prepend_overwritten;
+    int              prepend_overwritten;
 
-	/* Holds all the Tideways statistics */
+    /* Holds all the Tideways statistics */
 #if PHP_VERSION_ID >= 70000
-	zval            stats_count;
-	zval			spans;
-	zval			exception;
+    zval            stats_count;
+    zval            spans;
+    zval            exception;
 #else
-	zval            *stats_count;
-	zval			*spans;
-	zval			*exception;
+    zval            *stats_count;
+    zval            *spans;
+    zval            *exception;
 #endif
-	long			current_span_id;
-	uint64			start_time;
+    long            current_span_id;
+    uint64          start_time;
 
-	zval			*backtrace;
+    zval            *backtrace;
 
-	/* Top of the profile stack */
-	hp_entry_t      *entries;
+    /* Top of the profile stack */
+    hp_entry_t      *entries;
 
-	/* freelist of hp_entry_t chunks for reuse... */
-	hp_entry_t      *entry_free_list;
+    /* freelist of hp_entry_t chunks for reuse... */
+    hp_entry_t      *entry_free_list;
 
-	/* Function that determines the transaction name and callback */
-	zend_string       *transaction_function;
-	zend_string		*transaction_name;
-	char			*root;
+    /* Function that determines the transaction name and callback */
+    zend_string       *transaction_function;
+    zend_string     *transaction_name;
+    char            *root;
 
-	zend_string		*exception_function;
+    zend_string     *exception_function;
 
-	double timebase_factor;
+    double timebase_factor;
 
-	/* Tideways flags */
-	uint32 tideways_flags;
+    /* Tideways flags */
+    uint32 tideways_flags;
 
-	/* counter table indexed by hash value of function names. */
-	uint8  func_hash_counters[256];
+    /* counter table indexed by hash value of function names. */
+    uint8  func_hash_counters[256];
 
-	/* Table of filtered function names and their filter */
-	int     filtered_type; // 1 = blacklist, 2 = whitelist, 0 = nothing
+    /* Table of filtered function names and their filter */
+    int     filtered_type; // 1 = blacklist, 2 = whitelist, 0 = nothing
 
-	hp_function_map *filtered_functions;
+    hp_function_map *filtered_functions;
 
-	HashTable *trace_watch_callbacks;
-	HashTable *trace_callbacks;
-	HashTable *span_cache;
+    HashTable *trace_watch_callbacks;
+    HashTable *trace_callbacks;
+    HashTable *span_cache;
 
-	uint32_t gc_runs; /* number of garbage collection runs */
-	uint32_t gc_collected; /* number of collected items in garbage run */
-	int compile_count;
-	double compile_wt;
-	uint64 cpu_start;
+    uint32_t gc_runs; /* number of garbage collection runs */
+    uint32_t gc_collected; /* number of collected items in garbage run */
+    int compile_count;
+    double compile_wt;
+    uint64 cpu_start;
 ZEND_END_MODULE_GLOBALS(hp)
 
 #ifdef ZTS
@@ -219,4 +219,4 @@ PHP_FUNCTION(tideways_span_annotate);
 PHP_FUNCTION(tideways_span_watch);
 PHP_FUNCTION(tideways_span_callback);
 
-#endif	/* PHP_TIDEWAYS_H */
+#endif  /* PHP_TIDEWAYS_H */
