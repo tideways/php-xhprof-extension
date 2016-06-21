@@ -1770,7 +1770,8 @@ long tw_trace_callback_fastcgi_finish_request(char *symbol, zend_execute_data *d
 {
     // stop the main span, the request ended here
     tw_span_timer_stop(0 TSRMLS_CC);
-    return -1;
+
+    return tw_trace_callback_record_with_cache("php", 3, symbol, strlen(symbol), 1 TSRMLS_CC);
 }
 
 long tw_trace_callback_elasticsearch_perform_request(char *symbol, zend_execute_data *data TSRMLS_DC)
