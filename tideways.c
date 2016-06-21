@@ -1035,6 +1035,11 @@ long tw_trace_callback_memcache(char *symbol, zend_execute_data *data TSRMLS_DC)
     return tw_trace_callback_record_with_cache("memcache", 8, symbol, strlen(symbol), 1 TSRMLS_CC);
 }
 
+long tw_trace_callback_apc(char *symbol, zend_execute_data *data TSRMLS_DC)
+{
+    return tw_trace_callback_record_with_cache("apc", 3, symbol, strlen(symbol), 1 TSRMLS_CC);
+}
+
 long tw_trace_callback_php_controller(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx;
@@ -2580,6 +2585,12 @@ void hp_init_trace_callbacks(TSRMLS_D)
     register_trace_callback("Memcache::replace", cb);
     register_trace_callback("Memcache::increment", cb);
     register_trace_callback("Memcache::decrement", cb);
+
+    cb = tw_trace_callback_apc;
+    register_trace_callback("apcu_store", cb);
+    register_trace_callback("apcu_fetch", cb);
+    register_trace_callback("apc_store", cb);
+    register_trace_callback("apc_fetch", cb);
 
     cb = tw_trace_callback_pheanstalk;
     register_trace_callback("Pheanstalk_Pheanstalk::put", cb);
