@@ -346,7 +346,7 @@ static inline hp_function_map *hp_function_map_create(char **names);
 static inline void hp_function_map_clear(hp_function_map *map);
 static inline int hp_function_map_exists(hp_function_map *map, uint8 hash_code, char *curr_func);
 static inline int hp_function_map_filter_collision(hp_function_map *map, uint8 hash);
-zval *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC);
+zend_string *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC);
 
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_enable, 0, 0, 0)
@@ -1635,7 +1635,8 @@ long tw_trace_callback_mysqli_connect(char *symbol, zend_execute_data *data TSRM
 long tw_trace_callback_pdo_connect(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx = -1;
-    zval *dsn, *match;
+    zval *dsn;
+    zend_string *match = NULL;
     _DECLARE_ZVAL(return_value);
     _DECLARE_ZVAL(subpats);
     pcre_cache_entry *pce;
@@ -1652,32 +1653,33 @@ long tw_trace_callback_pdo_connect(char *symbol, zend_execute_data *data TSRMLS_
 
     if (match = tw_pcre_match("(^(mysql|sqlite|pgsql|odbc|oci):)", sizeof("(^(mysql|sqlite|pgsql|odbc|oci):)")-1, dsn TSRMLS_CC)) {
         idx = tw_span_create("sql", 3 TSRMLS_CC);
-        tw_span_annotate_string(idx, "db.type", Z_STRVAL_P(match), 1 TSRMLS_CC);
+        tw_span_annotate_string(idx, "db.type", ZSTR_VAL(match), 1 TSRMLS_CC);
 
-        hp_ptr_dtor(match);
+        zend_string_release(match);
 
         if (match = tw_pcre_match("(host=([^;\\s]+))", sizeof("(host=([^;\\s]+))")-1, dsn TSRMLS_CC)) {
-            tw_span_annotate_string(idx, "peer.host",  Z_STRVAL_P(match), 1 TSRMLS_CC);
-            hp_ptr_dtor(match);
+            tw_span_annotate_string(idx, "peer.host",  ZSTR_VAL(match), 1 TSRMLS_CC);
+            zend_string_release(match);
         }
 
         if (match = tw_pcre_match("(port=([^;\\s]+))", sizeof("(port=([^;\\s]+))")-1, dsn TSRMLS_CC)) {
-            tw_span_annotate_string(idx, "peer.port",  Z_STRVAL_P(match), 1 TSRMLS_CC);
-            hp_ptr_dtor(match);
+            tw_span_annotate_string(idx, "peer.port", ZSTR_VAL(match), 1 TSRMLS_CC);
+            zend_string_release(match);
         }
 
         if (match = tw_pcre_match("(dbname=([^;\\s]+))", sizeof("(dbname=([^;\\s]+))")-1, dsn TSRMLS_CC)) {
-            tw_span_annotate_string(idx, "db.name",  Z_STRVAL_P(match), 1 TSRMLS_CC);
-            hp_ptr_dtor(match);
+            tw_span_annotate_string(idx, "db.name",  ZSTR_VAL(match), 1 TSRMLS_CC);
+            zend_string_release(match);
         }
     }
 
     return idx;
 }
 
-zval *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC)
+zend_string *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC)
 {
     zval *match = NULL;
+    zend_string *result = NULL;
     _DECLARE_ZVAL(return_value);
     _DECLARE_ZVAL(subpats);
     pcre_cache_entry *pce;
@@ -1708,18 +1710,17 @@ zval *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC)
         match = zend_compat_hash_index_find(Z_ARRVAL_P(subpats), 1);
 
         if (match != NULL) {
-            Z_ADDREF_P(match);
+            result = zend_string_init(Z_STRVAL_P(match), Z_STRLEN_P(match), 0);
         }
     }
 
 #if PHP_VERSION_ID >= 70000
     zend_string_release(pattern_str);
-#else
+#endif
     hp_ptr_dtor(return_value);
     hp_ptr_dtor(subpats);
-#endif
 
-    return match;
+    return result;
 }
 
 long tw_trace_callback_pdo_stmt_execute(char *symbol, zend_execute_data *data TSRMLS_DC)
