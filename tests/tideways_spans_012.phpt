@@ -16,7 +16,7 @@ tideways_disable();
 
 var_dump(tideways_get_spans());
 --EXPECTF--
-array(1) {
+array(2) {
   [0]=>
   array(4) {
     ["n"]=>
