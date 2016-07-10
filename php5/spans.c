@@ -19,7 +19,7 @@ long tw_span_create(char *category, size_t category_len TSRMLS_DC)
     // Hardcode a limit of 1500 spans for now, Daemon will re-filter again to 1000.
     // We assume web-requests and non-spammy worker/crons here, need a way to support
     // very long running scripts at some point.
-    if (idx >= 1500) {
+    if (idx >= TWG(max_spans)) {
         return -1;
     }
 

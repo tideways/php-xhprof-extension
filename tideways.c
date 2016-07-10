@@ -469,6 +469,7 @@ PHP_INI_ENTRY("tideways.collect", "tracing", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.monitor", "basic", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.distributed_tracing_hosts", "127.0.0.1", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.log_level", "0", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("tideways.max_spans", "1500", PHP_INI_ALL, NULL)
 
 PHP_INI_END()
 
@@ -496,6 +497,7 @@ PHP_GINIT_FUNCTION(hp)
     hp_globals->trace_watch_callbacks = NULL;
     hp_globals->trace_callbacks = NULL;
     hp_globals->span_cache = NULL;
+    hp_globals->max_spans = 1500;
 }
 
 PHP_GSHUTDOWN_FUNCTION(hp)
@@ -2659,6 +2661,8 @@ void hp_init_profiler_state(TSRMLS_D)
         TWG(ever_enabled) = 1;
         TWG(entries) = NULL;
     }
+
+    TWG(max_spans) = INI_INT("tideways.max_spans");
 
 #if PHP_VERSION_ID >= 70000
     hp_ptr_dtor(&TWG(stats_count));
