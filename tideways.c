@@ -4046,7 +4046,7 @@ PHP_FUNCTION(tideways_span_callback)
     strsize_t func_len;
 
     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sf", &func, &func_len, &fci, &fcic) == FAILURE) {
-        zend_error(E_ERROR, "tideways_callback_watch() expects a string as a first and a callback as a second argument");
+        zend_error(E_ERROR, "tideways_span_callback() expects a string as a first and a callback as a second argument");
         return;
     }
 
