@@ -19,9 +19,10 @@ class MySoapClient extends SoapClient {
     }
 }
 
+ini_set('default_socket_timeout', 5);
 $client = new MySoapClient(
     'http://ec.europa.eu/taxation_customs/vies/checkVatService.wsdl',
-    array('cache_wsdl' => WSDL_CACHE_NONE)
+    array('cache_wsdl' => WSDL_CACHE_NONE, 'connection_timeout' => 1)
 );
 
 tideways_enable(0, array('ignored_functions' => array('SoapClient::__call')));
