@@ -831,9 +831,14 @@ long tw_trace_callback_mongodb_connect(char *symbol, zend_execute_data *data TSR
         return idx;
     }
 
+    url = php_url_parse_ex(Z_STRVAL_P(server), Z_STRLEN_P(server));
+
+    if (url == NULL) {
+        return idx;
+    }
+
     idx = tw_span_create("mongodb", 7 TSRMLS_CC);
 
-    url = php_url_parse_ex(Z_STRVAL_P(server), Z_STRLEN_P(server));
     tw_span_annotate_string(idx, "op", "connect", 1 TSRMLS_CC);
     if (url->host) {
         tw_span_annotate_string(idx, "host", url->host, 1 TSRMLS_CC);
@@ -2951,6 +2956,10 @@ static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC)
     snprintf(ret, len, "");
 
     url = php_url_parse_ex(filename, filename_len);
+
+    if (url == NULL) {
+        return ret;
+    }
 
     if (url->scheme) {
         snprintf(ret, len, "%s%s://", ret, url->scheme);
