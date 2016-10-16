@@ -65,3 +65,4 @@ php7/.libs
 /.gdb_history
 src/Tideways/*.lo
 src/Tideways/.libs
+.vscode
