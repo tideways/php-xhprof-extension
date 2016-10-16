@@ -124,6 +124,9 @@ test_script:
     - echo "make test"
     - php phpunit-4.8.15.phar tests/
 
+on_success:
+  - 'type compile.log'
+
 on_failure:
   - 'dir'
   - 'type compile-errors.log'
