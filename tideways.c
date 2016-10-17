@@ -2631,7 +2631,7 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
 static uint64 cycle_timer(TSRMLS_D) {
 #if defined(PHP_WIN32)
 
-   unsigned LARGE_INTEGER count;
+   LARGE_INTEGER count;
 
    if (!QueryPerformanceCounter(&count)) {
       zend_error(E_ERROR, "QueryPerformanceCounter");
