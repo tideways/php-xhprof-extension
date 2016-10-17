@@ -2631,13 +2631,13 @@ void hp_inc_count(zval *counts, char *name, long count TSRMLS_DC)
 static uint64 cycle_timer(TSRMLS_D) {
 #if defined(PHP_WIN32)
 
-   unsigned __int64 count;
+   unsigned LARGE_INTEGER count;
 
-   if (!QueryPerformanceCounter((LARGE_INTEGER*)&count)) {
+   if (!QueryPerformanceCounter(&count)) {
       zend_error(E_ERROR, "QueryPerformanceCounter");
    }
 
-   return (double)count / TWG(frequency);
+   return double(count.QuadPart) / TWG(frequency);
 #else
 #ifdef __APPLE__
 	return mach_absolute_time();
