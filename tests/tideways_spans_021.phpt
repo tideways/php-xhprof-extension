@@ -27,9 +27,12 @@ $spans = tideways_get_spans();
 echo count($spans) . "\n";
 var_dump($spans[1]);
 var_dump($spans[1499]);
+var_dump(count($spans[1500]['b']));
+var_dump($spans[1500]['a']);
+var_dump($spans[1501]);
 
 --EXPECTF--
-1500
+1502
 array(4) {
   ["n"]=>
   string(4) "test"
@@ -64,5 +67,29 @@ array(4) {
     string(4) "1497"
     ["fn"]=>
     string(7) "testing"
+  }
+}
+int(502)
+array(3) {
+  ["foo"]=>
+  string(4) "1999"
+  ["fn"]=>
+  string(7) "testing"
+  ["trunc"]=>
+  string(1) "1"
+}
+array(4) {
+  ["n"]=>
+  string(4) "test"
+  ["b"]=>
+  array(0) {
+  }
+  ["e"]=>
+  array(0) {
+  }
+  ["a"]=>
+  array(1) {
+    ["test"]=>
+    string(6) "before"
   }
 }

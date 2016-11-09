@@ -20,7 +20,17 @@ long tw_span_create(char *category, size_t category_len TSRMLS_DC)
     // We assume web-requests and non-spammy worker/crons here, need a way to support
     // very long running scripts at some point.
     if (idx >= TWG(max_spans)) {
-        return -1;
+        long *idx_ptr = NULL;
+
+        if (zend_hash_find(TWG(span_cache), category, category_len+1, (void **)&idx_ptr) == SUCCESS) {
+            idx = *idx_ptr;
+
+            if (idx > 1) {
+                tw_span_annotate_long(idx, "trunc", 1 TSRMLS_CC);
+
+                return idx;
+            }
+        }
     }
 
     MAKE_STD_ZVAL(span);
@@ -40,6 +50,10 @@ long tw_span_create(char *category, size_t category_len TSRMLS_DC)
     }
 
     zend_hash_index_update(Z_ARRVAL_P(TWG(spans)), idx, &span, sizeof(zval*), NULL);
+
+    if (idx >= TWG(max_spans)) {
+        zend_hash_update(TWG(span_cache), category, category_len+1, &idx, sizeof(long), NULL);
+    }
 
     return idx;
 }

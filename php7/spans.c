@@ -16,11 +16,21 @@ long tw_span_create(char *category, size_t category_len TSRMLS_DC)
 
     idx = zend_hash_num_elements(Z_ARRVAL(TWG(spans)));
 
-    // Hardcode a limit of 1500 spans for now, Daemon will re-filter again to 1000.
-    // We assume web-requests and non-spammy worker/crons here, need a way to support
-    // very long running scripts at some point.
+    // If the max spans limit is reached, then we aggregate results on a single
+    // span per category and mark it as "truncated" such that user interfaces
+    // can detect these kind of spans and give them a proper name.
     if (idx >= TWG(max_spans)) {
-        return -1;
+        zval *zv;
+
+        if (zv = zend_hash_str_find(TWG(span_cache), category, category_len)) {
+            idx = Z_LVAL_P(zv);
+
+            if (idx > -1) {
+                tw_span_annotate_long(idx, "trunc", 1 TSRMLS_CC);
+
+                return idx;
+            }
+        }
     }
 
     array_init(&span);
@@ -36,6 +46,13 @@ long tw_span_create(char *category, size_t category_len TSRMLS_DC)
     }
 
     zend_hash_index_update(Z_ARRVAL(TWG(spans)), idx, &span);
+
+    if (idx >= TWG(max_spans)) {
+        zval zv;
+
+        ZVAL_LONG(&zv, idx);
+        zend_hash_str_update(TWG(span_cache), category, category_len, &zv);
+    }
 
     return idx;
 }
