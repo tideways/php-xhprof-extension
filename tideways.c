@@ -491,6 +491,10 @@ PHP_GINIT_FUNCTION(hp)
     hp_globals->stats_count = NULL;
     hp_globals->spans = NULL;
     hp_globals->exception = NULL;
+#else
+    ZVAL_UNDEF(&hp_globals->stats_count);
+    ZVAL_UNDEF(&hp_globals->spans);
+    ZVAL_UNDEF(&hp_globals->exception);
 #endif
     hp_globals->backtrace = NULL;
     hp_globals->filtered_functions = NULL;
