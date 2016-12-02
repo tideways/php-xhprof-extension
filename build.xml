@@ -7,7 +7,7 @@
     </target>
 
     <target name="test" depends="compile">
-        <exec executable="make" failonerror="true">
+        <exec executable="make" failonerror="false">
             <arg value="test" />
 
             <env key="NO_INTERACTION" value="1" />
