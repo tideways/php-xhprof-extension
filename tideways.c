@@ -472,6 +472,7 @@ PHP_INI_ENTRY("tideways.distributed_tracing_hosts", "127.0.0.1", PHP_INI_ALL, NU
 PHP_INI_ENTRY("tideways.log_level", "0", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.max_spans", "1500", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.timeout", "10000", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("tideways.service", "", PHP_INI_ALL, NULL)
 
 PHP_INI_END()
 
@@ -2158,6 +2159,7 @@ PHP_MINFO_FUNCTION(tideways)
     php_info_print_table_row(2, "Default API Key (tideways.api_key)", INI_STR("tideways.api_key"));
     php_info_print_table_row(2, "Default Sample-Rate (tideways.sample_rate)", INI_STR("tideways.sample_rate"));
     php_info_print_table_row(2, "Framework Detection (tideways.framework)", INI_STR("tideways.framework"));
+    php_info_print_table_row(2, "Service Name (tideways.service)", INI_STR("tideways.service"));
     php_info_print_table_row(2, "Automatically Start (tideways.auto_start)", INI_INT("tideways.auto_start") ? "Yes": "No");
     php_info_print_table_row(2, "Tideways Collect Mode (tideways.collect)", INI_STR("tideways.collect"));
     php_info_print_table_row(2, "Tideways Monitoring Mode (tideways.monitor)", INI_STR("tideways.monitor"));
