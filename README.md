@@ -32,7 +32,7 @@ You also need the latest ``Tideways.php`` if you want to use the Profiler in com
 [Download the file from Github](https://github.com/tideways/profiler/releases). Put this file into your
 extension directory. You can find the location by calling:
 
-    $ php -r 'echo ini_get("extension_dir");'
+    $ php -r 'echo ini_get("extension_dir")."\n";'
     $ cp Tideways.php /path/to/php/lib
 
 Afterwards you need to enable the extension in your php.ini:
