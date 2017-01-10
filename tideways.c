@@ -2532,6 +2532,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
     cb = tw_trace_callback_event_dispatchers2;
     register_trace_callback("HookCore::coreCallHook", cb); // PrestaShop 1.6
+    register_trace_callback("Neos\\Flow\\SignalSlot\\Dispatcher::dispatch", cb);
     register_trace_callback("TYPO3\\Flow\\SignalSlot\\Dispatcher::dispatch", cb);
     register_trace_callback("TYPO3\\CMS\\Extbase\\SignalSlot\\Dispatcher::dispatch", cb);
 
@@ -2551,6 +2552,8 @@ void hp_init_trace_callbacks(TSRMLS_D)
     cb = tw_trace_callback_view_class;
     register_trace_callback("Mage_Core_Block_Abstract::toHtml", cb);
     register_trace_callback("Magento\\Framework\\View\\Element\\AbstractBlock::toHtml", cb);
+    register_trace_callback("Neos\\Flow\\Mvc\\View\\JsonView::render", cb);
+    register_trace_callback("Neos\\FluidAdaptor\\View\\AbstractTemplateView::render", cb);
     register_trace_callback("TYPO3\\Flow\\Mvc\\View\\JsonView::render", cb);
     register_trace_callback("TYPO3\\Fluid\\View\\AbstractTemplateView::render", cb);
     register_trace_callback("TYPO3\\CMS\\Extbase\\Mvc\\View\\JsonView::render", cb);
@@ -3071,7 +3074,8 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
             TWG(transaction_name) = zend_string_init(ctrl, len-1, 0);
             efree(ctrl);
         }
-    } else if(strcmp(ret, "TYPO3\\CMS\\Extbase\\Mvc\\Controller\\ActionController::callActionMethod") == 0 ||
+    } else if(strcmp(ret, "Neos\\Flow\\Mvc\\Controller\\ActionController::callActionMethod") == 0 ||
+              strcmp(ret, "TYPO3\\CMS\\Extbase\\Mvc\\Controller\\ActionController::callActionMethod") == 0 ||
               strcmp(ret, "TYPO3\\Flow\\Mvc\\Controller\\ActionController::callActionMethod") == 0) {
 
         zval *property;
