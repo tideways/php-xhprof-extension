@@ -3073,9 +3073,9 @@ static void hp_detect_transaction_name(char *ret, zend_execute_data *data TSRMLS
             TWG(transaction_name) = zend_string_init(ctrl, len-1, 0);
             efree(ctrl);
         }
-    } else if(strcmp(ret, "Neos\\Flow\\Mvc\\Controller\\ActionController::callActionMethod") == 0 ||
+    } else if(strcmp(ret, "Neos\\Flow\\Mvc\\Controller\\ActionController_Original::callActionMethod") == 0 ||
               strcmp(ret, "TYPO3\\CMS\\Extbase\\Mvc\\Controller\\ActionController::callActionMethod") == 0 ||
-              strcmp(ret, "TYPO3\\Flow\\Mvc\\Controller\\ActionController::callActionMethod") == 0) {
+              strcmp(ret, "TYPO3\\Flow\\Mvc\\Controller\\ActionController_Original::callActionMethod") == 0) {
 
         zval *property;
         zval *object = EX_OBJ(data);
