@@ -15,6 +15,10 @@ environment:
     PHP_TYPE: "Win32"
   - PHP_VERSION: 7.0
     PHP_TYPE: "nts-Win32"
+  - PHP_VERSION: 7.1
+    PHP_TYPE: "nts-Win32"
+  - PHP_VERSION: 7.1
+    PHP_TYPE: "Win32"
   PHP_SDK: c:\projects\php-sdk
   PHP_DEVPACK: c:\projects\php-devpack
   NO_INTERACTION: 1
@@ -53,6 +57,11 @@ install:
       } elseif ($env:PHP_VERSION -Match "7.0") {
         Start-FileDownload 'http://windows.php.net/downloads/releases/sha1sum.txt'
         $env:PHP_VERSION=type sha1sum.txt | where { $_ -match "php-(7\.0\.\d+)-src" } | foreach { $matches[1] }
+        $env:version='{build}-$(PHP_VERSION)'
+        $env:PHP_VC=14
+      } elseif ($env:PHP_VERSION -Match "7.1") {
+        Start-FileDownload 'http://windows.php.net/downloads/releases/sha1sum.txt'
+        $env:PHP_VERSION=type sha1sum.txt | where { $_ -match "php-(7\.1\.\d+)-src" } | foreach { $matches[1] }
         $env:version='{build}-$(PHP_VERSION)'
         $env:PHP_VC=14
       } Else {
