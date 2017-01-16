@@ -1,3 +1,21 @@
+# Version 4.1.0
+
+- Add `tideways.service` INI variable for use with https://tideways.io
+- Add `tideways.monitor_cli` INI variable for use with https://tideways.io
+- Add Neos FLOW 4 Framework Support
+
+# Version 4.0.8
+
+- Add PHP 7.1 support
+
+# Version 4.0.7
+
+- Group spans by category after reaching maximum number of spans per trace.
+
+# Version 4.0.6
+
+- Make maximum number of spans configurable with `tideways.max_spans` ini variable.
+
 # Version 4.0.5
 
 - Added Elasticsearch PHP Support
