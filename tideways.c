@@ -489,9 +489,14 @@ PHP_MINIT_FUNCTION(tideways)
 	/* Get the number of available logical CPUs. */
 	TWG(timebase_factor) = get_timebase_factor();
 
-#if PHP_VERSION_ID < 70000
+#if PHP_VERSION_ID >= 70000
+	ZVAL_NULL(&TWG(spans));
+	ZVAL_NULL(&TWG(stats_count));
+	ZVAL_NULL(&TWG(exception));
+#else
 	TWG(stats_count) = NULL;
 	TWG(spans) = NULL;
+	TWG(exception) = NULL;
 #endif
 	TWG(trace_callbacks) = NULL;
 	TWG(trace_watch_callbacks) = NULL;
