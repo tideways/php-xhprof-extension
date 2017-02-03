@@ -2637,7 +2637,7 @@ static uint64 cycle_timer(TSRMLS_D) {
         return 0;
     }
 
-    return double(count.QuadPart) / TWG(frequency);
+    return (double)(count.QuadPart) / TWG(frequency);
 #else
 #ifdef __APPLE__
 	return mach_absolute_time();
