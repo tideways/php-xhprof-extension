@@ -43,7 +43,7 @@ Afterwards you need to enable the extension in your php.ini:
 ## Usage without tideways.io UI
 
 **Important:** If you don't want to use Tideways platform, just as a XHPROF
-alterative, you should also add the following ini configuration to your
+alternative, you should also add the following ini configuration to your
 php.ini:
 
     extension=tideways.so
