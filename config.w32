@@ -1,7 +1,11 @@
-ARG_ENABLE("tideways", "whether to enable tideways support", "no");
+ARG_ENABLE("security-flags", "Disable the compiler security flags", "yes");
+if (PHP_SECURITY_FLAGS == "yes") {
+    ADD_FLAG("LDFLAGS", "/NXCOMPAT /DYNAMICBASE ");
+}
 
+ARG_ENABLE("tideways", "whether to enable tideways support", "no");
 if (PHP_TIDEWAYS == "yes") {
-	EXTENSION("tideways", "tideways.c");
+    EXTENSION("tideways", "tideways.c");
     var dll = get_define('PHPDLL');
     if (null != dll.match(/^php5/)) {
         ADD_SOURCES(configure_module_dirname + "/php5", "spans.c", "tideways");
@@ -12,5 +16,5 @@ if (PHP_TIDEWAYS == "yes") {
     }
 
     ADD_SOURCES(configure_module_dirname + "/win32", "php_tideways_win32.c");
-	AC_DEFINE('HAVE_TIDEWAYS', 1, 'Have tideways support');
+    AC_DEFINE('HAVE_TIDEWAYS', 1, 'Have tideways support');
 }
