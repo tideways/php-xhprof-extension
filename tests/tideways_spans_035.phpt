@@ -71,15 +71,15 @@ class TwExtensionSpan
 tideways_enable(TIDEWAYS_FLAGS_NO_HIERACHICAL);
 
 $span = TwExtensionSpan::createSpan('php');
-$span->annotate(['title' => 'something']);
+$span->annotate(array('title' => 'something'));
 $span->startTimer();
 
 $iterations = 1;
 $skipped = 1000;
 
-$span->annotate(['iterations' => $iterations]);
-$span->annotate(['skipped' => $skipped]);
-$span->annotate(['found normal quest' => 0]);
+$span->annotate(array('iterations' => $iterations));
+$span->annotate(array('skipped' => $skipped));
+$span->annotate(array('found normal quest' => 0));
 
 $span->stopTimer();
 
