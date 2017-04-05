@@ -127,7 +127,7 @@ test_script:
     - echo "phpize"
     - phpize
     - echo "./configure"
-    - configure --enable-tideways=shared
+    - configure --enable-tideways=shared --disable-security-flags
     - echo "make"
     - nmake 2> compile-errors.log 1>compile.log
     - echo "make test"
