@@ -86,6 +86,10 @@ $span->stopTimer();
 tideways_disable();
 
 print_spans(tideways_get_spans());
+
+var_dump($iterations, $skipped);
 --EXPECTF--
 app: 1 timers - cpu=%d
 php: 1 timers - found normal quest=0 iterations=1 skipped=1000 title=something
+int(1)
+int(1000)
