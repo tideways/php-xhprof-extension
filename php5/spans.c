@@ -73,7 +73,7 @@ void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
     HashTable *ht;
     char  *key;
     uint   key_len;
-    zval **value_ptr_ptr, *value_ptr;
+    zval **value_ptr_ptr, *value_ptr, tmp;
     ulong  idx;
 
     if (spanId == -1) {
@@ -90,8 +90,6 @@ void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
         span_annotations = &span_annotations_ptr;
         add_assoc_zval(*span, "a", span_annotations_ptr);
     }
-
-
     
     ht = Z_ARRVAL_P(annotations);
     for (zend_hash_internal_pointer_reset(ht);
@@ -106,8 +104,13 @@ void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
         
         value_ptr = *value_ptr_ptr;
 
-        Z_ADDREF_P(value_ptr);
-        add_assoc_zval_ex(*span_annotations, key, key_len, value_ptr);
+        ZVAL_COPY_VALUE(&tmp, value_ptr);
+        zval_copy_ctor(&tmp);
+        convert_to_string(&tmp);
+
+        add_assoc_stringl_ex(*span_annotations, key, strlen(key)+1, Z_STRVAL_P(&tmp), Z_STRLEN_P(&tmp), 1);
+
+        zval_dtor(&tmp);
     }
 }
 
