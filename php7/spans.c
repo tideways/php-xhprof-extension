@@ -66,7 +66,9 @@ static int tw_convert_to_string(zval *zv)
 
 void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 {
-    zval *span, *span_annotations, span_annotations_value;
+    zval *span, *span_annotations, span_annotations_value, *zv;
+    zend_string *key, *annotation_value;
+    ulong num_key;
 
     if (spanId == -1) {
         return;
@@ -86,9 +88,12 @@ void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
         add_assoc_zval(span, "a", span_annotations);
     }
 
-    zend_hash_apply(Z_ARRVAL_P(annotations), tw_convert_to_string TSRMLS_CC);
-
-    zend_hash_merge(Z_ARRVAL_P(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, 1);
+    ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL_P(annotations), num_key, key, zv) {
+        if (key) {
+            annotation_value = zval_get_string(zv);
+            add_assoc_str_ex(span_annotations, ZSTR_VAL(key), ZSTR_LEN(key), annotation_value);
+        }
+    } ZEND_HASH_FOREACH_END();
 }
 
 void tw_span_annotate_long(long spanId, char *key, long value)

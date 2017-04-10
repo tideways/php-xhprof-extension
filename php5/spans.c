@@ -70,6 +70,11 @@ static int tw_convert_to_string(void *pDest TSRMLS_DC)
 void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
 {
     zval **span, **span_annotations, *span_annotations_ptr;
+    HashTable *ht;
+    char  *key;
+    uint   key_len;
+    zval **value_ptr_ptr, *value_ptr, tmp;
+    ulong  idx;
 
     if (spanId == -1) {
         return;
@@ -85,10 +90,28 @@ void tw_span_annotate(long spanId, zval *annotations TSRMLS_DC)
         span_annotations = &span_annotations_ptr;
         add_assoc_zval(*span, "a", span_annotations_ptr);
     }
+    
+    ht = Z_ARRVAL_P(annotations);
+    for (zend_hash_internal_pointer_reset(ht);
+            zend_hash_has_more_elements(ht) == SUCCESS;
+            zend_hash_move_forward(ht)) {
 
-    zend_hash_apply(Z_ARRVAL_P(annotations), tw_convert_to_string TSRMLS_CC);
+        zend_hash_get_current_key_ex(ht, &key, &key_len, &idx, 0, NULL);
 
-    zend_hash_merge(Z_ARRVAL_PP(span_annotations), Z_ARRVAL_P(annotations), (copy_ctor_func_t) zval_add_ref, NULL, sizeof(zval *), 1);
+        if (zend_hash_get_current_data(ht, (void**)&value_ptr_ptr) != SUCCESS) {
+            continue;
+        }
+        
+        value_ptr = *value_ptr_ptr;
+
+        ZVAL_COPY_VALUE(&tmp, value_ptr);
+        zval_copy_ctor(&tmp);
+        convert_to_string(&tmp);
+
+        add_assoc_stringl_ex(*span_annotations, key, strlen(key)+1, Z_STRVAL_P(&tmp), Z_STRLEN_P(&tmp), 1);
+
+        zval_dtor(&tmp);
+    }
 }
 
 void tw_span_annotate_long(long spanId, char *key, long value TSRMLS_DC)
