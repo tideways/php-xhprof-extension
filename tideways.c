@@ -155,6 +155,14 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define register_trace_callback(function_name, cb) zend_hash_update(TWG(trace_callbacks), function_name, sizeof(function_name), &cb, sizeof(tw_trace_callback*), NULL);
 #define register_trace_callback_len(function_name, len, cb) zend_hash_update(TWG(trace_callbacks), function_name, len+1, &cb, sizeof(tw_trace_callback*), NULL);
 
+#if PHP_VERSION_ID < 50400
+#define ZVAL_COPY_VALUE(z, v)              \
+        do {                               \
+                (z)->value = (v)->value;   \
+                Z_TYPE_P(z) = Z_TYPE_P(v); \
+        } while (0)
+#endif
+
 #else
 #define EX_OBJ(call) ((call->This.value.obj) ? &(call->This) : NULL)
 #define _ZCE_NAME(ce) ce->name->val
