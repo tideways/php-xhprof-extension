@@ -180,14 +180,6 @@ typedef size_t strsize_t;
 #define TSRMLS_CC
 #endif
 
-#ifndef ZVAL_COPY_VALUE
-#define ZVAL_COPY_VALUE(z, v)              \
-        do {                               \
-                (z)->value = (v)->value;   \
-                Z_TYPE_P(z) = Z_TYPE_P(v); \
-        } while (0)
-#endif
-
 static zend_always_inline zval* zend_compat_hash_find_const(HashTable *ht, const char *key, strsize_t len)
 {
 #if PHP_VERSION_ID < 70000
