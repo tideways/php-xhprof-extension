@@ -1,3 +1,13 @@
+# Version 4.1.2
+
+- Bugfix: Prevent a crash in some scenarios when
+  `\Tideways\Profiler\Span::annotate` or `tideways_span_annotate` is called
+  repeatedly.
+
+# Version 4.1.1
+
+- Disable `tideways.monitor_cli` by default.
+
 # Version 4.1.0
 
 - Add `tideways.service` INI variable for use with https://tideways.io
