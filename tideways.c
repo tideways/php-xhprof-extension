@@ -472,6 +472,7 @@ PHP_INI_ENTRY("tideways.monitor_cli", "0", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.distributed_tracing_hosts", "127.0.0.1", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.log_level", "0", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.max_spans", "1500", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("tideways.stack_threshold", "50000", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.timeout", "10000", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.service", "", PHP_INI_ALL, NULL)
 
@@ -506,6 +507,7 @@ PHP_GINIT_FUNCTION(hp)
     hp_globals->trace_callbacks = NULL;
     hp_globals->span_cache = NULL;
     hp_globals->max_spans = 1500;
+    hp_globals->stack_threshold = 50000;
 }
 
 PHP_GSHUTDOWN_FUNCTION(hp)
@@ -2682,6 +2684,7 @@ void hp_init_profiler_state(TSRMLS_D)
     }
 
     TWG(max_spans) = INI_INT("tideways.max_spans");
+    TWG(stack_threshold) = INI_INT("tideways.stack_threshold");
 
 #if PHP_VERSION_ID >= 70000
     hp_ptr_dtor(&TWG(stats_count));
@@ -3450,6 +3453,11 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
     uint64   tsc_end;
     double   wt, cpu;
     tw_trace_callback *callback;
+#if PHP_VERSION_ID >= 70000
+    zval trace_val, *trace = &trace_val, *span;
+#else
+    zval *trace, *span;
+#endif
 
     /* Get end tsc counter */
     tsc_end = cycle_timer();
@@ -3463,6 +3471,21 @@ void hp_mode_hier_endfn_cb(hp_entry_t **entries, zend_execute_data *data TSRMLS_
         double start = get_us_from_tsc(top->tsc_start - TWG(start_time) TSRMLS_CC);
         double end = get_us_from_tsc(tsc_end - TWG(start_time) TSRMLS_CC);
         tw_span_record_duration(top->span_id, start, end TSRMLS_CC);
+
+#if PHP_VERSION_ID >= 50400
+        if (wt >= TWG(stack_threshold)) { // 50ms
+#if PHP_VERSION_ID < 70000
+            MAKE_STD_ZVAL(trace);
+#endif
+
+            span = zend_compat_hash_index_find(TWG_ARRVAL(TWG(spans)), top->span_id);
+
+            if (span) {
+                zend_fetch_debug_backtrace(trace, 0, DEBUG_BACKTRACE_IGNORE_ARGS, 10 TSRMLS_CC);
+                add_assoc_zval(span, "stack", trace);
+            }
+        }
+#endif
     }
 
     if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_HIERACHICAL) > 0) {

@@ -188,6 +188,8 @@ ZEND_BEGIN_MODULE_GLOBALS(hp)
     double compile_wt;
     uint64 cpu_start;
     int max_spans;
+
+    int stack_threshold;
 ZEND_END_MODULE_GLOBALS(hp)
 
 #ifdef ZTS
