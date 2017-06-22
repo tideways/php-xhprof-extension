@@ -1,3 +1,8 @@
+# Version 4.1.3
+
+- Added `tideways.stack_threshold` (in microseconds) variable that
+  when reached stores the last 10 frames of the stack for a span.
+
 # Version 4.1.2
 
 - Bugfix: Prevent a crash in some scenarios when
