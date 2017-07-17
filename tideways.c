@@ -2588,7 +2588,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
     register_trace_callback("CController::run", cb); // yii 1
 
     cb = tw_trace_callback_symfony_resolve_arguments_tx;
-    register_trace_callback("Symfony\\Component\\HttpKernel\\Controller\\ControllerResolver::getArguments", cb);
+    register_trace_callback("Symfony\\Component\\HttpKernel\\Event\\FilterControllerEvent::__construct", cb);
 
     cb = tw_trace_callback_oxid_tx;
     register_trace_callback("oxShopControl::_process", cb);

@@ -1,10 +1,10 @@
 --TEST--
-Tideways: Symfony Support
+Tideways: Symfony 3.3+ Support
 --FILE--
 <?php
 
 include __DIR__ . '/common.php';
-include __DIR__ . '/tideways_symfony.php';
+include __DIR__ . '/tideways_symfony3.php';
 
 tideways_enable();
 
