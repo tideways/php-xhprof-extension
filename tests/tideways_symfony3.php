@@ -15,7 +15,7 @@ namespace Symfony\Component\HttpKernel {
             $resolver = new \Symfony\Component\HttpKernel\Controller\ControllerResolver();
             $controller = array(new \Acme\DemoBundle\Controller\DefaultController(), $method);
             $event = new \Symfony\Component\HttpKernel\Event\FilterControllerEvent($this, $controller, null, null);
-            $args = [];
+            $args = array();
 
             call_user_func_array($controller, $args);
         }
