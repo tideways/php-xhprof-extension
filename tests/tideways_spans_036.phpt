@@ -2,6 +2,11 @@
 Tideways: Keep Stack on long running spans
 --INI--
 tideways.stack_threshold=0
+--SKIPIF--
+<?php
+if (PHP_VERSION_ID < 50400) {
+    echo "skip: php 5.4+ only\n";
+}
 --FILE--
 <?php
 
