@@ -163,8 +163,8 @@ void tw_span_annotate_string(long spanId, char *key, char *value, int copy TSRML
     // limit size of annotations to 1000 characters, this mostly affects "sql"
     // annotations, but the daemon sql parser is resilent against broken SQL.
     len = strlen(value);
-    if (copy == 1 && len > 1000) {
-        len = 1000;
+    if (copy == 1 && len > TIDEWAYS_ANNOTATION_MAX_LENGTH) {
+        len = TIDEWAYS_ANNOTATION_MAX_LENGTH;
     }
 
     add_assoc_stringl_ex(*span_annotations, key, strlen(key)+1, value, len, copy);

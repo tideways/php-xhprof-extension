@@ -57,6 +57,8 @@ extern zend_module_entry tideways_module_entry;
 #define TIDEWAYS_FLAGS_NO_SPANS      0x0020
 #define TIDEWAYS_FLAGS_NO_HIERACHICAL 0x0040
 
+#define TIDEWAYS_ANNOTATION_MAX_LENGTH 2000
+
 /* Constant for ignoring functions, transparent to hierarchical profile */
 #define TIDEWAYS_MAX_FILTERED_FUNCTIONS  256
 #define TIDEWAYS_FILTERED_FUNCTION_SIZE                           \

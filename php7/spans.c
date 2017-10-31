@@ -152,10 +152,10 @@ void tw_span_annotate_string(long spanId, char *key, char *value, int copy)
     key_len = strlen(key);
     value_len = strlen(value);
 
-    if (value_len < 1000) {
+    if (value_len < TIDEWAYS_ANNOTATION_MAX_LENGTH) {
         add_assoc_string_ex(span_annotations, key, key_len, value);
     } else {
-        value_trunc = zend_string_init(value, 1000, 0);
+        value_trunc = zend_string_init(value, TIDEWAYS_ANNOTATION_MAX_LENGTH, 0);
         add_assoc_str_ex(span_annotations, key, key_len, value_trunc);
     }
 }
