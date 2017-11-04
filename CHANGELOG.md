@@ -1,3 +1,11 @@
+# Version 4.1.4
+
+- Increased Annotation max length from 1000 to 2000 to fix very long SQL
+  statements from being shortened to "SELECT " only because the FROM clause was
+  cut of.
+- Bugfix: Symfony 3 Controllers were not detected as spans because underlying
+  instrumentation hook was changed in the framework.
+
 # Version 4.1.3
 
 - Added `tideways.stack_threshold` (in microseconds) variable that
