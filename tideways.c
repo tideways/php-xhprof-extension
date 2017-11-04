@@ -472,7 +472,7 @@ PHP_INI_ENTRY("tideways.monitor_cli", "0", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.distributed_tracing_hosts", "127.0.0.1", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.log_level", "0", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.max_spans", "1500", PHP_INI_ALL, NULL)
-PHP_INI_ENTRY("tideways.stack_threshold", "50000", PHP_INI_ALL, NULL)
+PHP_INI_ENTRY("tideways.stack_threshold", "20000", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.timeout", "10000", PHP_INI_ALL, NULL)
 PHP_INI_ENTRY("tideways.service", "", PHP_INI_ALL, NULL)
 
