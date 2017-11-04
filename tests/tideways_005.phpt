@@ -7,25 +7,33 @@ Tideways: Timer Tests
 // Some coarse grained sanity tests for the time just
 // to make sure profiler's timer implementation isn't
 // way off.
-// The test allows for a 25% margin of error.
+// The test allows for a 10% margin of error.
 //
 
 include_once dirname(__FILE__).'/common.php';
 
+function tusleep($duration) {
+    $start = microtime(true);
+
+    do {
+        $end = (microtime(true) - $start) * 1000000;
+    } while ($end < $duration);
+}
+
 // sleep 10000 microsecs (10 millisecs)
 function sleep_10000_micro() {
-   usleep(10000);
+   tusleep(10000);
 }
 
 
 // sleep 20000 microsecs (20 millisecs)
 function sleep_20000_micro() {
-   usleep(20000);
+   tusleep(20000);
 }
 
 // sleep 50000 microsecs (50 millisecs)
 function sleep_50000_micro() {
-   usleep(50000);
+   tusleep(50000);
 }
 
 function invoke_all() {
@@ -41,12 +49,12 @@ $output = tideways_disable();
 // verify output
 
 function verify($expected, $actual, $description) {
+  $tolerance = 0.1;
 
   echo "Verifying ${description}...\n";
 
-  // 25% tolerance
-  $range_low = ($expected * 0.75);
-  $range_high = ($expected * 1.25);
+  $range_low = ($expected * (1 - $tolerance));
+  $range_high = ($expected * (1 + $tolerance));
 
   if (($actual < $range_low) ||
       ($actual > $range_high)) {
@@ -58,15 +66,9 @@ function verify($expected, $actual, $description) {
   echo "-------------\n";
 }
 
-verify(10000,
-       $output["sleep_10000_micro==>usleep"]["wt"],
-       "sleep_10000_micro");
-verify(20000,
-       $output["sleep_20000_micro==>usleep"]["wt"],
-       "sleep_20000_micro");
-verify(50000,
-       $output["sleep_50000_micro==>usleep"]["wt"],
-       "sleep_50000_micro");
+verify(10000, $output["sleep_10000_micro==>tusleep"]["wt"], "sleep_10000_micro");
+verify(20000, $output["sleep_20000_micro==>tusleep"]["wt"], "sleep_20000_micro");
+verify(50000, $output["sleep_50000_micro==>tusleep"]["wt"], "sleep_50000_micro");
 
 ?>
 --EXPECT--
