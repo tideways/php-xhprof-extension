@@ -46,7 +46,9 @@
 #if HAVE_PDO
 #include "ext/pdo/php_pdo_driver.h"
 #endif
+#if HAVE_PCRE
 #include "ext/pcre/php_pcre.h"
+#endif
 #include "zend_stream.h"
 
 #if PHP_VERSION_ID < 70000
@@ -1652,6 +1654,10 @@ long tw_trace_callback_mysqli_connect(char *symbol, zend_execute_data *data TSRM
 #if HAVE_PDO
 long tw_trace_callback_pdo_connect(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
+#ifndef HAVE_PCRE
+    return -1;
+#endif
+
     long idx = -1;
     zval *dsn;
     zend_string *match = NULL;
@@ -1695,6 +1701,7 @@ long tw_trace_callback_pdo_connect(char *symbol, zend_execute_data *data TSRMLS_
 }
 #endif
 
+#if HAVE_PCRE
 zend_string *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC)
 {
     zval *match = NULL;
@@ -1741,6 +1748,7 @@ zend_string *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC
 
     return result;
 }
+#endif
 
 #if HAVE_PDO
 long tw_trace_callback_pdo_stmt_execute(char *symbol, zend_execute_data *data TSRMLS_DC)
