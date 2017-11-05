@@ -7,7 +7,6 @@ Tideways: Timer Tests
 // Some coarse grained sanity tests for the time just
 // to make sure profiler's timer implementation isn't
 // way off.
-// The test allows for a 10% margin of error.
 //
 
 include_once dirname(__FILE__).'/common.php';
@@ -49,7 +48,7 @@ $output = tideways_disable();
 // verify output
 
 function verify($expected, $actual, $description) {
-  $tolerance = 0.1;
+  $tolerance = 0.25;
 
   echo "Verifying ${description}...\n";
 
