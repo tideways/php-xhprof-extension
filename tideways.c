@@ -43,7 +43,9 @@
 #include "zend_gc.h"
 
 #include "ext/standard/url.h"
+#if HAVE_PDO
 #include "ext/pdo/php_pdo_driver.h"
+#endif
 #include "ext/pcre/php_pcre.h"
 #include "zend_stream.h"
 
@@ -1647,6 +1649,7 @@ long tw_trace_callback_mysqli_connect(char *symbol, zend_execute_data *data TSRM
     return idx;
 }
 
+#if HAVE_PDO
 long tw_trace_callback_pdo_connect(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx = -1;
@@ -1690,6 +1693,7 @@ long tw_trace_callback_pdo_connect(char *symbol, zend_execute_data *data TSRMLS_
 
     return idx;
 }
+#endif
 
 zend_string *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC)
 {
@@ -1738,6 +1742,7 @@ zend_string *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC
     return result;
 }
 
+#if HAVE_PDO
 long tw_trace_callback_pdo_stmt_execute(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     long idx;
@@ -1752,6 +1757,7 @@ long tw_trace_callback_pdo_stmt_execute(char *symbol, zend_execute_data *data TS
 
     return idx;
 }
+#endif
 
 long tw_trace_callback_mysqli_stmt_execute(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
@@ -2477,8 +2483,10 @@ void hp_init_trace_callbacks(TSRMLS_D)
     register_trace_callback("Elasticsearch\\Endpoints\\AbstractEndpoint::resultOrFuture", cb);
 
     cb = tw_trace_callback_sql_functions;
+#if HAVE_PDO
     register_trace_callback("PDO::exec", cb);
     register_trace_callback("PDO::query", cb);
+#endif
     register_trace_callback("mysql_query", cb);
     register_trace_callback("mysqli_query", cb);
     register_trace_callback("mysqli::query", cb);
@@ -2486,7 +2494,9 @@ void hp_init_trace_callbacks(TSRMLS_D)
     register_trace_callback("mysqli_prepare", cb);
 
     cb = tw_trace_callback_sql_commit;
+#if HAVE_PDO
     register_trace_callback("PDO::commit", cb);
+#endif
     register_trace_callback("mysqli::commit", cb);
     register_trace_callback("mysqli_commit", cb);
 
@@ -2499,11 +2509,13 @@ void hp_init_trace_callbacks(TSRMLS_D)
     register_trace_callback("mysqli::mysqli", cb);
 #endif
 
+#if HAVE_PDO
     cb = tw_trace_callback_pdo_connect;
     register_trace_callback("PDO::__construct", cb);
 
     cb = tw_trace_callback_pdo_stmt_execute;
     register_trace_callback("PDOStatement::execute", cb);
+#endif
 
     cb = tw_trace_callback_mysqli_stmt_execute;
     register_trace_callback("mysqli_stmt_execute", cb);

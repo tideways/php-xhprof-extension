@@ -75,6 +75,21 @@ AC_DEFUN([AC_TIDEWAYS_CLOCK],
 if test "$PHP_TIDEWAYS" != "no"; then
   AC_TIDEWAYS_CLOCK
 
+
+  AC_MSG_CHECKING([for PDO includes])
+  if test -f $abs_srcdir/include/php/ext/pdo/php_pdo_driver.h; then
+    AC_DEFINE([HAVE_PDO], 1, [do we have pdo headers available?])
+    AC_MSG_RESULT([yes])
+  elif test -f $abs_srcdir/ext/pdo/php_pdo_driver.h; then
+    AC_DEFINE([HAVE_PDO], 1, [do we have pdo headers available?])
+    AC_MSG_RESULT([yes])
+  elif test -f $phpincludedir/ext/pdo/php_pdo_driver.h; then
+    AC_DEFINE([HAVE_PDO], 1, [do we have pdo headers available?])
+    AC_MSG_RESULT([yes])
+  else
+    AC_MSG_RESULT([no])
+  fi
+
   AC_MSG_CHECKING(PHP version)
   export OLD_CPPFLAGS="$CPPFLAGS"
   export CPPFLAGS="$CPPFLAGS $INCLUDES"
