@@ -15,6 +15,7 @@
 /config.sub
 /configure
 /configure.in
+/configure.ac
 /config.status
 /config.cache
 /conftest

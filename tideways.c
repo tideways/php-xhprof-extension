@@ -766,7 +766,6 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
 
         _ALLOC_INIT_ZVAL(zargs);
         array_init(zargs);
-        Z_ADDREF_P(zargs);
 
         _add_assoc_string_ex(context, "fn", sizeof("fn"), symbol, 1);
 
@@ -777,6 +776,7 @@ long tw_trace_callback_watch(char *symbol, zend_execute_data *data TSRMLS_DC)
             }
         }
 
+        Z_ADDREF_P(zargs);
         add_assoc_zval(context, "args", zargs);
 
         if (object != NULL) {
