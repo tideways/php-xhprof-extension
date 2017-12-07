@@ -1416,15 +1416,22 @@ long tw_trace_callback_pgsql_query(char *symbol, zend_execute_data *data TSRMLS_
 long tw_trace_callback_smarty3_template(char *symbol, zend_execute_data *data TSRMLS_DC)
 {
     zval *argument_element = ZEND_CALL_ARG(data, 1);
-    zval *obj;
+    zval *object;
     zend_class_entry *smarty_ce;
     char *template;
     size_t template_len;
 
     if (argument_element && Z_TYPE_P(argument_element) == IS_STRING) {
+        // Smarty#fetch(string)
         template = Z_STRVAL_P(argument_element);
     } else {
-        zval *object = EX_OBJ(data);
+        if (argument_element && Z_TYPE_P(argument_element) == IS_OBJECT) {
+            // Smarty#fetch(Smarty_Internal_Template)
+            object = argument_element;
+        } else {
+            // Smarty_Internal_Template#fetch()
+            object = EX_OBJ(data);
+        }
 
         if (object == NULL || Z_TYPE_P(object) != IS_OBJECT) {
             return -1;
@@ -1435,7 +1442,7 @@ long tw_trace_callback_smarty3_template(char *symbol, zend_execute_data *data TS
         zval *__rv;
         argument_element = _zend_read_property(smarty_ce, object, "template_resource", sizeof("template_resource") - 1, 1, __rv);
 
-        if (Z_TYPE_P(argument_element) != IS_STRING) {
+        if (argument_element == NULL || Z_TYPE_P(argument_element) != IS_STRING) {
             return -1;
         }
 
