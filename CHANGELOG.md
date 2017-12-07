@@ -1,3 +1,8 @@
+# Version 4.1.5
+
+- Fix crash on MacOS in Smarty3 instrumentation when using Smarty#fetch() with
+  a template object instance instead of a string.
+
 # Version 4.1.4
 
 - Increased Annotation max length from 1000 to 2000 to fix very long SQL
