@@ -1,56 +1,121 @@
-# Tideways PHP Profiler Extension
+# Tideways XHProf Extension
 
-[![Build Status](https://travis-ci.org/tideways/php-profiler-extension.svg?branch=master)](https://travis-ci.org/tideways/php-profiler-extension)
+Home of the `tideways_xhprof` extension.
 
-The Profiler extension contains functions for finding performance bottlenecks
-in PHP code. The extension is one core piece of functionality for the [Tideways
-Profiler Platform](https://tideways.io). It solves the problem of efficiently
-collecting, aggregating and analyzing the profiling data when running a
-Profiler in production.
+**Looking for `tideways` Extension to report to tideways.io?** [Go here](https://tideways.io/profiler/downloads).
+
+This PHP extension is a complete, modernized open-source rewrite of the
+original XHProf extension, with a new core datastructure and specifically
+optimized for PHP 7. The result is an XHProf data-format compatible extension
+with a much reduced overhead in the critical path that you are profiling.
+
+The code for this extension is extracted from the [main Tideways
+extension](https://tideways.io) as we are moving to a new extension with
+incompatible data-format.
+
+We are committed to provide support for this extension and port it to as many
+platforms as possible.
+
+**Note:** The public API is not compatible to previous xhprof extensions and
+forks, as function names are different. Only the data format is compatible.
+
+## About tideways and tideways_xhprof Extensions
+
+This repository now contains an extension by the name of `tideways_xhprof`,
+which only contains the XHProf related (Callgraph) Profiler functionality.
+
+Previously the `tideways` extension contained this functionality together with
+other functionality used in our Software as a Service.
+
+If you want to use the SaaS you must fetch the code using precompiled binaries
+and packages from our [Downloads page](https://tideways.io/profiler/downloads).
+
+We don't provide new open-source releases of our own Profiler anymore.
 
 ## Requirements
 
-- PHP 5.3, 5.4, 5.5, 5.6 or 7.0
-- cURL and PCRE Dev Headers (`apt-get install libcurl4-openssl-dev libpcre3-dev`)
-- Tested with Linux i386, amd64 architectures
+- PHP >= 7.0
+- OS: Linux, Apple MacOS
 
 ## Installation
 
-You can install the Tideways extension from source or download
-pre-compiled binaries from the [Tideways Downloads](https://tideways.io/profiler/downloads) page.
+You can install the extension from source:
 
-Building from source is straightforward:
-
-    git clone https://github.com/tideways/php-profiler-extension.git
-    cd php-profiler-extension
     phpize
     ./configure
     make
     sudo make install
 
-You also need the latest ``Tideways.php`` if you want to use the Profiler in combination with our daemon and UI.
-[Download the file from Github](https://github.com/tideways/profiler/releases). Put this file into your
-extension directory. You can find the location by calling:
+Configure the extension to load with this PHP INI directive:
 
-    $ php -r 'echo ini_get("extension_dir")."\n";'
-    $ cp Tideways.php /path/to/php/lib
+    extension=tideways_xhprof.so
 
-Afterwards you need to enable the extension in your php.ini:
+Restart Apache or PHP-FPM.
 
-    extension=tideways.so
-    tideways.api_key=set your key
+## Usage
 
-## Usage without tideways.io UI
+```php
+<?php
 
-**Important:** If you don't want to use Tideways platform, just as a XHPROF
-alternative, you should also add the following ini configuration to your
-php.ini:
+tideways_xhprof_enable();
 
-    extension=tideways.so
-    tideways.auto_prepend_library=0
+my_application();
 
-## Documentation
+$data = tideways_xhprof_disable();
 
-You can find the documentation on the [Tidways Profiler
-website](https://tideways.io/profiler/docs/setup/profiler-php-pecl-extension).
+file_put_contents("/tmp/profile.xhprof", serialize($data));
+```
 
+By default only wall clock time is measured, you can enable
+there additional metrics passing the `$flags` bitmask to `tideways_xhprof_enable`:
+
+```php
+<?php
+
+tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_MEMORY | TIDEWAYS_XHPROF_FLAGS_CPU);
+
+my_application();
+
+$data = tideways_xhprof_disable();
+```
+
+## Data-Format
+
+The XHProf data format records performance data for each parent => child
+function call that was made between the calls to `tideways_xhprof_enable` and
+`tideways_xhprof_disable`. It is formatted as an array with the parent and child
+function names as a key concatenated with ==> and an array value with 2 to 5 entries:
+
+- `wt` The summary wall time of all calls of this parent ==> child function pair.
+- `ct` The number of calls between this parent ==> child function pair.
+- `cpu` The cpu cycle time of all calls of thi sparent ==> child function pair.
+- `mu` The sum of increase in `memory_get_usage` for this parent ==> child function pair.
+- `pmu` The sum of increase in `memory_get_peak_usage` for this parent ==> child function pair.
+
+There is a "magic" function call called "main()" that represents the entry into
+the profiling.  The wall time on this performance data describes the full
+timeframe that the profiling ran.
+
+Example:
+
+```php
+<?php
+
+array(
+    "main()" => array(
+        "wt" => 1000,
+        "ct" => 1,
+        "cpu" => 900,
+    ),
+    "main()==>foo" => array(
+        "wt" => 500,
+        "ct" => 2,
+        "cpu" => 200,
+    ),
+    "foo==>bar" => array(
+        "wt" => 200,
+        "ct" => 10,
+        "cpu" => 100,
+    ),
+)
+```

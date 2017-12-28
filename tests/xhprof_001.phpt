@@ -18,45 +18,45 @@ function foo($x) {
 }
 
 // 1: Sanity test a simple profile run
-tideways_enable();
+tideways_xhprof_enable();
 foo("this is a test");
-$output = tideways_disable();
+$output = tideways_xhprof_disable();
 
 echo "Part 1: Default Flags\n";
 print_canonical($output);
 echo "\n";
 
 // 2: Sanity test profiling options
-tideways_enable(TIDEWAYS_FLAGS_CPU);
+tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_CPU);
 foo("this is a test");
-$output = tideways_disable();
+$output = tideways_xhprof_disable();
 
 echo "Part 2: CPU\n";
 print_canonical($output);
 echo "\n";
 
 // 3: Sanity test profiling options
-tideways_enable(TIDEWAYS_FLAGS_NO_BUILTINS);
+tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_NO_BUILTINS);
 foo("this is a test");
-$output = tideways_disable();
+$output = tideways_xhprof_disable();
 
 echo "Part 3: No Builtins\n";
 print_canonical($output);
 echo "\n";
 
 // 4: Sanity test profiling options
-tideways_enable(TIDEWAYS_FLAGS_MEMORY);
+tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_MEMORY);
 foo("this is a test");
-$output = tideways_disable();
+$output = tideways_xhprof_disable();
 
 echo "Part 4: Memory\n";
 print_canonical($output);
 echo "\n";
 
 // 5: Sanity test combo of profiling options
-tideways_enable(TIDEWAYS_FLAGS_MEMORY + TIDEWAYS_FLAGS_CPU);
+tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_MEMORY + TIDEWAYS_XHPROF_FLAGS_CPU);
 foo("this is a test");
-$output = tideways_disable();
+$output = tideways_xhprof_disable();
 
 echo "Part 5: Memory & CPU\n";
 print_canonical($output);
@@ -68,13 +68,13 @@ Part 1: Default Flags
 foo==>bar                               : ct=       2; wt=*;
 main()                                  : ct=       1; wt=*;
 main()==>foo                            : ct=       1; wt=*;
-main()==>tideways_disable               : ct=       1; wt=*;
+main()==>tideways_xhprof_disable        : ct=       1; wt=*;
 
 Part 2: CPU
 foo==>bar                               : cpu=*; ct=       2; wt=*;
 main()                                  : cpu=*; ct=       1; wt=*;
 main()==>foo                            : cpu=*; ct=       1; wt=*;
-main()==>tideways_disable               : cpu=*; ct=       1; wt=*;
+main()==>tideways_xhprof_disable        : cpu=*; ct=       1; wt=*;
 
 Part 3: No Builtins
 foo==>bar                               : ct=       2; wt=*;
@@ -85,12 +85,12 @@ Part 4: Memory
 foo==>bar                               : ct=       2; mu=*; pmu=*; wt=*;
 main()                                  : ct=       1; mu=*; pmu=*; wt=*;
 main()==>foo                            : ct=       1; mu=*; pmu=*; wt=*;
-main()==>tideways_disable               : ct=       1; mu=*; pmu=*; wt=*;
+main()==>tideways_xhprof_disable        : ct=       1; mu=*; pmu=*; wt=*;
 
 Part 5: Memory & CPU
 foo==>bar                               : cpu=*; ct=       2; mu=*; pmu=*; wt=*;
 main()                                  : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
 main()==>foo                            : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
-main()==>tideways_disable               : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
+main()==>tideways_xhprof_disable        : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
 
 

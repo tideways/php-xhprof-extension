@@ -1,5 +1,5 @@
-Tideways PHP Profiler
-Copyright (c) 2014-2016 Tideways GmbH
+Tideways PHP XHProf Profiler
+Copyright (c) 2014-2017 Tideways GmbH
 
 This product includes work from the following third-party libraries:
 
@@ -17,3 +17,7 @@ This product includes work from the following third-party libraries:
           George Cabrera      - UI enhancements
           Paul Saab           - FreeBSD port
           Syseleven           - Function Arguments
+
+    - The PHP Group (https://github.com/php/php-src, http://php.net)
+
+      Copyright (c) 1997-2017 The PHP Group

@@ -31,7 +31,7 @@ class C {
 }
 
 
-tideways_enable();
+tideways_xhprof_enable();
 
 // static methods
 echo C::outer_static() . "\n";
@@ -46,7 +46,7 @@ $obj->get_attr();
 $obj = null;
 
 
-$output = tideways_disable();
+$output = tideways_xhprof_disable();
 
 echo "Profiler data for 'Class' tests:\n";
 print_canonical($output);
@@ -64,4 +64,5 @@ main()==>C::__construct                 : ct=       1; wt=*;
 main()==>C::__destruct                  : ct=       1; wt=*;
 main()==>C::get_attr                    : ct=       1; wt=*;
 main()==>C::outer_static                : ct=       1; wt=*;
-main()==>tideways_disable               : ct=       1; wt=*;
+main()==>tideways_xhprof_disable        : ct=       1; wt=*;
+
