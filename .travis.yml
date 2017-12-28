@@ -7,10 +7,6 @@ notifications:
 sudo: false
 
 php:
-  - 5.3
-  - 5.4
-  - 5.5
-  - 5.6
   - 7.0
   - 7.1
   - 7.2
@@ -24,6 +20,6 @@ before_script:
   - ./configure 
   - make
 
-script: REPORT_EXIT_STATUS=1 php run-tests.php -p `which php` --show-diff -d extension=`pwd`/.libs/tideways.so -q
+script: make test
 
 after_failure: "cat tests/*.diff"
