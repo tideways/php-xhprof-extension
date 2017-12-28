@@ -17,6 +17,10 @@ static void (*_zend_execute_internal) (zend_execute_data *execute_data, zval *re
 ZEND_DLEXPORT void tideways_xhprof_execute_internal(zend_execute_data *execute_data, zval *return_value);
 ZEND_DLEXPORT void tideways_xhprof_execute_ex (zend_execute_data *execute_data);
 
+PHP_INI_BEGIN()
+    STD_PHP_INI_ENTRY("tideways_xhprof.clock_use_rdtsc", "0", PHP_INI_ALL, OnUpdateBool, clock_use_rdtsc, zend_tideways_xhprof_globals, tideways_xhprof_globals)
+PHP_INI_END()
+
 PHP_FUNCTION(tideways_xhprof_enable)
 {
     zend_long flags = 0;
@@ -40,11 +44,15 @@ PHP_FUNCTION(tideways_xhprof_disable)
 
 PHP_MINIT_FUNCTION(tideways_xhprof)
 {
+    REGISTER_INI_ENTRIES();
+
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_MEMORY", TIDEWAYS_XHPROF_FLAGS_MEMORY, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_MEMORY_MU", TIDEWAYS_XHPROF_FLAGS_MEMORY_MU, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_MEMORY_PMU", TIDEWAYS_XHPROF_FLAGS_MEMORY_PMU, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_CPU", TIDEWAYS_XHPROF_FLAGS_CPU, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_NO_BUILTINS", TIDEWAYS_XHPROF_FLAGS_NO_BUILTINS, CONST_CS | CONST_PERSISTENT);
+
+    tracing_determine_clock_source(TSRMLS_C);
 
     _zend_execute_internal = zend_execute_internal;
     zend_execute_internal = tideways_xhprof_execute_internal;
@@ -100,17 +108,24 @@ PHP_MINFO_FUNCTION(tideways_xhprof)
 
     php_info_print_table_start();
     php_info_print_table_row(2, "Version", PHP_TIDEWAYS_XHPROF_VERSION);
-#if HAVE_CLOCK_GETTIME
-    if (clock_gettime(CLOCK_MONOTONIC, &res)) {
-        php_info_print_table_row(2, "Clock Source", "gettimeofday");
-    } else {
-        php_info_print_table_row(2, "Clock Source", "clock_gettime");
+
+    switch (TXRG(clock_source)) {
+        case TIDEWAYS_XHPROF_CLOCK_TSC:
+            php_info_print_table_row(2, "Clock Source", "tsc");
+            break;
+        case TIDEWAYS_XHPROF_CLOCK_CGT:
+            php_info_print_table_row(2, "Clock Source", "clock_gettime");
+            break;
+        case TIDEWAYS_XHPROF_CLOCK_GTOD:
+            php_info_print_table_row(2, "Clock Source", "gettimeofday");
+            break;
+        case TIDEWAYS_XHPROF_CLOCK_MACH:
+            php_info_print_table_row(2, "Clock Source", "mach");
+            break;
+        case TIDEWAYS_XHPROF_CLOCK_NONE:
+            php_info_print_table_row(2, "Clock Source", "none");
+            break;
     }
-#elif HAVE_GETTIMEOFDAY
-    php_info_print_table_row(2, "Clock Source", "gettimeofday");
-#else
-    php_info_print_table_row(2, "Clock Source", "none found");
-#endif
     php_info_print_table_end();
 
     php_info_print_box_start(0);

@@ -19,6 +19,7 @@ void tracing_end(TSRMLS_D);
 void tracing_enter_root_frame(TSRMLS_D);
 void tracing_request_init();
 void tracing_request_shutdown();
+void tracing_determine_clock_source(TSRMLS_D);
 
 #if ZTS
 #define TXRG(v) TSRMG(tideways_xhprof_globals_id, zend_tideways_xhprof_globals *, v)
@@ -111,7 +112,7 @@ static int zend_always_inline tracing_enter_frame_callgraph(zend_string *root_sy
     current_frame->function_name = function_name;
     current_frame->previous_frame = TXRG(callgraph_frames);
     current_frame->recurse_level = 0;
-    current_frame->wt_start = time_milliseconds();
+    current_frame->wt_start = time_milliseconds(TXRG(clock_source), TXRG(timebase_factor));
 
     if (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_CPU) {
         current_frame->cpu_start = cpu_timer();
@@ -156,7 +157,7 @@ static void zend_always_inline tracing_exit_frame_callgraph(TSRMLS_D)
 {
     xhprof_frame_t *current_frame = TXRG(callgraph_frames);
     xhprof_frame_t *previous = current_frame->previous_frame;
-    zend_long duration = time_milliseconds() - current_frame->wt_start;
+    zend_long duration = time_milliseconds(TXRG(clock_source), TXRG(timebase_factor)) - current_frame->wt_start;
 
     zend_ulong key = tracing_callgraph_bucket_key(current_frame);
     zend_ulong slot = key % TIDEWAYS_XHPROF_CALLGRAPH_SLOTS;

@@ -11,6 +11,22 @@ extern ZEND_DECLARE_MODULE_GLOBALS(tideways_xhprof);
 
 static const char digits[] = "0123456789abcdef";
 
+void tracing_determine_clock_source(TSRMLS_D) {
+#ifdef __APPLE__
+    TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_MACH;
+#else
+    struct timespec res;
+
+    if (TXRG(clock_use_rdtsc) == 1) {
+        TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_TSC;
+    } else if (clock_gettime(CLOCK_MONOTONIC, &res) == 0) {
+        TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_CGT;
+    } else {
+        TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_GTOD;
+    }
+#endif
+}
+
 /**
  * Free any items in the free list.
  */
@@ -28,7 +44,7 @@ static zend_always_inline void tracing_free_the_free_list(TSRMLS_D)
 
 void tracing_enter_root_frame(TSRMLS_D)
 {
-    TXRG(start_time) = time_milliseconds();
+    TXRG(start_time) = time_milliseconds(TXRG(clock_source), TXRG(timebase_factor));
     TXRG(start_timestamp) = current_timestamp();
     TXRG(enabled) = 1;
     TXRG(root) = zend_string_init(TIDEWAYS_XHPROF_ROOT_SYMBOL, sizeof(TIDEWAYS_XHPROF_ROOT_SYMBOL)-1, 0);
@@ -231,9 +247,7 @@ void tracing_begin(zend_long flags TSRMLS_DC)
 
 void tracing_request_init()
 {
-#ifdef __APPLE__
-    TXRG(timebase_factor) = get_timebase_factor();
-#endif
+    TXRG(timebase_factor) = get_timebase_factor(TXRG(clock_source));
     TXRG(enabled) = 0;
     TXRG(flags) = 0;
     TXRG(frame_free_list) = NULL;

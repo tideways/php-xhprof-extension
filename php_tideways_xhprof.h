@@ -7,6 +7,15 @@ extern zend_module_entry tideways_xhprof_module_entry;
 #define PHP_TIDEWAYS_XHPROF_VERSION "5.0.0"
 #define TIDEWAYS_XHPROF_CALLGRAPH_COUNTER_SIZE 1024
 #define TIDEWAYS_XHPROF_CALLGRAPH_SLOTS 8192
+#define TIDEWAYS_XHPROF_CLOCK_CGT 0
+#define TIDEWAYS_XHPROF_CLOCK_GTOD 1
+#define TIDEWAYS_XHPROF_CLOCK_TSC 2
+#define TIDEWAYS_XHPROF_CLOCK_MACH 3
+#define TIDEWAYS_XHPROF_CLOCK_NONE 255
+
+#if !defined(uint32)
+typedef unsigned int uint32;
+#endif
 
 #if !defined(uint64)
 typedef unsigned long long uint64;
@@ -51,9 +60,9 @@ ZEND_BEGIN_MODULE_GLOBALS(tideways_xhprof)
     int enabled;
     uint64 start_timestamp;
     uint64 start_time;
-#ifdef __APPLE__
+    int clock_source;
+    zend_bool clock_use_rdtsc;
     double timebase_factor;
-#endif
     zend_string *root;
     xhprof_frame_t *callgraph_frames;
     xhprof_frame_t *frame_free_list;
