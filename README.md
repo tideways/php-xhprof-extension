@@ -1,14 +1,36 @@
 # Tideways XHProf Extension
 
-This extension is a complete rewrite of the original XHProf extension, with a
-new core datastructure and specifically optimized for PHP 7. The result is an
-XHProf data-format compatible extension with a much reduced overhead in the
-critical path that you are profiling.
+Home of the `tideways_xhprof` extension.
 
-The code for this extension is extracted from the Tideways main extension, so
-that we can still provide the PHP community with a modern open-source successor
-of the wide-spread XHProf codebase using the "old" xhprof data-format usable
-by various open-source user interfaces.
+**Looking for `tideways` Extension to report to tideways.io?** [Go here](https://tideways.io/profiler/downloads).
+
+This PHP extension is a complete, modernized open-source rewrite of the
+original XHProf extension, with a new core datastructure and specifically
+optimized for PHP 7. The result is an XHProf data-format compatible extension
+with a much reduced overhead in the critical path that you are profiling.
+
+The code for this extension is extracted from the [main Tideways
+extension](https://tideways.io) as we are moving to a new extension with
+incompatible data-format.
+
+We are committed to provide support for this extension and port it to as many
+platforms as possible.
+
+**Note:** The public API is not compatible to previous xhprof extensions and
+forks, as function names are different. Only the data format is compatible.
+
+## About tideways and tideways_xhprof Extensions
+
+This repository now contains an extension by the name of `tideways_xhprof`,
+which only contains the XHProf related (Callgraph) Profiler functionality.
+
+Previously the `tideways` extension contained this functionality together with
+other functionality used in our Software as a Service.
+
+If you want to use the SaaS you must fetch the code using precompiled binaries
+and packages from our [Downloads page](https://tideways.io/profiler/downloads).
+
+We don't provide new open-source releases of our own Profiler anymore.
 
 ## Requirements
 
