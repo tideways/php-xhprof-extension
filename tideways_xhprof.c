@@ -104,8 +104,6 @@ static int tideways_xhprof_info_print(const char *str) /* {{{ */
 
 PHP_MINFO_FUNCTION(tideways_xhprof)
 {
-    struct timespec res;
-
     php_info_print_table_start();
     php_info_print_table_row(2, "Version", PHP_TIDEWAYS_XHPROF_VERSION);
 

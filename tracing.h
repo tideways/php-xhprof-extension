@@ -83,7 +83,6 @@ static zend_always_inline zend_string* tracing_get_function_name(zend_execute_da
         return NULL;
     }
 
-    zend_string *func = NULL;
     curr_func = data->func;
 
     if (!curr_func->common.function_name) {
@@ -98,10 +97,12 @@ static zend_always_inline zend_string* tracing_get_function_name(zend_execute_da
     return curr_func->common.function_name;
 }
 
-static int zend_always_inline tracing_enter_frame_callgraph(zend_string *root_symbol, zend_execute_data *execute_data TSRMLS_DC)
+zend_always_inline static int tracing_enter_frame_callgraph(zend_string *root_symbol, zend_execute_data *execute_data TSRMLS_DC)
 {
     zend_string *function_name = (root_symbol != NULL) ? zend_string_copy(root_symbol) : tracing_get_function_name(execute_data TSRMLS_CC);
     xhprof_frame_t *current_frame;
+    xhprof_frame_t *p;
+    int recurse_level = 0;
 
     if (function_name == NULL) {
         return 0;
@@ -133,9 +134,6 @@ static int zend_always_inline tracing_enter_frame_callgraph(zend_string *root_sy
     /* Update entries linked list */
     TXRG(callgraph_frames) = current_frame;
 
-    xhprof_frame_t *p;
-    int recurse_level = 0;
-
     if (TXRG(function_hash_counters)[current_frame->hash_code] > 0) {
         /* Find this symbols recurse level */
         for(p = current_frame->previous_frame; p; p = p->previous_frame) {
@@ -153,14 +151,14 @@ static int zend_always_inline tracing_enter_frame_callgraph(zend_string *root_sy
     return 1;
 }
 
-static void zend_always_inline tracing_exit_frame_callgraph(TSRMLS_D)
+zend_always_inline static void tracing_exit_frame_callgraph(TSRMLS_D)
 {
     xhprof_frame_t *current_frame = TXRG(callgraph_frames);
     xhprof_frame_t *previous = current_frame->previous_frame;
     zend_long duration = time_milliseconds(TXRG(clock_source), TXRG(timebase_factor)) - current_frame->wt_start;
 
     zend_ulong key = tracing_callgraph_bucket_key(current_frame);
-    zend_ulong slot = key % TIDEWAYS_XHPROF_CALLGRAPH_SLOTS;
+    unsigned int slot = (unsigned int)key % TIDEWAYS_XHPROF_CALLGRAPH_SLOTS;
     xhprof_callgraph_bucket *bucket = TXRG(callgraph_buckets)[slot];
 
     bucket = tracing_callgraph_bucket_find(bucket, current_frame, previous, key);

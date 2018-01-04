@@ -115,7 +115,7 @@ xhprof_callgraph_bucket *tracing_callgraph_bucket_find(xhprof_callgraph_bucket *
     return NULL;
 }
 
-static zend_ulong zend_always_inline hash_data(zend_ulong hash, char *data, size_t size)
+zend_always_inline static zend_ulong hash_data(zend_ulong hash, char *data, size_t size)
 {
     size_t i;
 
@@ -126,7 +126,7 @@ static zend_ulong zend_always_inline hash_data(zend_ulong hash, char *data, size
     return hash;
 }
 
-static zend_ulong zend_always_inline hash_int(zend_ulong hash, int data)
+zend_always_inline static zend_ulong hash_int(zend_ulong hash, int data)
 {
     return hash_data(hash, (char*) &data, sizeof(data));
 }
@@ -238,7 +238,9 @@ void tracing_begin(zend_long flags TSRMLS_DC)
     TXRG(flags) = flags;
     TXRG(callgraph_frames) = NULL;
 
-    memset(TXRG(callgraph_buckets), 0, sizeof(TXRG(callgraph_buckets)));
+    for (i = 0; i < TIDEWAYS_XHPROF_CALLGRAPH_SLOTS; i++) {
+        TXRG(callgraph_buckets)[i] = NULL;
+    }
 
     for (i = 0; i < TIDEWAYS_XHPROF_CALLGRAPH_COUNTER_SIZE; i++) {
         TXRG(function_hash_counters)[i] = 0;

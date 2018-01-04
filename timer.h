@@ -10,7 +10,7 @@ static zend_always_inline uint64 current_timestamp() {
 
     if (gettimeofday(&tv, NULL)) {
         php_error(E_ERROR, "tracer: Cannot acquire gettimeofday");
-        zend_bailout();
+        return 0;
     }
 
     return 1000 * (uint64) tv.tv_sec + (uint64) tv.tv_usec / 1000;
@@ -83,18 +83,19 @@ static zend_always_inline double get_timebase_factor(int source)
 #else
     struct timeval start;
     struct timeval end;
+    uint64 tsc_start;
+    uint64 tsc_end;
+    volatile int i;
 
     switch (source) {
         case TIDEWAYS_XHPROF_CLOCK_TSC:
+
             if (gettimeofday(&start, 0)) {
                 perror("gettimeofday");
                 return 0.0;
             }
 
-            uint64 tsc_start = time_milliseconds(source, 1.0);
-
-            uint64 tsc_end;
-            volatile int i;
+            tsc_start  = time_milliseconds(source, 1.0);
             /* Busy loop for 5 miliseconds. */
             do {
                 for (i = 0; i < 1000000; i++);
