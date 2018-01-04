@@ -27,10 +27,9 @@ which only contains the XHProf related (Callgraph) Profiler functionality.
 Previously the `tideways` extension contained this functionality together with
 other functionality used in our Software as a Service.
 
-If you want to use the SaaS you must fetch the code using precompiled binaries
-and packages from our [Downloads page](https://tideways.io/profiler/downloads).
-
-We don't provide new open-source releases of our own Profiler anymore.
+If you want to use the SaaS, the current approach is to fetch the code using
+precompiled binaries and packages from our [Downloads
+page](https://tideways.io/profiler/downloads).
 
 ## Requirements
 
