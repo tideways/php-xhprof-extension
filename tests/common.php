@@ -13,6 +13,10 @@
  */
 function print_canonical($xhprof_data)
 {
+    if (!is_array($xhprof_data)) {
+        throw new \UnexpectedValueException("print_canonical expects an array, but %s given.", gettype($xhprof_data));
+    }
+
     // some functions are not part of the trace
     // due to being an opcode in php7, these
     // need to be ignored for a common test-output
