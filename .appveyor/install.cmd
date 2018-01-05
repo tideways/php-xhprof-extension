@@ -50,8 +50,8 @@ setlocal enableextensions enabledelayedexpansion
 		for /f "delims=" %%l in (php_tideways_xhprof.h) do (
 			if not "%%l"=="" (
 				set line=%%l
-				if "!line:~8,14!"=="TIDEWAYS_XHPROF_VERSION" (
-					set APPVEYOR_REPO_TAG_NAME=!line:~27,-1!-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_REPO_COMMIT:~0,8%
+				if "!line:~8,27!"=="PHP_TIDEWAYS_XHPROF_VERSION" (
+					set APPVEYOR_REPO_TAG_NAME=!line:~30,-1!-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_REPO_COMMIT:~0,8%
 				)
 			)
 		)
