@@ -99,6 +99,14 @@ static zend_always_inline double get_timebase_factor(int source)
     (void) mach_timebase_info(&sTimebaseInfo);
 
     return (sTimebaseInfo.numer / sTimebaseInfo.denom) * 1000;
+#elif defined(PHP_WIN32)
+    unsigned __int64 frequency;
+
+    if (!QueryPerformanceFrequency( (LARGE_INTEGER*)&frequency)) {
+        zend_error(E_ERROR, "QueryPerformanceFrequency");
+    }
+
+    return (double)frequency/1000000.0;
 #else
     struct timeval start;
     struct timeval end;
