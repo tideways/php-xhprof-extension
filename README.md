@@ -3,6 +3,7 @@
 Home of the `tideways_xhprof` extension.
 
 **Looking for `tideways` Extension to report to tideways.io?** [Go here](https://tideways.io/profiler/downloads).
+**Why did we rename the extension?** [Blog post here](https://tideways.io/profiler/blog/releasing-new-tideways-xhprof-extension).
 
 This PHP extension is a complete, modernized open-source rewrite of the
 original XHProf extension, with a new core datastructure and specifically
@@ -34,7 +35,7 @@ page](https://tideways.io/profiler/downloads).
 ## Requirements
 
 - PHP >= 7.0
-- OS: Linux only (at the moment)
+- OS: Linux, MacOS
 
 ## Installation
 
