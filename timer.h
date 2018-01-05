@@ -32,7 +32,7 @@ static zend_always_inline uint64 current_timestamp() {
 static zend_always_inline uint64 time_milliseconds(int source, double timebase_factor) {
 #ifdef __APPLE__
     return mach_absolute_time() / timebase_factor;
-#ifdef PHP_WIN32
+#elif defined(PHP_WIN32)
 
     LARGE_INTEGER count;
 
