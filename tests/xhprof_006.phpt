@@ -2,6 +2,11 @@
 xhprof: dont disable no memory leak
 --INI--
 tideways_xhprof.clock_use_rdtsc=1
+--SKIPIF--
+<?php
+if (PHP_OS !== "Linux") {
+    echo "skip: Requires linux\n";
+}
 --FILE--
 <?php
 
