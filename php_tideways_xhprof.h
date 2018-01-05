@@ -11,6 +11,7 @@ extern zend_module_entry tideways_xhprof_module_entry;
 #define TIDEWAYS_XHPROF_CLOCK_GTOD 1
 #define TIDEWAYS_XHPROF_CLOCK_TSC 2
 #define TIDEWAYS_XHPROF_CLOCK_MACH 3
+#define TIDEWAYS_XHPROF_CLOCK_QPC 4
 #define TIDEWAYS_XHPROF_CLOCK_NONE 255
 
 #if !defined(uint32)

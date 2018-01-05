@@ -120,6 +120,9 @@ PHP_MINFO_FUNCTION(tideways_xhprof)
         case TIDEWAYS_XHPROF_CLOCK_MACH:
             php_info_print_table_row(2, "Clock Source", "mach");
             break;
+        case TIDEWAYS_XHPROF_CLOCK_QPC:
+            php_info_print_table_row(2, "Clock Source", "Query Performance Counter");
+            break;
         case TIDEWAYS_XHPROF_CLOCK_NONE:
             php_info_print_table_row(2, "Clock Source", "none");
             break;
