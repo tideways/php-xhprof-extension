@@ -2,8 +2,15 @@
 #define TRACER_TIMER_H
 
 #include "config.h"
+
+#ifdef PHP_WIN32
+#include "win32/time.h"
+#include "win32/unistd.h"
+#include "win32/php_tideways_win32.h"
+#else
 #include <sys/time.h>
 #include <sys/resource.h>
+#endif
 
 static zend_always_inline uint64 current_timestamp() {
     struct timeval tv;
@@ -25,6 +32,15 @@ static zend_always_inline uint64 current_timestamp() {
 static zend_always_inline uint64 time_milliseconds(int source, double timebase_factor) {
 #ifdef __APPLE__
     return mach_absolute_time() / timebase_factor;
+#ifdef PHP_WIN32
+
+    LARGE_INTEGER count;
+
+    if (!QueryPerformanceCounter(&count)) {
+        return 0;
+    }
+
+    return (double)(count.QuadPart) / timebase_factor;
 #else
     struct timespec s;
     uint32 a, d;

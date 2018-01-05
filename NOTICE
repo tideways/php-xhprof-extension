@@ -28,3 +28,6 @@ This product includes work from the following third-party libraries:
       Copyright (c) 2003-2018 Derick Rethans.
 
       Appveyor Windows Testsuite Configuration
+
+    - Benjamin Carl (c) 2010-2012
+      Windows Support for XHProf
