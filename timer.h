@@ -9,6 +9,7 @@
 #include "win32/time.h"
 #include "win32/unistd.h"
 #include "win32/php_tideways_win32.h"
+#include "win32/getrusage.h"
 #else
 
 #include <sys/time.h>

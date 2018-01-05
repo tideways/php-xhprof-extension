@@ -4,7 +4,6 @@ if (PHP_TIDEWAYS_XHPROF != 'no') {
     EXTENSION("tideways_xhprof", "tideways_xhprof.c");
 
     ADD_SOURCES(configure_module_dirname, "tracing.c", "tideways_xhprof");
-    ADD_SOURCES(configure_module_dirname + "/win32", "php_tideways_win32.c");
 
     AC_DEFINE('HAVE_TIDEWAYS_XHPROF', 1, 'Have tideways support');
 }
