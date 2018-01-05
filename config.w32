@@ -3,8 +3,9 @@ if (PHP_SECURITY_FLAGS == "yes") {
     ADD_FLAG("LDFLAGS", "/NXCOMPAT /DYNAMICBASE ");
 }
 
-ARG_ENABLE("tideways_xhprof", "whether to enable tideways support", "no");
-if (PHP_TIDEWAYS == "yes") {
+ARG_WITH("tideways_xhprof", "Tideways XHProf support", "no");
+
+if (PHP_TIDEWAYS_XHPROF != 'no') {
     EXTENSION("tideways", "tideways_xhprof.c");
 
     ADD_SOURCES(configure_module_dirname, "tracing.c", "tideways_xhprof");
