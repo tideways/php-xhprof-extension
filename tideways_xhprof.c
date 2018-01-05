@@ -214,7 +214,11 @@ zend_module_entry tideways_xhprof_module_entry = {
     PHP_RSHUTDOWN(tideways_xhprof),
     PHP_MINFO(tideways_xhprof),
     PHP_TIDEWAYS_XHPROF_VERSION,
-    STANDARD_MODULE_PROPERTIES
+    PHP_MODULE_GLOBALS(tideways_xhprof),
+    PHP_GINIT(tideways_xhprof),
+    NULL,
+    NULL,
+    STANDARD_MODULE_PROPERTIES_EX
 };
 
 #ifdef COMPILE_DL_TIDEWAYS_XHPROF
