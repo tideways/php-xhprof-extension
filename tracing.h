@@ -128,8 +128,8 @@ zend_always_inline static int tracing_enter_frame_callgraph(zend_string *root_sy
     }
 
     /* We only need to compute the hash for the function name,
-     * that should be "good" enough, we sort into 256 buckets only anyways */
-    current_frame->hash_code = ZSTR_HASH(function_name) % TIDEWAYS_XHPROF_CALLGRAPH_SLOTS;
+     * that should be "good" enough, we sort into 1024 buckets only anyways */
+    current_frame->hash_code = ZSTR_HASH(function_name) % TIDEWAYS_XHPROF_CALLGRAPH_COUNTER_SIZE;
 
     /* Update entries linked list */
     TXRG(callgraph_frames) = current_frame;
