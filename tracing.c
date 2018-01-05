@@ -1,8 +1,9 @@
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
+
 #include "php.h"
-
 #include "ext/standard/html.h"
-
 #include "php_tideways_xhprof.h"
 
 extern ZEND_DECLARE_MODULE_GLOBALS(tideways_xhprof);

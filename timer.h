@@ -1,13 +1,16 @@
 #ifndef TRACER_TIMER_H
 #define TRACER_TIMER_H
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
 
 #ifdef PHP_WIN32
 #include "win32/time.h"
 #include "win32/unistd.h"
 #include "win32/php_tideways_win32.h"
 #else
+
 #include <sys/time.h>
 #include <sys/resource.h>
 #endif
