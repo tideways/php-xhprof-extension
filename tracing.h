@@ -17,14 +17,14 @@ void tracing_callgraph_bucket_free(xhprof_callgraph_bucket *bucket);
 void tracing_begin(zend_long flags TSRMLS_DC);
 void tracing_end(TSRMLS_D);
 void tracing_enter_root_frame(TSRMLS_D);
-void tracing_request_init();
+void tracing_request_init(TSRMLS_D);
 void tracing_request_shutdown();
-void tracing_determine_clock_source(TSRMLS_D);
+void tracing_determine_clock_source();
 
-#if ZTS
-#define TXRG(v) TSRMG(tideways_xhprof_globals_id, zend_tideways_xhprof_globals *, v)
-#else
-#define TXRG(v) (tideways_xhprof_globals.v)
+#define TXRG(v) ZEND_MODULE_GLOBALS_ACCESSOR(tideways_xhprof, v)
+
+#if defined(ZTS) && defined(COMPILE_DL_TIDEWAYS_XHPROF)
+ZEND_TSRMLS_CACHE_EXTERN()
 #endif
 
 static zend_always_inline void tracing_fast_free_frame(xhprof_frame_t *p TSRMLS_DC)

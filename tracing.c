@@ -250,7 +250,7 @@ void tracing_begin(zend_long flags TSRMLS_DC)
     }
 }
 
-void tracing_request_init()
+void tracing_request_init(TSRMLS_D)
 {
     TXRG(timebase_factor) = get_timebase_factor(TXRG(clock_source));
     TXRG(enabled) = 0;
