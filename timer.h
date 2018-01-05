@@ -1,9 +1,19 @@
 #ifndef TRACER_TIMER_H
 #define TRACER_TIMER_H
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
+
+#ifdef PHP_WIN32
+#include "win32/time.h"
+#include "win32/unistd.h"
+#include "win32/getrusage.h"
+#else
+
 #include <sys/time.h>
 #include <sys/resource.h>
+#endif
 
 #if __APPLE__
 #include <mach/mach_init.h>
@@ -30,6 +40,15 @@ static zend_always_inline uint64 current_timestamp() {
 static zend_always_inline uint64 time_milliseconds(int source, double timebase_factor) {
 #ifdef __APPLE__
     return mach_absolute_time() / timebase_factor;
+#elif defined(PHP_WIN32)
+
+    LARGE_INTEGER count;
+
+    if (!QueryPerformanceCounter(&count)) {
+        return 0;
+    }
+
+    return (double)(count.QuadPart) / timebase_factor;
 #else
     struct timespec s;
     uint32 a, d;
@@ -85,6 +104,14 @@ static zend_always_inline double get_timebase_factor(int source)
     (void) mach_timebase_info(&sTimebaseInfo);
 
     return (sTimebaseInfo.numer / sTimebaseInfo.denom) * 1000;
+#elif defined(PHP_WIN32)
+    unsigned __int64 frequency;
+
+    if (!QueryPerformanceFrequency( (LARGE_INTEGER*)&frequency)) {
+        zend_error(E_ERROR, "QueryPerformanceFrequency");
+    }
+
+    return (double)frequency/1000000.0;
 #else
     struct timeval start;
     struct timeval end;

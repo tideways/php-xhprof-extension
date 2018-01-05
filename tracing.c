@@ -1,8 +1,9 @@
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
+
 #include "php.h"
-
 #include "ext/standard/html.h"
-
 #include "php_tideways_xhprof.h"
 
 extern ZEND_DECLARE_MODULE_GLOBALS(tideways_xhprof);
@@ -14,6 +15,8 @@ static const char digits[] = "0123456789abcdef";
 void tracing_determine_clock_source(TSRMLS_D) {
 #ifdef __APPLE__
     TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_MACH;
+#elif defined(PHP_WIN32)
+    TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_QPC;
 #else
     struct timespec res;
 
@@ -247,7 +250,7 @@ void tracing_begin(zend_long flags TSRMLS_DC)
     }
 }
 
-void tracing_request_init()
+void tracing_request_init(TSRMLS_D)
 {
     TXRG(timebase_factor) = get_timebase_factor(TXRG(clock_source));
     TXRG(enabled) = 0;

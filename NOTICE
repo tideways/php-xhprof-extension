@@ -21,3 +21,13 @@ This product includes work from the following third-party libraries:
     - The PHP Group (https://github.com/php/php-src, http://php.net)
 
       Copyright (c) 1997-2017 The PHP Group
+
+
+    - Xdebug (https://github.com/xdebug/xdebug)
+
+      Copyright (c) 2003-2018 Derick Rethans.
+
+      Appveyor Windows Testsuite Configuration
+
+    - Benjamin Carl (c) 2010-2012
+      Windows Support for XHProf

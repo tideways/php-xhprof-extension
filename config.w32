@@ -1,0 +1,9 @@
+ARG_WITH("tideways_xhprof", "Tideways XHProf support", "no");
+
+if (PHP_TIDEWAYS_XHPROF != 'no') {
+    EXTENSION("tideways_xhprof", "tideways_xhprof.c", PHP_TIDEWAYS_XHPROF_SHARED, "/DZEND_ENABLE_STATIC_TSRMLS_CACHE=1");
+
+    ADD_SOURCES(configure_module_dirname, "tracing.c", "tideways_xhprof");
+
+    AC_DEFINE('HAVE_TIDEWAYS_XHPROF', 1, 'Have tideways support');
+}

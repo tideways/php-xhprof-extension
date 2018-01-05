@@ -42,6 +42,16 @@ PHP_FUNCTION(tideways_xhprof_disable)
     tracing_callgraph_append_to_array(return_value TSRMLS_CC);
 }
 
+PHP_GINIT_FUNCTION(tideways_xhprof)
+{
+#if defined(COMPILE_DL_TIDEWAYS_XHPROF) && defined(ZTS)
+     ZEND_TSRMLS_CACHE_UPDATE();
+#endif 
+     tideways_xhprof_globals->root = NULL;
+     tideways_xhprof_globals->callgraph_frames = NULL;
+     tideways_xhprof_globals->frame_free_list = NULL;
+}
+
 PHP_MINIT_FUNCTION(tideways_xhprof)
 {
     REGISTER_INI_ENTRIES();
@@ -51,8 +61,6 @@ PHP_MINIT_FUNCTION(tideways_xhprof)
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_MEMORY_PMU", TIDEWAYS_XHPROF_FLAGS_MEMORY_PMU, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_CPU", TIDEWAYS_XHPROF_FLAGS_CPU, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_NO_BUILTINS", TIDEWAYS_XHPROF_FLAGS_NO_BUILTINS, CONST_CS | CONST_PERSISTENT);
-
-    tracing_determine_clock_source(TSRMLS_C);
 
     _zend_execute_internal = zend_execute_internal;
     zend_execute_internal = tideways_xhprof_execute_internal;
@@ -70,7 +78,8 @@ PHP_MSHUTDOWN_FUNCTION(tideways_xhprof)
 
 PHP_RINIT_FUNCTION(tideways_xhprof)
 {
-    tracing_request_init();
+    tracing_request_init(TSRMLS_C);
+    tracing_determine_clock_source(TSRMLS_C);
 
     return SUCCESS;
 }
@@ -119,6 +128,9 @@ PHP_MINFO_FUNCTION(tideways_xhprof)
             break;
         case TIDEWAYS_XHPROF_CLOCK_MACH:
             php_info_print_table_row(2, "Clock Source", "mach");
+            break;
+        case TIDEWAYS_XHPROF_CLOCK_QPC:
+            php_info_print_table_row(2, "Clock Source", "Query Performance Counter");
             break;
         case TIDEWAYS_XHPROF_CLOCK_NONE:
             php_info_print_table_row(2, "Clock Source", "none");
@@ -202,9 +214,16 @@ zend_module_entry tideways_xhprof_module_entry = {
     PHP_RSHUTDOWN(tideways_xhprof),
     PHP_MINFO(tideways_xhprof),
     PHP_TIDEWAYS_XHPROF_VERSION,
-    STANDARD_MODULE_PROPERTIES
+    PHP_MODULE_GLOBALS(tideways_xhprof),
+    PHP_GINIT(tideways_xhprof),
+    NULL,
+    NULL,
+    STANDARD_MODULE_PROPERTIES_EX
 };
 
 #ifdef COMPILE_DL_TIDEWAYS_XHPROF
+#ifdef ZTS
+ZEND_TSRMLS_CACHE_DEFINE()
+#endif
 ZEND_GET_MODULE(tideways_xhprof)
 #endif
