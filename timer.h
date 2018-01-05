@@ -5,6 +5,11 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#if __APPLE__
+#include <mach/mach_init.h>
+#include <mach/mach_time.h>
+#endif
+
 static zend_always_inline uint64 current_timestamp() {
     struct timeval tv;
 
