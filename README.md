@@ -1,6 +1,6 @@
 # Tideways XHProf Extension
 
-Home of the `tideways_xhprof` extension.
+Home of the `tideways_xhprof` extension - a hierarchical Profiler for PHP.
 
 **Looking for `tideways` Extension to report to tideways.io?** [Go here](https://tideways.io/profiler/downloads).
 **Why did we rename the extension?** [Blog post here](https://tideways.io/profiler/blog/releasing-new-tideways-xhprof-extension).
