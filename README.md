@@ -122,3 +122,26 @@ array(
     ),
 )
 ```
+
+## Clock Sources
+
+Any Profiler needs timer functions to calculate the duration of a function call
+and the `tideways_xhprof` extension is no different. On Linux you can collect
+timing information through various means. The classic, most simple one is the
+function `gettimeofday`, which PHP uses when you call `microtime()`. This function
+is slower compared to other mechanisms that the kernel provides:
+
+- `clock_gettime(CLOCK_MONOTONIC)` returns a monotonically increasing number
+  (not a timestamp) at very high precision and much faster than
+  `gettimeofday()`. It is the preferred and recommended API to get high precision timestamps.
+  On Xen based virtualizations (such as AWS) this call is much slower than on bare-metal
+  or other virtualizations ([Blog post](https://blog.packagecloud.io/eng/2017/03/08/system-calls-are-much-slower-on-ec2/))
+- TSC (Time Stamp Counter) API is accessible in C using inline assembler. It
+  was the timing API that the original XHProf extension used and it is
+  generally very fast, however depending on the make and generation of the CPU
+  might not be synchronized between cores. On modern CPUs it is usually good to
+  use without having to force the current process to a specific CPU.
+
+Tideways on Linux defaults to using `clock_gettime(CLOCK_MONOTONIC)`, but if
+you are running on Xen based virtualization, you could try to reduce the
+overhead by setting `tideways.clock_use_rdtsc=1" in your PHP.ini.
