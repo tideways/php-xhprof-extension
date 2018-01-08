@@ -35,7 +35,7 @@ page](https://tideways.io/profiler/downloads).
 ## Requirements
 
 - PHP >= 7.0
-- OS: Linux, MacOS, Windows ([Download DDLs](https://ci.appveyor.com/project/tideways/php-profiler-extension))
+- OS: Linux, MacOS, Windows ([Download DLLs](https://ci.appveyor.com/project/tideways/php-profiler-extension))
 
 ## Installation
 
