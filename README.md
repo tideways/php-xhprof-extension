@@ -108,7 +108,7 @@ array(
     "main()" => array(
         "wt" => 1000,
         "ct" => 1,
-        "cpu" => 900,
+        "cpu" => 400,
     ),
     "main()==>foo" => array(
         "wt" => 500,
