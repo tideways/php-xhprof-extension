@@ -1324,10 +1324,6 @@ long tw_trace_callback_oxid_tx(char *symbol, zend_execute_data *data TSRMLS_DC)
         copy = 1;
     }
 
-    if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) > 0) {
-        return -1;
-    }
-
     return tw_trace_callback_record_with_cache("php.ctrl", 8, ret, strlen(ret), copy TSRMLS_CC);
 }
 
@@ -2619,6 +2615,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
     cb = tw_trace_callback_oxid_tx;
     register_trace_callback("oxShopControl::_process", cb);
+    register_trace_callback("OxidEsales\\EshopCommunity\\Core\\ShopControl::_process", cb);
 
     // Different versions of Memcache Extension have either MemcachePool or Memcache class, @todo investigate
     cb = tw_trace_callback_memcache;
