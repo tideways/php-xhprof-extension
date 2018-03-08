@@ -15,6 +15,8 @@ static const char digits[] = "0123456789abcdef";
 void tracing_determine_clock_source(TSRMLS_D) {
 #ifdef __APPLE__
     TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_MACH;
+#elif defined(__powerpc__) || defined(__ppc__)
+    TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_TSC;
 #elif defined(PHP_WIN32)
     TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_QPC;
 #else

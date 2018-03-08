@@ -75,8 +75,18 @@ static zend_always_inline uint64 time_milliseconds(int source, double timebase_f
             return 0;
 #endif
         case TIDEWAYS_XHPROF_CLOCK_TSC:
+#if defined(__i386__)
+            int64_t ret;
+            __asm__ volatile("rdtsc" : "=A"(ret));
+            return ret;
+#elif defined(__x86_64__) || defined(__amd64__)
             asm volatile("rdtsc" : "=a" (a), "=d" (d));
             (val) = ((uint64)a) | (((uint64)d)<<32);
+#elif defined(__powerpc__) || defined(__ppc__)
+            asm volatile ("mftb %0" : "=r" (val));
+#else
+#error You need to define CycleTimer for your OS and CPU
+#endif
             return val / timebase_factor;
 
         default:
