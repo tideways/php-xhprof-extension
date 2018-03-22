@@ -7,6 +7,11 @@ namespace Elasticsearch\Connections {
         {
         }
     }
+
+    class GuzzleConnection {
+        public function performRequest($method, $uri, $params = null, $body = null, $options = array()) {
+        }
+    }
 }
 
 namespace Elasticsearch\Endpoints {

@@ -1834,9 +1834,12 @@ long tw_trace_callback_elasticsearch_perform_request(char *symbol, zend_execute_
         tw_span_timer_start(idx TSRMLS_CC);
 
         zend_compat_hash_update_long(TWG(span_cache), "elasticsearch-php", sizeof("elasticsearch-php")-1, idx);
+
+        // async
+        return -1;
     }
 
-    return -1;
+    return idx; // sync without returning a future
 }
 
 long tw_trace_callback_elasticsearch_wait_request(char *symbol, zend_execute_data *data TSRMLS_DC)
