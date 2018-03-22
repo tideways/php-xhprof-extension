@@ -2492,6 +2492,7 @@ void hp_init_trace_callbacks(TSRMLS_D)
 
     cb = tw_trace_callback_elasticsearch_wait_request;
     register_trace_callback("Elasticsearch\\Endpoints\\AbstractEndpoint::resultOrFuture", cb);
+    register_trace_callback("Elasticsearch\\Transport::resultOrFuture", cb);
 
     cb = tw_trace_callback_sql_functions;
 #if HAVE_PDO
