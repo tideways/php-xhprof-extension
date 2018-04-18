@@ -1,6 +1,10 @@
 # Version 4.1.6
 
 - Fix Elasticsearch Instrumentation on v5+ has moved resultOrFuture to a new class.
+- Fix Oxid 6.0 transaction detection
+- Remove apc(u) support, because in many scenarios it generated huge amounts of
+  not-so-insightful data that could negatively affect the efficient collection
+  of more important span data.
 
 # Version 4.1.5
 
