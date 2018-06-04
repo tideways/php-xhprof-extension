@@ -214,6 +214,9 @@ void tracing_callgraph_append_to_array(zval *return_value TSRMLS_DC)
             array_init(stats);
             add_assoc_long(stats, "ct", bucket->count);
             add_assoc_long(stats, "wt", bucket->wall_time);
+            add_assoc_long(stats, "mem.na", bucket->num_alloc);
+            add_assoc_long(stats, "mem.nf", bucket->num_free);
+            add_assoc_long(stats, "mem.aa", bucket->amount_alloc);
 
             if (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_CPU) {
                 add_assoc_long(stats, "cpu", bucket->cpu_time);

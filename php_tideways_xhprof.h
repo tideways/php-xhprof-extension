@@ -42,6 +42,8 @@ typedef struct xhprof_callgraph_bucket_t {
     zend_long cpu_time;
     zend_long memory;
     zend_long memory_peak;
+    long int            num_alloc, num_free;
+    long int            amount_alloc;
 } xhprof_callgraph_bucket;
 
 /* Tracer maintains a stack of entries being profiled.
@@ -57,6 +59,8 @@ struct xhprof_frame_t {
     uint64              cpu_start;         /* start value for CPU clock timer */
     long int            mu_start;                    /* memory usage */
     long int            pmu_start;              /* peak memory usage */
+    long int            num_alloc, num_free;
+    long int            amount_alloc;
     int                 recurse_level;
     zend_ulong          hash_code;          /* hash_code for the function name  */
 };
