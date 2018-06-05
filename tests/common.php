@@ -37,7 +37,7 @@ function print_canonical($xhprof_data)
             // Only call counts are stable.
             // Wild card everything else. We still print
             // the metric name to ensure it was collected.
-            if (!in_array($name, array("ct", "mem.na", "mem.nf", "mem.aa"))) {
+            if (!in_array($name, array("ct"))) {
                 $value = "*";
             } else {
                 $value = str_pad($value, 8, " ", STR_PAD_LEFT);

@@ -22,7 +22,7 @@ print_canonical($output);
 
 ?>
 --EXPECTF--
-main()                                  : ct=       1; wt=*;
-main()==>class@anonymous::baz           : ct=       1; wt=*;
-main()==>tideways_xhprof_disable        : ct=       1; wt=*;
-main()==>{closure}                      : ct=       1; wt=*;
+main()                                  : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()==>class@anonymous::baz           : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()==>tideways_xhprof_disable        : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()==>{closure}                      : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;

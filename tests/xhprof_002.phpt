@@ -40,23 +40,23 @@ echo "\n";
 ?>
 --EXPECT--
 Direct Recursion
-foo==>foo@1                             : ct=       1; wt=*;
-foo@1==>foo@2                           : ct=       1; wt=*;
-foo@2==>foo@3                           : ct=       1; wt=*;
-foo@3==>foo@4                           : ct=       1; wt=*;
-main()                                  : ct=       1; wt=*;
-main()==>foo                            : ct=       1; wt=*;
-main()==>tideways_xhprof_disable        : ct=       1; wt=*;
+foo==>foo@1                             : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+foo@1==>foo@2                           : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+foo@2==>foo@3                           : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+foo@3==>foo@4                           : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()                                  : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()==>foo                            : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()==>tideways_xhprof_disable        : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
 
 Indirect Recursion
-bar==>foo@1                             : ct=       1; wt=*;
-bar@1==>foo@2                           : ct=       1; wt=*;
-bar@2==>foo@3                           : ct=       1; wt=*;
-bar@3==>foo@4                           : ct=       1; wt=*;
-foo==>bar                               : ct=       1; wt=*;
-foo@1==>bar@1                           : ct=       1; wt=*;
-foo@2==>bar@2                           : ct=       1; wt=*;
-foo@3==>bar@3                           : ct=       1; wt=*;
-main()                                  : ct=       1; wt=*;
-main()==>foo                            : ct=       1; wt=*;
-main()==>tideways_xhprof_disable        : ct=       1; wt=*;
+bar==>foo@1                             : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+bar@1==>foo@2                           : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+bar@2==>foo@3                           : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+bar@3==>foo@4                           : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+foo==>bar                               : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+foo@1==>bar@1                           : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+foo@2==>bar@2                           : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+foo@3==>bar@3                           : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()                                  : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()==>foo                            : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()==>tideways_xhprof_disable        : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;

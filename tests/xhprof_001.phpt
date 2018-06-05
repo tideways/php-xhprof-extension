@@ -65,32 +65,30 @@ echo "\n";
 ?>
 --EXPECT--
 Part 1: Default Flags
-foo==>bar                               : ct=       2; wt=*;
-main()                                  : ct=       1; wt=*;
-main()==>foo                            : ct=       1; wt=*;
-main()==>tideways_xhprof_disable        : ct=       1; wt=*;
+foo==>bar                               : ct=       2; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()                                  : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()==>foo                            : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()==>tideways_xhprof_disable        : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
 
 Part 2: CPU
-foo==>bar                               : cpu=*; ct=       2; wt=*;
-main()                                  : cpu=*; ct=       1; wt=*;
-main()==>foo                            : cpu=*; ct=       1; wt=*;
-main()==>tideways_xhprof_disable        : cpu=*; ct=       1; wt=*;
+foo==>bar                               : cpu=*; ct=       2; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()                                  : cpu=*; ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()==>foo                            : cpu=*; ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()==>tideways_xhprof_disable        : cpu=*; ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
 
 Part 3: No Builtins
-foo==>bar                               : ct=       2; wt=*;
-main()                                  : ct=       1; wt=*;
-main()==>foo                            : ct=       1; wt=*;
+foo==>bar                               : ct=       2; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()                                  : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()==>foo                            : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
 
 Part 4: Memory
-foo==>bar                               : ct=       2; mu=*; pmu=*; wt=*;
-main()                                  : ct=       1; mu=*; pmu=*; wt=*;
-main()==>foo                            : ct=       1; mu=*; pmu=*; wt=*;
-main()==>tideways_xhprof_disable        : ct=       1; mu=*; pmu=*; wt=*;
+foo==>bar                               : ct=       2; mem.aa=*; mem.na=*; mem.nf=*; mu=*; pmu=*; wt=*;
+main()                                  : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; mu=*; pmu=*; wt=*;
+main()==>foo                            : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; mu=*; pmu=*; wt=*;
+main()==>tideways_xhprof_disable        : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; mu=*; pmu=*; wt=*;
 
 Part 5: Memory & CPU
-foo==>bar                               : cpu=*; ct=       2; mu=*; pmu=*; wt=*;
-main()                                  : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
-main()==>foo                            : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
-main()==>tideways_xhprof_disable        : cpu=*; ct=       1; mu=*; pmu=*; wt=*;
-
-
+foo==>bar                               : cpu=*; ct=       2; mem.aa=*; mem.na=*; mem.nf=*; mu=*; pmu=*; wt=*;
+main()                                  : cpu=*; ct=       1; mem.aa=*; mem.na=*; mem.nf=*; mu=*; pmu=*; wt=*;
+main()==>foo                            : cpu=*; ct=       1; mem.aa=*; mem.na=*; mem.nf=*; mu=*; pmu=*; wt=*;
+main()==>tideways_xhprof_disable        : cpu=*; ct=       1; mem.aa=*; mem.na=*; mem.nf=*; mu=*; pmu=*; wt=*;
