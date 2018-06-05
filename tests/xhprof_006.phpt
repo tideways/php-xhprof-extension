@@ -37,6 +37,6 @@ print_canonical($output);
 --EXPECTF--
 string(1) "1"
 Clock Source => tsc
-main()                                  : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
-main()==>foo                            : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
-main()==>tideways_xhprof_disable        : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+main()                                  : ct=       1; wt=*;
+main()==>foo                            : ct=       1; wt=*;
+main()==>tideways_xhprof_disable        : ct=       1; wt=*;

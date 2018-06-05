@@ -58,10 +58,10 @@ i am a class static
 In constructor...
 Destroying class Hello World
 Profiler data for 'Class' tests:
-C::outer_static==>C::inner_static       : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
-main()                                  : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
-main()==>C::__construct                 : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
-main()==>C::__destruct                  : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
-main()==>C::get_attr                    : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
-main()==>C::outer_static                : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
-main()==>tideways_xhprof_disable        : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+C::outer_static==>C::inner_static       : ct=       1; wt=*;
+main()                                  : ct=       1; wt=*;
+main()==>C::__construct                 : ct=       1; wt=*;
+main()==>C::__destruct                  : ct=       1; wt=*;
+main()==>C::get_attr                    : ct=       1; wt=*;
+main()==>C::outer_static                : ct=       1; wt=*;
+main()==>tideways_xhprof_disable        : ct=       1; wt=*;

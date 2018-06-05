@@ -17,14 +17,6 @@ static void (*_zend_execute_internal) (zend_execute_data *execute_data, zval *re
 ZEND_DLEXPORT void tideways_xhprof_execute_internal(zend_execute_data *execute_data, zval *return_value);
 ZEND_DLEXPORT void tideways_xhprof_execute_ex (zend_execute_data *execute_data);
 
-static void *(*_zend_malloc) (size_t);
-static void (*_zend_free) (void *);
-static void *(*_zend_realloc) (void *, size_t);
-
-void *tideways_malloc (size_t size);
-void tideways_free (void *ptr);
-void *tideways_realloc (void *ptr, size_t size);
-
 PHP_INI_BEGIN()
     STD_PHP_INI_ENTRY("tideways_xhprof.clock_use_rdtsc", "0", PHP_INI_ALL, OnUpdateBool, clock_use_rdtsc, zend_tideways_xhprof_globals, tideways_xhprof_globals)
 PHP_INI_END()
@@ -69,6 +61,7 @@ PHP_MINIT_FUNCTION(tideways_xhprof)
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_MEMORY_PMU", TIDEWAYS_XHPROF_FLAGS_MEMORY_PMU, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_CPU", TIDEWAYS_XHPROF_FLAGS_CPU, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_NO_BUILTINS", TIDEWAYS_XHPROF_FLAGS_NO_BUILTINS, CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_MEMORY_EXT", TIDEWAYS_XHPROF_FLAGS_MEMORY_EXT, CONST_CS | CONST_PERSISTENT);
 
     _zend_execute_internal = zend_execute_internal;
     zend_execute_internal = tideways_xhprof_execute_internal;
@@ -76,19 +69,11 @@ PHP_MINIT_FUNCTION(tideways_xhprof)
     _zend_execute_ex = zend_execute_ex;
     zend_execute_ex = tideways_xhprof_execute_ex;
 
-    zend_mm_heap *heap = zend_mm_get_heap();
-    zend_mm_get_custom_handlers (heap, &_zend_malloc, &_zend_free, &_zend_realloc);
-    zend_mm_set_custom_handlers (heap, &tideways_malloc, &tideways_free, &tideways_realloc);
-
-    
-
     return SUCCESS;
 }
 
 PHP_MSHUTDOWN_FUNCTION(tideways_xhprof)
 {
-    zend_mm_heap *heap = zend_mm_get_heap();
-    *((int *) heap) = 0;
     return SUCCESS;
 }
 
@@ -212,54 +197,6 @@ ZEND_DLEXPORT void tideways_xhprof_execute_ex (zend_execute_data *execute_data) 
     if (is_profiling == 1 && TXRG(callgraph_frames)) {
         tracing_exit_frame_callgraph(TSRMLS_C);
     }
-}
-
-void *tideways_malloc (size_t size)
-{
-    xhprof_frame_t *current_frame = TXRG(callgraph_frames);
-    if (current_frame) {
-        current_frame->num_alloc += 1;
-        current_frame->amount_alloc += size;
-    }
-
-    if (_zend_malloc) {
-        return _zend_malloc(size);
-    }
-
-    zend_mm_heap *heap = zend_mm_get_heap();
-    return zend_mm_alloc(heap, size);
-}
-
-void tideways_free (void *ptr)
-{
-    xhprof_frame_t *current_frame = TXRG(callgraph_frames);
-    if (current_frame) {
-        current_frame->num_free += 1;
-    }
-
-    if (_zend_free) {
-        return _zend_free(ptr);
-    }
-
-    zend_mm_heap *heap = zend_mm_get_heap();
-    return zend_mm_free(heap, ptr);
-}
-
-void *tideways_realloc (void *ptr, size_t size)
-{
-    xhprof_frame_t *current_frame = TXRG(callgraph_frames);
-    if (current_frame) {
-        current_frame->num_alloc += 1;
-        current_frame->num_free += 1;
-        current_frame->amount_alloc += size;
-    }
-    
-    if (_zend_realloc) {
-        return _zend_realloc(ptr, size);
-    }
-
-    zend_mm_heap *heap = zend_mm_get_heap();
-    return zend_mm_realloc(heap, ptr, size);
 }
 
 const zend_function_entry tideways_xhprof_functions[] = {
