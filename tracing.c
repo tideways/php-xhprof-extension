@@ -79,7 +79,7 @@ void tracing_end(TSRMLS_D)
         TXRG(enabled) = 0;
         TXRG(callgraph_frames) = NULL;
 
-        if (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_MEMORY_EXT) {
+        if (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC) {
             zend_mm_heap *heap = zend_mm_get_heap();
             *((int *) heap) = 0;
         }
@@ -228,7 +228,7 @@ void tracing_callgraph_append_to_array(zval *return_value TSRMLS_DC)
             add_assoc_long(stats, "ct", bucket->count);
             add_assoc_long(stats, "wt", bucket->wall_time);
 
-            if (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_MEMORY_EXT) {
+            if (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC) {
                 add_assoc_long(stats, "mem.na", bucket->num_alloc);
                 add_assoc_long(stats, "mem.nf", bucket->num_free);
                 add_assoc_long(stats, "mem.aa", bucket->amount_alloc);
@@ -270,7 +270,7 @@ void tracing_begin(zend_long flags TSRMLS_DC)
         TXRG(function_hash_counters)[i] = 0;
     }
 
-    if (flags & TIDEWAYS_XHPROF_FLAGS_MEMORY_EXT) {
+    if (flags & TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC) {
         zend_mm_heap *heap = zend_mm_get_heap();
         zend_mm_get_custom_handlers (heap, &_zend_malloc, &_zend_free, &_zend_realloc);
         zend_mm_set_custom_handlers (heap, &tideways_malloc, &tideways_free, &tideways_realloc);

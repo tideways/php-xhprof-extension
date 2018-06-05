@@ -63,7 +63,7 @@ print_canonical($output);
 echo "\n";
 
 // 6: Sanity test extended memory profiling
-tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_MEMORY_EXT);
+tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC);
 foo("this is a test");
 $output = tideways_xhprof_disable();
 
