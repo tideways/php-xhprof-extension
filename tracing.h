@@ -189,6 +189,9 @@ zend_always_inline static void tracing_exit_frame_callgraph(TSRMLS_D)
         bucket->cpu_time = 0;
         bucket->memory = 0;
         bucket->memory_peak = 0;
+        bucket->num_alloc = 0;
+        bucket->num_free = 0;
+        bucket->amount_alloc = 0;
         bucket->child_recurse_level = current_frame->recurse_level;
         bucket->next = TXRG(callgraph_buckets)[slot];
 
