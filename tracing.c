@@ -228,6 +228,10 @@ void tracing_callgraph_append_to_array(zval *return_value TSRMLS_DC)
     char symbol[512] = "";
     zval stats_zv, *stats = &stats_zv;
 
+    int as_mu =
+        (TXRG(flags) & (TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU | TIDEWAYS_XHPROF_FLAGS_MEMORY_MU))
+            == TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU;
+
     for (i = 0; i < TIDEWAYS_XHPROF_CALLGRAPH_SLOTS; i++) {
         bucket = TXRG(callgraph_buckets)[i];
 
@@ -242,10 +246,6 @@ void tracing_callgraph_append_to_array(zval *return_value TSRMLS_DC)
                 add_assoc_long(stats, "mem.na", bucket->num_alloc);
                 add_assoc_long(stats, "mem.nf", bucket->num_free);
                 add_assoc_long(stats, "mem.aa", bucket->amount_alloc);
-
-                int as_mu =
-                    (TXRG(flags) & (TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU | TIDEWAYS_XHPROF_FLAGS_MEMORY_MU))
-                        == TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU;
 
                 if (as_mu) {
                     add_assoc_long(stats, "mu", bucket->amount_alloc);
