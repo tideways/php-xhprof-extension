@@ -71,6 +71,15 @@ echo "Part 6: Extended Memory Profiling\n";
 print_canonical($output);
 echo "\n";
 
+// 7: Sanity test extended memory profiling as mu
+tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU);
+foo("this is a test");
+$output = tideways_xhprof_disable();
+
+echo "Part 7: Extended Memory Profiling as mu\n";
+print_canonical($output);
+echo "\n";
+
 ?>
 --EXPECT--
 Part 1: Default Flags
@@ -107,3 +116,9 @@ foo==>bar                               : ct=       2; mem.aa=*; mem.na=*; mem.n
 main()                                  : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
 main()==>foo                            : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
 main()==>tideways_xhprof_disable        : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; wt=*;
+
+Part 7: Extended Memory Profiling as mu
+foo==>bar                               : ct=       2; mem.aa=*; mem.na=*; mem.nf=*; mu=*; wt=*;
+main()                                  : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; mu=*; wt=*;
+main()==>foo                            : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; mu=*; wt=*;
+main()==>tideways_xhprof_disable        : ct=       1; mem.aa=*; mem.na=*; mem.nf=*; mu=*; wt=*;

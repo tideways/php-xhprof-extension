@@ -242,6 +242,14 @@ void tracing_callgraph_append_to_array(zval *return_value TSRMLS_DC)
                 add_assoc_long(stats, "mem.na", bucket->num_alloc);
                 add_assoc_long(stats, "mem.nf", bucket->num_free);
                 add_assoc_long(stats, "mem.aa", bucket->amount_alloc);
+
+                int as_mu =
+                    (TXRG(flags) & (TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU | TIDEWAYS_XHPROF_FLAGS_MEMORY_MU))
+                        == TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU;
+
+                if (as_mu) {
+                    add_assoc_long(stats, "mu", bucket->amount_alloc);
+                }
             }
 
             if (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_CPU) {

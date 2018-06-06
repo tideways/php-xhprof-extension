@@ -100,6 +100,9 @@ When `TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC` flag is set, the following additional 
 - `mem.nf` The sum of the number of all frees in this function.
 - `mem.aa` The amount of allocated memory.
 
+If `TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU` is set, `TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC` is activated
+and, if `TIDEWAYS_XHPROF_FLAGS_MEMORY_MU` is not set, `mem.aa` is additionally returned in `mu`.
+
 There is a "magic" function call called "main()" that represents the entry into
 the profiling.  The wall time on this performance data describes the full
 timeframe that the profiling ran.
