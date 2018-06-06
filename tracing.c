@@ -81,7 +81,17 @@ void tracing_end(TSRMLS_D)
 
         if (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC) {
             zend_mm_heap *heap = zend_mm_get_heap();
-            *((int *) heap) = 0;
+
+            if (_zend_malloc || _zend_free || _zend_realloc) {
+                zend_mm_set_custom_handlers(heap, _zend_malloc, _zend_free, _zend_realloc);
+                _zend_malloc = NULL;
+                _zend_free = NULL;
+                _zend_realloc = NULL;
+            } else {
+                // zend_mm_heap is incomplete type, hence one can not access it
+                //  the following line is equivalent to heap->use_custom_heap = 0;
+                *((int*) heap) = 0;
+            }
         }
     }
 }
