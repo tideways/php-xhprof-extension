@@ -95,6 +95,14 @@ function names as a key concatenated with ==> and an array value with 2 to 5 ent
 - `mu` The sum of increase in `memory_get_usage` for this parent ==> child function pair.
 - `pmu` The sum of increase in `memory_get_peak_usage` for this parent ==> child function pair.
 
+When `TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC` flag is set, the following additional values are set:
+- `mem.na` The sum of the number of all allocations in this function.
+- `mem.nf` The sum of the number of all frees in this function.
+- `mem.aa` The amount of allocated memory.
+
+If `TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU` is set, `TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC` is activated
+and, if `TIDEWAYS_XHPROF_FLAGS_MEMORY_MU` is not set, `mem.aa` is additionally returned in `mu`.
+
 There is a "magic" function call called "main()" that represents the entry into
 the profiling.  The wall time on this performance data describes the full
 timeframe that the profiling ran.

@@ -7,6 +7,8 @@
 #define TIDEWAYS_XHPROF_FLAGS_MEMORY_MU 2
 #define TIDEWAYS_XHPROF_FLAGS_MEMORY_PMU 4
 #define TIDEWAYS_XHPROF_FLAGS_MEMORY 6
+#define TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC 16
+#define TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU (32|16)
 #define TIDEWAYS_XHPROF_FLAGS_NO_BUILTINS 8
 
 void tracing_callgraph_append_to_array(zval *return_value TSRMLS_DC);
@@ -127,6 +129,10 @@ zend_always_inline static int tracing_enter_frame_callgraph(zend_string *root_sy
         current_frame->mu_start = zend_memory_usage(0 TSRMLS_CC);
     }
 
+    current_frame->num_alloc = 0;
+    current_frame->num_free = 0;
+    current_frame->amount_alloc = 0;
+
     /* We only need to compute the hash for the function name,
      * that should be "good" enough, we sort into 1024 buckets only anyways */
     current_frame->hash_code = ZSTR_HASH(function_name) % TIDEWAYS_XHPROF_CALLGRAPH_COUNTER_SIZE;
@@ -184,6 +190,9 @@ zend_always_inline static void tracing_exit_frame_callgraph(TSRMLS_D)
         bucket->cpu_time = 0;
         bucket->memory = 0;
         bucket->memory_peak = 0;
+        bucket->num_alloc = 0;
+        bucket->num_free = 0;
+        bucket->amount_alloc = 0;
         bucket->child_recurse_level = current_frame->recurse_level;
         bucket->next = TXRG(callgraph_buckets)[slot];
 
@@ -192,6 +201,10 @@ zend_always_inline static void tracing_exit_frame_callgraph(TSRMLS_D)
 
     bucket->count++;
     bucket->wall_time += duration;
+
+    bucket->num_alloc += current_frame->num_alloc;
+    bucket->num_free += current_frame->num_free;
+    bucket->amount_alloc += current_frame->amount_alloc;
 
     if (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_CPU) {
         bucket->cpu_time += (cpu_timer() - current_frame->cpu_start);

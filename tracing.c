@@ -12,6 +12,14 @@ extern ZEND_DECLARE_MODULE_GLOBALS(tideways_xhprof);
 
 static const char digits[] = "0123456789abcdef";
 
+static void *(*_zend_malloc) (size_t);
+static void (*_zend_free) (void *);
+static void *(*_zend_realloc) (void *, size_t);
+
+void *tideways_malloc (size_t size);
+void tideways_free (void *ptr);
+void *tideways_realloc (void *ptr, size_t size);
+
 void tracing_determine_clock_source(TSRMLS_D) {
 #ifdef __APPLE__
     TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_MACH;
@@ -70,6 +78,21 @@ void tracing_end(TSRMLS_D)
 
         TXRG(enabled) = 0;
         TXRG(callgraph_frames) = NULL;
+
+        if (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC) {
+            zend_mm_heap *heap = zend_mm_get_heap();
+
+            if (_zend_malloc || _zend_free || _zend_realloc) {
+                zend_mm_set_custom_handlers(heap, _zend_malloc, _zend_free, _zend_realloc);
+                _zend_malloc = NULL;
+                _zend_free = NULL;
+                _zend_realloc = NULL;
+            } else {
+                // zend_mm_heap is incomplete type, hence one can not access it
+                //  the following line is equivalent to heap->use_custom_heap = 0;
+                *((int*) heap) = 0;
+            }
+        }
     }
 }
 
@@ -205,6 +228,10 @@ void tracing_callgraph_append_to_array(zval *return_value TSRMLS_DC)
     char symbol[512] = "";
     zval stats_zv, *stats = &stats_zv;
 
+    int as_mu =
+        (TXRG(flags) & (TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU | TIDEWAYS_XHPROF_FLAGS_MEMORY_MU))
+            == TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU;
+
     for (i = 0; i < TIDEWAYS_XHPROF_CALLGRAPH_SLOTS; i++) {
         bucket = TXRG(callgraph_buckets)[i];
 
@@ -214,6 +241,16 @@ void tracing_callgraph_append_to_array(zval *return_value TSRMLS_DC)
             array_init(stats);
             add_assoc_long(stats, "ct", bucket->count);
             add_assoc_long(stats, "wt", bucket->wall_time);
+
+            if (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC) {
+                add_assoc_long(stats, "mem.na", bucket->num_alloc);
+                add_assoc_long(stats, "mem.nf", bucket->num_free);
+                add_assoc_long(stats, "mem.aa", bucket->amount_alloc);
+
+                if (as_mu) {
+                    add_assoc_long(stats, "mu", bucket->amount_alloc);
+                }
+            }
 
             if (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_CPU) {
                 add_assoc_long(stats, "cpu", bucket->cpu_time);
@@ -250,6 +287,12 @@ void tracing_begin(zend_long flags TSRMLS_DC)
     for (i = 0; i < TIDEWAYS_XHPROF_CALLGRAPH_COUNTER_SIZE; i++) {
         TXRG(function_hash_counters)[i] = 0;
     }
+
+    if (flags & TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC) {
+        zend_mm_heap *heap = zend_mm_get_heap();
+        zend_mm_get_custom_handlers (heap, &_zend_malloc, &_zend_free, &_zend_realloc);
+        zend_mm_set_custom_handlers (heap, &tideways_malloc, &tideways_free, &tideways_realloc);
+    }
 }
 
 void tracing_request_init(TSRMLS_D)
@@ -263,4 +306,52 @@ void tracing_request_init(TSRMLS_D)
 void tracing_request_shutdown()
 {
     tracing_free_the_free_list();
+}
+
+void *tideways_malloc (size_t size)
+{
+    xhprof_frame_t *current_frame = TXRG(callgraph_frames);
+    if (current_frame) {
+        current_frame->num_alloc += 1;
+        current_frame->amount_alloc += size;
+    }
+
+    if (_zend_malloc) {
+        return _zend_malloc(size);
+    }
+
+    zend_mm_heap *heap = zend_mm_get_heap();
+    return zend_mm_alloc(heap, size);
+}
+
+void tideways_free (void *ptr)
+{
+    xhprof_frame_t *current_frame = TXRG(callgraph_frames);
+    if (current_frame) {
+        current_frame->num_free += 1;
+    }
+
+    if (_zend_free) {
+        return _zend_free(ptr);
+    }
+
+    zend_mm_heap *heap = zend_mm_get_heap();
+    return zend_mm_free(heap, ptr);
+}
+
+void *tideways_realloc (void *ptr, size_t size)
+{
+    xhprof_frame_t *current_frame = TXRG(callgraph_frames);
+    if (current_frame) {
+        current_frame->num_alloc += 1;
+        current_frame->num_free += 1;
+        current_frame->amount_alloc += size;
+    }
+    
+    if (_zend_realloc) {
+        return _zend_realloc(ptr, size);
+    }
+
+    zend_mm_heap *heap = zend_mm_get_heap();
+    return zend_mm_realloc(heap, ptr, size);
 }
