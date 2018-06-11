@@ -78,6 +78,9 @@ ZEND_BEGIN_MODULE_GLOBALS(tideways_xhprof)
     zend_ulong function_hash_counters[TIDEWAYS_XHPROF_CALLGRAPH_COUNTER_SIZE];
     xhprof_callgraph_bucket* callgraph_buckets[TIDEWAYS_XHPROF_CALLGRAPH_SLOTS];
     zend_long flags;
+    long int num_alloc;
+    long int num_free;
+    long int amount_alloc;
 ZEND_END_MODULE_GLOBALS(tideways_xhprof)
 
 #if defined(__GNUC__) && __GNUC__ >= 4

@@ -310,11 +310,8 @@ void tracing_request_shutdown()
 
 void *tideways_malloc (size_t size)
 {
-    xhprof_frame_t *current_frame = TXRG(callgraph_frames);
-    if (current_frame) {
-        current_frame->num_alloc += 1;
-        current_frame->amount_alloc += size;
-    }
+    TXRG(num_alloc) += 1;
+    TXRG(amount_alloc) += size;
 
     if (_zend_malloc) {
         return _zend_malloc(size);
@@ -326,10 +323,7 @@ void *tideways_malloc (size_t size)
 
 void tideways_free (void *ptr)
 {
-    xhprof_frame_t *current_frame = TXRG(callgraph_frames);
-    if (current_frame) {
-        current_frame->num_free += 1;
-    }
+    TXRG(num_free) += 1;
 
     if (_zend_free) {
         return _zend_free(ptr);
@@ -341,13 +335,10 @@ void tideways_free (void *ptr)
 
 void *tideways_realloc (void *ptr, size_t size)
 {
-    xhprof_frame_t *current_frame = TXRG(callgraph_frames);
-    if (current_frame) {
-        current_frame->num_alloc += 1;
-        current_frame->num_free += 1;
-        current_frame->amount_alloc += size;
-    }
-    
+    TXRG(num_alloc) += 1;
+    TXRG(num_free) += 1;
+    TXRG(amount_alloc) += size;
+
     if (_zend_realloc) {
         return _zend_realloc(ptr, size);
     }
