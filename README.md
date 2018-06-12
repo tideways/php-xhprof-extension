@@ -48,7 +48,7 @@ You can install the extension from source:
 
 Configure the extension to load with this PHP INI directive:
 
-    extension=tideways_xhprof.so
+    extension=tideways.so
 
 Restart Apache or PHP-FPM.
 
