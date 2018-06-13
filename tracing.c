@@ -301,6 +301,10 @@ void tracing_request_init(TSRMLS_D)
     TXRG(enabled) = 0;
     TXRG(flags) = 0;
     TXRG(frame_free_list) = NULL;
+
+    TXRG(num_alloc) = 0;
+    TXRG(num_free) = 0;
+    TXRG(amount_alloc) = 0;
 }
 
 void tracing_request_shutdown()
