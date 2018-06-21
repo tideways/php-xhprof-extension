@@ -42,6 +42,26 @@ PHP_FUNCTION(tideways_xhprof_disable)
     tracing_callgraph_append_to_array(return_value TSRMLS_CC);
 }
 
+PHP_FUNCTION(tideways_xhprof_begin_frame)
+{
+	zend_string *symbol;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "S", &symbol) == FAILURE) {
+		return;
+	}
+
+	if (TXRG(enabled)) {
+		tracing_enter_frame_callgraph(symbol, NULL TSRMLS_CC);
+	}
+}
+
+PHP_FUNCTION(tideways_xhprof_end_frame)
+{
+	if (TXRG(callgraph_frames)) {
+		tracing_exit_frame_callgraph(TSRMLS_C);
+	}
+}
+
 PHP_GINIT_FUNCTION(tideways_xhprof)
 {
 #if defined(COMPILE_DL_TIDEWAYS_XHPROF) && defined(ZTS)
@@ -203,6 +223,9 @@ ZEND_DLEXPORT void tideways_xhprof_execute_ex (zend_execute_data *execute_data) 
 const zend_function_entry tideways_xhprof_functions[] = {
     PHP_FE(tideways_xhprof_enable,	NULL)
     PHP_FE(tideways_xhprof_disable,	NULL)
+    PHP_FE(tideways_xhprof_begin_frame, NULL)
+    PHP_FE(tideways_xhprof_end_frame, NULL)
+
     PHP_FE_END
 };
 
