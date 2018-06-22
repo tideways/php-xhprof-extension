@@ -64,9 +64,11 @@ tideways_xhprof_enable();
 
 my_application();
 
-$data = tideways_xhprof_disable();
+file_put_contents(
+    sys_get_temp_dir() . DIRECTORY_SEPARATOR . uniqid() . '.myapplication.xhprof',
+    serialize(tideways_xhprof_disable())
+);
 
-file_put_contents("/tmp/profile.xhprof", serialize($data));
 ```
 
 By default only wall clock time is measured, you can enable
@@ -79,7 +81,10 @@ tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_MEMORY | TIDEWAYS_XHPROF_FLAGS_CPU)
 
 my_application();
 
-$data = tideways_xhprof_disable();
+file_put_contents(
+    sys_get_temp_dir() . DIRECTORY_SEPARATOR . uniqid() . '.myapplication.xhprof',
+    serialize(tideways_xhprof_disable())
+);
 ```
 
 ## Data-Format
