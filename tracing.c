@@ -309,7 +309,7 @@ void tracing_request_init(TSRMLS_D)
 
 void tracing_request_shutdown()
 {
-    tracing_free_the_free_list();
+    tracing_free_the_free_list(TSRMLS_C);
 }
 
 void *tideways_malloc (size_t size)
