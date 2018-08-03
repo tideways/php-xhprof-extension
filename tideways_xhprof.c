@@ -24,8 +24,9 @@ PHP_INI_END()
 PHP_FUNCTION(tideways_xhprof_enable)
 {
     zend_long flags = 0;
+    zval zOptions;
 
-    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|l", &flags) == FAILURE) {
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|lz", &flags, &zOptions) == FAILURE) {
         return;
     }
 
@@ -40,6 +41,26 @@ PHP_FUNCTION(tideways_xhprof_disable)
     array_init(return_value);
 
     tracing_callgraph_append_to_array(return_value TSRMLS_CC);
+}
+
+PHP_FUNCTION(tideways_xhprof_begin_frame)
+{
+	zend_string *symbol;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "S", &symbol) == FAILURE) {
+		return;
+	}
+
+	if (TXRG(enabled)) {
+		tracing_enter_frame_callgraph(symbol, NULL TSRMLS_CC);
+	}
+}
+
+PHP_FUNCTION(tideways_xhprof_end_frame)
+{
+	if (TXRG(callgraph_frames)) {
+		tracing_exit_frame_callgraph(TSRMLS_C);
+	}
 }
 
 PHP_GINIT_FUNCTION(tideways_xhprof)
@@ -63,6 +84,11 @@ PHP_MINIT_FUNCTION(tideways_xhprof)
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_NO_BUILTINS", TIDEWAYS_XHPROF_FLAGS_NO_BUILTINS, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC", TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU", TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU, CONST_CS | CONST_PERSISTENT);
+
+#ifdef TNPROF
+    REGISTER_LONG_CONSTANT("TNPROF_FLAGS_MEMORY", TIDEWAYS_XHPROF_FLAGS_MEMORY, CONST_CS | CONST_PERSISTENT);
+    REGISTER_LONG_CONSTANT("TNPROF_FLAGS_CPU", TIDEWAYS_XHPROF_FLAGS_CPU, CONST_CS | CONST_PERSISTENT);
+#endif
 
     _zend_execute_internal = zend_execute_internal;
     zend_execute_internal = tideways_xhprof_execute_internal;
@@ -203,12 +229,28 @@ ZEND_DLEXPORT void tideways_xhprof_execute_ex (zend_execute_data *execute_data) 
 const zend_function_entry tideways_xhprof_functions[] = {
     PHP_FE(tideways_xhprof_enable,	NULL)
     PHP_FE(tideways_xhprof_disable,	NULL)
+    PHP_FE(tideways_xhprof_begin_frame, NULL)
+    PHP_FE(tideways_xhprof_end_frame, NULL)
+
+#ifdef TNPROF
+    /* Aliases */
+
+	PHP_FALIAS(tnprof_enable, tideways_xhprof_enable, NULL)
+	PHP_FALIAS(tnprof_disable, tideways_xhprof_disable, NULL)
+    PHP_FALIAS(tnprof_function_begin, tideways_xhprof_begin_frame, NULL)
+    PHP_FALIAS(tnprof_function_end, tideways_xhprof_end_frame, NULL)
+#endif
+
     PHP_FE_END
 };
 
 zend_module_entry tideways_xhprof_module_entry = {
     STANDARD_MODULE_HEADER,
+#ifndef TNPROF
     "tideways_xhprof",
+#else
+	"tnprof",
+#endif
     tideways_xhprof_functions,
     PHP_MINIT(tideways_xhprof),
     PHP_MSHUTDOWN(tideways_xhprof),
