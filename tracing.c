@@ -123,7 +123,7 @@ xhprof_callgraph_bucket *tracing_callgraph_bucket_find(xhprof_callgraph_bucket *
         if (bucket->key == key &&
             bucket->child_recurse_level == current_frame->recurse_level &&
             bucket->child_class == current_frame->class_name &&
-            bucket->child_function == current_frame->function_name) {
+            zend_string_equals(bucket->child_function, current_frame->function_name)) {
 
             if (previous == NULL && bucket->parent_class == NULL && bucket->parent_function == NULL ) {
                 // special handling for the root
@@ -131,7 +131,7 @@ xhprof_callgraph_bucket *tracing_callgraph_bucket_find(xhprof_callgraph_bucket *
             } else if (previous &&
                        previous->recurse_level == bucket->parent_recurse_level &&
                        previous->class_name == bucket->parent_class &&
-                       previous->function_name == bucket->parent_function) {
+                       zend_string_equals(previous->function_name, bucket->parent_function)) {
                 // parent matches as well
                 return bucket;
             }

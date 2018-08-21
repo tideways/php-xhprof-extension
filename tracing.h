@@ -143,7 +143,7 @@ zend_always_inline static int tracing_enter_frame_callgraph(zend_string *root_sy
     if (TXRG(function_hash_counters)[current_frame->hash_code] > 0) {
         /* Find this symbols recurse level */
         for(p = current_frame->previous_frame; p; p = p->previous_frame) {
-            if (current_frame->function_name == p->function_name && (!current_frame->class_name || current_frame->class_name == p->class_name)) {
+            if (zend_string_equals(current_frame->function_name, p->function_name) && (!current_frame->class_name || current_frame->class_name == p->class_name)) {
                 recurse_level = (p->recurse_level) + 1;
                 break;
             }
