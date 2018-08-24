@@ -51,7 +51,7 @@ setlocal enableextensions enabledelayedexpansion
 			if not "%%l"=="" (
 				set line=%%l
 				if "!line:~8,27!"=="PHP_TIDEWAYS_XHPROF_VERSION" (
-					set APPVEYOR_REPO_TAG_NAME=!line:~39,-1!-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_REPO_COMMIT:~0,8%
+					set APPVEYOR_REPO_TAG_NAME=!line:~38,-1!-%APPVEYOR_REPO_BRANCH%-%APPVEYOR_REPO_COMMIT:~0,8%
 				)
 			)
 		)
