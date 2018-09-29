@@ -211,7 +211,15 @@ zend_always_inline static void tracing_exit_frame_callgraph(TSRMLS_D)
     }
 
     if (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_MEMORY_MU) {
-        bucket->memory += (zend_memory_usage(0 TSRMLS_CC) - current_frame->mu_start);
+
+        int currentMemoryInterceptValue = zend_memory_usage(0 TSRMLS_CC) - current_frame->mu_start;
+
+        if (currentMemoryInterceptValue > 0 ){
+
+            bucket->memory += currentMemoryInterceptValue;
+
+        }
+
     }
 
     if (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_MEMORY_PMU) {
