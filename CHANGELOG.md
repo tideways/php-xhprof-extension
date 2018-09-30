@@ -1,3 +1,7 @@
+# Version 4.1.7
+
+- Add support for PHP 7.3
+
 # Version 4.1.6
 
 - Fix Elasticsearch Instrumentation on v5+ has moved resultOrFuture to a new class.

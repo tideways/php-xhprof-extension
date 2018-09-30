@@ -1,5 +1,10 @@
 --TEST--
 Tideways: Check for Garbage Collection overhead
+--SKIPIF--
+<?php
+if (PHP_VERSION_ID >= 70300) {
+    echo "skip: garbage collection not supported right now with 7.3+\n";
+}
 --FILE--
 <?php
 

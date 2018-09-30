@@ -179,9 +179,18 @@ static zend_always_inline void zend_string_release(zend_string *s)
 #define register_trace_callback(function_name, cb) zend_hash_str_update_mem(TWG(trace_callbacks), function_name, strlen(function_name), &cb, sizeof(tw_trace_callback));
 #define register_trace_callback_len(function_name, len, cb) zend_hash_str_update_mem(TWG(trace_callbacks), function_name, len, &cb, sizeof(tw_trace_callback));
 
+#ifndef GC_ADDREF
+#define GC_ADDREF(p) (GC_REFCOUNT(p)++)
+#endif
+
 typedef size_t strsize_t;
 /* removed/uneeded macros */
 #define TSRMLS_CC
+#endif
+
+#if PHP_VERSION_ID < 70300
+#define php_pcre_pce_incref(pce) pce->refcount++
+#define php_pcre_pce_decref(pce) pce->refcount--
 #endif
 
 static zend_always_inline zval* zend_compat_hash_find_const(HashTable *ht, const char *key, strsize_t len)
@@ -855,7 +864,11 @@ long tw_trace_callback_mongodb_connect(char *symbol, zend_execute_data *data TSR
 
     tw_span_annotate_string(idx, "op", "connect", 1 TSRMLS_CC);
     if (url->host) {
+#if PHP_VERSION_ID >= 70300
+        tw_span_annotate_string(idx, "host", ZSTR_VAL(url->host), 1 TSRMLS_CC);
+#else
         tw_span_annotate_string(idx, "host", url->host, 1 TSRMLS_CC);
+#endif
     }
     if (url->port) {
         tw_span_annotate_long(idx, "port", url->port TSRMLS_CC);
@@ -1711,14 +1724,16 @@ zend_string *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC
     zend_string *pattern_str;
 
     pattern_str = zend_string_init(pattern, len, 0);
+    pce = pcre_get_compiled_regex_cache(pattern_str);
 
-    if ((pce = pcre_get_compiled_regex_cache(pattern_str)) == NULL) {
+    if (pce == NULL) {
         zend_string_release(pattern_str);
         return NULL;
     }
 #else
+    pce = pcre_get_compiled_regex_cache(pattern, len TSRMLS_CC)
 
-    if ((pce = pcre_get_compiled_regex_cache(pattern, len TSRMLS_CC)) == NULL) {
+    if (pce == NULL) {
         return NULL;
     }
 #endif
@@ -1726,9 +1741,9 @@ zend_string *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC
     _ALLOC_INIT_ZVAL(return_value);
     _ALLOC_INIT_ZVAL(subpats);
 
-    pce->refcount++;
+    php_pcre_pce_incref(pce);
     tw_pcre_match_impl(pce, subject, return_value, subpats, 0, 1, 0, 0);
-    pce->refcount--;
+    php_pcre_pce_decref(pce);
 
     if (Z_LVAL_P(return_value) > 0 && Z_TYPE_P(subpats) == IS_ARRAY) {
         match = zend_compat_hash_index_find(Z_ARRVAL_P(subpats), 1);
@@ -2681,8 +2696,10 @@ void hp_init_trace_callbacks(TSRMLS_D)
     cb = tw_trace_callback_predis_call;
     register_trace_callback("Predis\\Client::__call", cb);
 
+#if PHP_VERSION_ID < 70300
     TWG(gc_runs) = GC_G(gc_runs);
     TWG(gc_collected) = GC_G(collected);
+#endif
     TWG(compile_count) = 0;
     TWG(compile_wt) = 0;
 }
@@ -2995,14 +3012,22 @@ static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC)
     }
 
     if (url->scheme) {
+#if PHP_VERSION_ID >= 70300
+        snprintf(ret, len, "%s%s://", ret, ZSTR_VAL(url->scheme));
+#else
         snprintf(ret, len, "%s%s://", ret, url->scheme);
+#endif
     } else {
         php_url_free(url);
         return ret;
     }
 
     if (url->host) {
+#if PHP_VERSION_ID >= 70300
+        snprintf(ret, len, "%s%s", ret, ZSTR_VAL(url->host));
+#else
         snprintf(ret, len, "%s%s", ret, url->host);
+#endif
     }
 
     if (url->port) {
@@ -3010,7 +3035,11 @@ static char *hp_get_file_summary(char *filename, int filename_len TSRMLS_DC)
     }
 
     if (url->path) {
+#if PHP_VERSION_ID >= 70300
+        snprintf(ret, len, "%s%s", ret, ZSTR_VAL(url->path));
+#else
         snprintf(ret, len, "%s%s", ret, url->path);
+#endif
     }
 
     php_url_free(url);
@@ -3811,10 +3840,12 @@ static void hp_stop(TSRMLS_D)
     tw_span_timer_stop(0 TSRMLS_CC);
 
     if ((TWG(tideways_flags) & TIDEWAYS_FLAGS_NO_SPANS) == 0) {
+#if PHP_VERSION_ID < 70300
         if ((GC_G(gc_runs) - TWG(gc_runs)) > 0) {
             tw_span_annotate_long(0, "gc", GC_G(gc_runs) - TWG(gc_runs) TSRMLS_CC);
             tw_span_annotate_long(0, "gcc", GC_G(collected) - TWG(gc_collected) TSRMLS_CC);
         }
+#endif
 
         if (TWG(compile_count) > 0) {
             tw_span_annotate_long(0, "cct", TWG(compile_count) TSRMLS_CC);
@@ -4125,7 +4156,7 @@ PHP_FUNCTION(tideways_span_callback)
         Z_TRY_ADDREF(fci.function_name);
 
         if (fci.object != NULL) {
-            GC_REFCOUNT(fci.object)++;
+            GC_ADDREF(fci.object);
         }
     }
 #endif

@@ -34,7 +34,7 @@ extern zend_module_entry tideways_module_entry;
 #endif
 
 /* Tideways version                           */
-#define TIDEWAYS_VERSION       "4.1.6"
+#define TIDEWAYS_VERSION       "4.1.7"
 
 /* Fictitious function name to represent top of the call tree. The paranthesis
  * in the name is to ensure we don't conflict with user function names.  */
