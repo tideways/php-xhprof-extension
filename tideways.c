@@ -1731,7 +1731,7 @@ zend_string *tw_pcre_match(char *pattern, strsize_t len, zval *subject TSRMLS_DC
         return NULL;
     }
 #else
-    pce = pcre_get_compiled_regex_cache(pattern, len TSRMLS_CC)
+    pce = pcre_get_compiled_regex_cache(pattern, len TSRMLS_CC);
 
     if (pce == NULL) {
         return NULL;
