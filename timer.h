@@ -53,6 +53,9 @@ static zend_always_inline uint64 time_milliseconds(int source, double timebase_f
     struct timespec s;
     uint32 a, d;
     uint64 val;
+#if defined(__i386__)
+    int64_t ret;
+#endif
 
     switch (source) {
 #if HAVE_CLOCK_GETTIME
@@ -76,7 +79,6 @@ static zend_always_inline uint64 time_milliseconds(int source, double timebase_f
 #endif
         case TIDEWAYS_XHPROF_CLOCK_TSC:
 #if defined(__i386__)
-            int64_t ret;
             __asm__ volatile("rdtsc" : "=A"(ret));
             return ret;
 #elif defined(__x86_64__) || defined(__amd64__)
