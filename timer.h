@@ -38,8 +38,14 @@ static zend_always_inline uint64 current_timestamp() {
  * @author cjiang
  */
 static zend_always_inline uint64 time_milliseconds(int source, double timebase_factor) {
-#ifdef __APPLE__
+#if defined(_APPLE__)
     return mach_absolute_time() / timebase_factor;
+#elif defined(__s390__) // Covers both s390 and s390x.
+    uint64_t tsc;
+    // Return the CPU clock.
+    asm("stck %0" : "=Q" (tsc) : : "cc");
+
+    return tsc;
 #elif defined(PHP_WIN32)
 
     LARGE_INTEGER count;
@@ -49,12 +55,14 @@ static zend_always_inline uint64 time_milliseconds(int source, double timebase_f
     }
 
     return (double)(count.QuadPart) / timebase_factor;
-#else
+#elif defined(__x86_64__) || defined(__amd64__)
     struct timespec s;
     uint32 a, d;
     uint64 val;
-#if defined(__i386__)
+#elif defined(__i386__)
     int64_t ret;
+#elif defined(__ARM_ARCH)
+    struct timeval tv;
 #endif
 
     switch (source) {
@@ -84,17 +92,19 @@ static zend_always_inline uint64 time_milliseconds(int source, double timebase_f
 #elif defined(__x86_64__) || defined(__amd64__)
             asm volatile("rdtsc" : "=a" (a), "=d" (d));
             (val) = ((uint64)a) | (((uint64)d)<<32);
+            return val / timebase_factor;
 #elif defined(__powerpc__) || defined(__ppc__)
             asm volatile ("mftb %0" : "=r" (val));
-#else
-#error You need to define CycleTimer for your OS and CPU
-#endif
             return val / timebase_factor;
-
+#elif defined(__ARM_ARCH)
+            gettimeofday(&tv, NULL);
+            return (tv.tv_sec) * 1000000 + tv.tv_usec;
+#else
+            return 0;
+#endif
         default:
             return 0;
     }
-#endif
 }
 
 /**
