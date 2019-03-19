@@ -52,6 +52,8 @@ Configure the extension to load with this PHP INI directive:
 
 Restart Apache or PHP-FPM.
 
+If you are using [Homebrew](https://brew.sh) have look at [tideways/homebrew-profiler](https://github.com/tideways/homebrew-profiler) tap.
+
 ## Usage
 
 The API is not compatible to previous xhprof extensions and forks,
