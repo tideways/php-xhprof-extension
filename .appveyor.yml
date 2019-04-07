@@ -28,11 +28,6 @@ environment:
       ZTS_STATE: enable
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       PHP_BUILD_CRT: vc14
-    - PHP_REL: 7.0
-      ARCHITECTURE: x64
-      ZTS_STATE: enable
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
-      PHP_BUILD_CRT: vc14
     - PHP_REL: 7.3
       ARCHITECTURE: x64
       ZTS_STATE: disable
@@ -44,11 +39,6 @@ environment:
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       PHP_BUILD_CRT: vc15
     - PHP_REL: 7.1
-      ARCHITECTURE: x64
-      ZTS_STATE: disable
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
-      PHP_BUILD_CRT: vc14
-    - PHP_REL: 7.0
       ARCHITECTURE: x64
       ZTS_STATE: disable
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
@@ -68,11 +58,6 @@ environment:
       ZTS_STATE: enable
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       PHP_BUILD_CRT: vc14
-    - PHP_REL: 7.0
-      ARCHITECTURE: x86
-      ZTS_STATE: enable
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
-      PHP_BUILD_CRT: vc14
     - PHP_REL: 7.3
       ARCHITECTURE: x86
       ZTS_STATE: disable
@@ -84,11 +69,6 @@ environment:
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       PHP_BUILD_CRT: vc15
     - PHP_REL: 7.1
-      ARCHITECTURE: x86
-      ZTS_STATE: disable
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
-      PHP_BUILD_CRT: vc14
-    - PHP_REL: 7.0
       ARCHITECTURE: x86
       ZTS_STATE: disable
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
