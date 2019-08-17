@@ -83,6 +83,8 @@ PHP_RINIT_FUNCTION(tideways_xhprof)
     tracing_request_init(TSRMLS_C);
     tracing_determine_clock_source(TSRMLS_C);
 
+    CG(compiler_options) = CG(compiler_options) | ZEND_COMPILE_NO_BUILTINS;
+
     return SUCCESS;
 }
 
