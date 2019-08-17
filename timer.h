@@ -24,6 +24,8 @@ static int determine_clock_source(int clock_use_rdtsc) {
     return TIDEWAYS_XHPROF_CLOCK_TSC;
 #elif defined(__s390__) // Covers both s390 and s390x.
     return TIDEWAYS_XHPROF_CLOCK_TSC;
+#elif defined(__ARM_ARCH)
+    return TIDEWAYS_XHPROF_CLOCK_GTOD;
 #elif defined(PHP_WIN32)
     return TIDEWAYS_XHPROF_CLOCK_QPC;
 #else
@@ -65,11 +67,6 @@ static zend_always_inline uint64 time_milliseconds_cgt()
 
     if (clock_gettime(CLOCK_MONOTONIC, &s) == 0) {
         return s.tv_sec * 1000000 + s.tv_nsec / 1000;
-    } else {
-        struct timeval now;
-        if (gettimeofday(&now, NULL) == 0) {
-            return now.tv_sec * 1000000 + now.tv_usec;
-        }
     }
 #endif
 
@@ -111,10 +108,6 @@ static zend_always_inline uint64 time_milliseconds_tsc_query()
     uint64 val;
     asm volatile ("mftb %0" : "=r" (val));
     return val;
-#elif defined(__ARM_ARCH)
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (tv.tv_sec) * 1000000 + tv.tv_usec;
 #else
     return 0;
 #endif
