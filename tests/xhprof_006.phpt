@@ -36,7 +36,7 @@ $output = tideways_xhprof_disable();
 print_canonical($output);
 --EXPECTF--
 string(1) "1"
-Clock Source => tsc
+Clock Source => %s
 main()                                  : ct=       1; wt=*;
 main()==>foo                            : ct=       1; wt=*;
 main()==>tideways_xhprof_disable        : ct=       1; wt=*;
