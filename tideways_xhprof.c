@@ -18,7 +18,7 @@ ZEND_DLEXPORT void tideways_xhprof_execute_internal(zend_execute_data *execute_d
 ZEND_DLEXPORT void tideways_xhprof_execute_ex (zend_execute_data *execute_data);
 
 PHP_INI_BEGIN()
-    STD_PHP_INI_ENTRY("tideways_xhprof.clock_use_rdtsc", "0", PHP_INI_ALL, OnUpdateBool, clock_use_rdtsc, zend_tideways_xhprof_globals, tideways_xhprof_globals)
+    STD_PHP_INI_ENTRY("tideways_xhprof.clock_use_rdtsc", "0", PHP_INI_SYSTEM, OnUpdateBool, clock_use_rdtsc, zend_tideways_xhprof_globals, tideways_xhprof_globals)
 PHP_INI_END()
 
 PHP_FUNCTION(tideways_xhprof_enable)
@@ -81,7 +81,7 @@ PHP_MSHUTDOWN_FUNCTION(tideways_xhprof)
 PHP_RINIT_FUNCTION(tideways_xhprof)
 {
     tracing_request_init(TSRMLS_C);
-    tracing_determine_clock_source(TSRMLS_C);
+    TXRG(clock_source) = determine_clock_source(TXRG(clock_use_rdtsc));
 
     CG(compiler_options) = CG(compiler_options) | ZEND_COMPILE_NO_BUILTINS;
 

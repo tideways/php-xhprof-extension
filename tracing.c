@@ -20,26 +20,6 @@ void *tideways_malloc (size_t size);
 void tideways_free (void *ptr);
 void *tideways_realloc (void *ptr, size_t size);
 
-void tracing_determine_clock_source(TSRMLS_D) {
-#ifdef __APPLE__
-    TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_MACH;
-#elif defined(__powerpc__) || defined(__ppc__)
-    TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_TSC;
-#elif defined(PHP_WIN32)
-    TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_QPC;
-#else
-    struct timespec res;
-
-    if (TXRG(clock_use_rdtsc) == 1) {
-        TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_TSC;
-    } else if (clock_gettime(CLOCK_MONOTONIC, &res) == 0) {
-        TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_CGT;
-    } else {
-        TXRG(clock_source) = TIDEWAYS_XHPROF_CLOCK_GTOD;
-    }
-#endif
-}
-
 /**
  * Free any items in the free list.
  */
