@@ -2,23 +2,19 @@
 
 Home of the `tideways_xhprof` extension - a hierarchical Profiler for PHP.
 
-**Looking for `tideways` Extension to report to tideways.io?** [Go here](https://tideways.io/profiler/downloads).
-**Why did we rename the extension?** [Blog post here](https://tideways.io/profiler/blog/releasing-new-tideways-xhprof-extension).
+**This extensions is not compatible with our Tideways service. Are you looking
+for `tideways` Extension to use with tideways.com?** [Download here](https://tideways.io/profiler/downloads).
 
 This PHP extension is a complete, modernized open-source rewrite of the
 original XHProf extension, with a new core datastructure and specifically
 optimized for PHP 7. The result is an XHProf data-format compatible extension
 with a much reduced overhead in the critical path that you are profiling.
 
-The code for this extension is extracted from the [main Tideways
-extension](https://tideways.io) as we are moving to a new extension with
-incompatible data-format.
-
 We are committed to provide support for this extension and port it to as many
 platforms as possible.
 
 **Note:** The public API is not compatible to previous xhprof extensions and
-forks, as function names are different. Only the data format is compatible.
+forks, but function names are different. Only the data format is compatible.
 
 ## About tideways and tideways_xhprof Extensions
 
@@ -36,6 +32,7 @@ page](https://tideways.io/profiler/downloads).
 
 - PHP >= 7.0
 - OS: Linux, MacOS, Windows ([Download DLLs](https://ci.appveyor.com/project/tideways/php-profiler-extension))
+- Architectures: x64/amd64, x86, ARM, PowerPC
 
 ## Installation
 
