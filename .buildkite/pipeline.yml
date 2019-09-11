@@ -92,3 +92,12 @@ steps:
           phpbuild: "no-debug"
           queue: "build"
           arch: "i386"
+
+    - wait
+
+    - label: ":package::debian: amd64"
+      command: ./package_extension.sh
+      agents:
+          queue: "build"
+          phpbuild: "no-debug"
+          arch: "x86_64"

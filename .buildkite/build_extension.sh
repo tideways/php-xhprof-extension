@@ -9,4 +9,7 @@ make distclean || true
 CFLAGS="-O2" ./configure --with-php-config=/opt/php/php-${PHP_VERSION}/bin/php-config
 make -j2
 
+cp modules/tideways.so modules/tideways-xhprof-${PHP_VERSION}.so
+buildkite-agent artifact upload modules/tideways-xhprof-${PHP_VERSION}.so
+
 REPORT_EXIT_STATUS=1 /opt/php/php-${PHP_VERSION}/bin/php run-tests.php -p /opt/php/php-${PHP_VERSION}/bin/php --show-diff -d extension=`pwd`/.libs/tideways_xhprof.so -q
