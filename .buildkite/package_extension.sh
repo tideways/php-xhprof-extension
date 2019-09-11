@@ -2,11 +2,11 @@
 
 set -e
 
-BASEDIR=`dirname $0`
+BASEDIR=`dirname $0/..`
 PACKAGENAME="tideways-xhprof"
 DESCRIPTION="tideways-xhprof is a modern XHProf fork built for PHP 7."
 EXTENSION="tideways_xhprof"
-VERSIONS=( "7.0" "7.1" "7.2" "7.3" "7.0-zts" "7.1-zts" "7.2-zts" "7.3-zts" )
+VERSIONS=( "7.0" "7.1" "7.2" "7.3" "7.1-zts" "7.2-zts" "7.3-zts" )
 PACKAGES=( "deb" "rpm" )
 ARCHITECTURE=`uname -m`
 ARCHITECTURE=${ARCHITECTURE/686/386}
@@ -29,8 +29,8 @@ mkdir packaging/tarball/${EXTENSION}-${EXTVERSION} -p
 cp modules/*.so packaging/tarball/${EXTENSION}-${EXTVERSION}/
 cp modules/*.so packaging/root/usr/lib/${EXTENSION}/
 
-cp ../LICENSE packaging/tarball/${EXTENSION}-${EXTVERSION}/LICENSE || true
-cp ../NOTICE packaging/tarball/${EXTENSION}-${EXTVERSION}/NOTICE || true
+cp LICENSE packaging/tarball/${EXTENSION}-${EXTVERSION}/LICENSE || true
+cp NOTICE packaging/tarball/${EXTENSION}-${EXTVERSION}/NOTICE || true
 
 cp ../LICENSE packaging/root/usr/share/doc/${PACKAGENAME}/LICENSE || true
 cp ../NOTICE packaging/root/usr/share/doc/${PACKAGENAME}/NOTICE || true
