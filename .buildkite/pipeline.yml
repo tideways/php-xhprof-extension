@@ -96,7 +96,7 @@ steps:
     - wait
 
     - label: ":package::debian: amd64"
-      command: ./package_extension.sh
+      command: ./.buildkite/package_extension.sh
       agents:
           queue: "build"
           phpbuild: "no-debug"
