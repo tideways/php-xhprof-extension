@@ -29,13 +29,11 @@ mkdir packaging/tarball/${EXTENSION}-${EXTVERSION} -p
 cp modules/*.so packaging/tarball/${EXTENSION}-${EXTVERSION}/
 cp modules/*.so packaging/root/usr/lib/${EXTENSION}/
 
-cp LICENSE packaging/tarball/${EXTENSION}-${EXTVERSION}/LICENSE || true
-cp NOTICE packaging/tarball/${EXTENSION}-${EXTVERSION}/NOTICE || true
-cp config/${EXTENSION}.ini packaging/tarball/${EXTENSION}-${EXTVERSION}/${EXTENSION}.ini || true
+cp ../LICENSE packaging/tarball/${EXTENSION}-${EXTVERSION}/LICENSE || true
+cp ../NOTICE packaging/tarball/${EXTENSION}-${EXTVERSION}/NOTICE || true
 
-cp LICENSE packaging/root/usr/share/doc/${PACKAGENAME}/LICENSE || true
-cp NOTICE packaging/root/usr/share/doc/${PACKAGENAME}/NOTICE || true
-cp config/${EXTENSION}.ini packaging/root/usr/lib/${EXTENSION}/${EXTENSION}.ini || true
+cp ../LICENSE packaging/root/usr/share/doc/${PACKAGENAME}/LICENSE || true
+cp ../NOTICE packaging/root/usr/share/doc/${PACKAGENAME}/NOTICE || true
 
 pushd .
 
