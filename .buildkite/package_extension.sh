@@ -11,6 +11,8 @@ PACKAGES=( "deb" "rpm" )
 ARCHITECTURE=`uname -m`
 ARCHITECTURE=${ARCHITECTURE/686/386}
 
+buildkite-agent artifact download "modules/*.so" .
+
 mkdir packaging/dist -p
 mkdir packaging/root/usr/lib/${EXTENSION} -p
 mkdir packaging/root/usr/share/doc/${PACKAGENAME} -p
@@ -24,7 +26,6 @@ done
 
 mkdir packaging/tarball/${EXTENSION}-${EXTVERSION} -p
 
-buildkite-agent artifact download "modules/*.so" . --step=${BUILDKITE_JOB_ID}
 cp modules/*.so packaging/tarball/${EXTENSION}-${EXTVERSION}/
 cp modules/*.so packaging/root/usr/lib/${EXTENSION}/
 
