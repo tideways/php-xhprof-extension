@@ -7,42 +7,49 @@ steps:
       agents:
           phpbuild: "no-debug"
           queue: "build"
+          arch: "x86_64"
 
     - label: ":php: 7.2 amd64"
       command: ./.buildkite/build_extension.sh 7.2
       agents:
           phpbuild: "no-debug"
           queue: "build"
+          arch: "x86_64"
 
     - label: ":php: 7.1 amd64"
       command: ./.buildkite/build_extension.sh 7.1
       agents:
           phpbuild: "no-debug"
           queue: "build"
+          arch: "x86_64"
 
     - label: ":php: 7.0 amd64"
       command: ./.buildkite/build_extension.sh 7.0
       agents:
           phpbuild: "no-debug"
           queue: "build"
+          arch: "x86_64"
 
     - label: ":php: 7.3-zts amd64"
       command: ./.buildkite/build_extension.sh 7.3-zts
       agents:
           phpbuild: "no-debug"
           queue: "build"
+          arch: "x86_64"
 
     - label: ":php: 7.2-zts amd64"
       command: ./.buildkite/build_extension.sh 7.2-zts
       agents:
           phpbuild: "no-debug"
           queue: "build"
+          arch: "x86_64"
 
     - label: ":php: 7.1-zts amd64"
       command: ./.buildkite/build_extension.sh 7.1-zts
       agents:
           phpbuild: "no-debug"
           queue: "build"
+          arch: "x86_64"
 
     - wait
 
