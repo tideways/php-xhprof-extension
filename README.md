@@ -33,6 +33,7 @@ page](https://tideways.io/profiler/downloads).
 - PHP >= 7.0
 - OS: Linux, MacOS, Windows ([Download DLLs](https://ci.appveyor.com/project/tideways/php-profiler-extension))
 - Architectures: x64/amd64, x86, ARM, PowerPC
+- Non-Threaded (NTS) or Threaded (ZTS) support
 
 ## Installation
 
@@ -48,6 +49,15 @@ Configure the extension to load with this PHP INI directive:
     extension=tideways_xhprof.so
 
 Restart Apache or PHP-FPM.
+
+### Download Pre-Compiled Binaries
+
+We pre-compile binaries for Linux AMD64 and for Windows. See the [releases page for the downloads](https://github.com/tideways/php-xhprof-extension/releases) for each tagged version.
+
+The Debian and RPM packages install the PHP extension to `/usr/lib/tideways_xhprof` and doesn't automatically put it into your PHP installation extension directory.
+You should link the package by full path for a simple installation:
+
+    extension=/usr/lib/tideways_xhprof/tideways_xhprof-7.3.so
 
 ## Usage
 
