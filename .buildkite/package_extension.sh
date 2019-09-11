@@ -2,7 +2,8 @@
 
 set -e
 
-BASEDIR=`dirname $0/..`
+BASEDIR=`dirname $0`
+BASEDIR=`dirname $BASEDIR`
 PACKAGENAME="tideways-xhprof"
 DESCRIPTION="tideways-xhprof is a modern XHProf fork built for PHP 7."
 EXTENSION="tideways_xhprof"
