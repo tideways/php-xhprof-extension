@@ -121,7 +121,7 @@ static zend_always_inline uint64 time_milliseconds_tsc_query()
  */
 static zend_always_inline uint64 time_milliseconds(int source, double timebase_factor)
 {
-#if defined(_APPLE__)
+#if defined(__APPLE__)
 
     return mach_absolute_time() / timebase_factor;
 #elif defined(PHP_WIN32)
