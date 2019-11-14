@@ -46,7 +46,7 @@ setlocal enableextensions enabledelayedexpansion
 	set TEST_PHP_EXECUTABLE=%APPVEYOR_BUILD_FOLDER%\build\php.exe
 	set TEST_PHP_JUNIT=c:\tests_tmp\tests-junit.xml
 	if "%OPCACHE%" equ "1" set TEST_PHP_ARGS=!TEST_PHP_ARGS! -d extension=%APPVEYOR_BUILD_FOLDER%\build\ext\php_opcache.so -d opcache.enable=1 -d opcache.enable_cli=1
-	set TEST_PHP_ARGS=-n -d -foo=1 -d extension=%APPVEYOR_BUILD_FOLDER%\build\ext\php_tideways_xhprof.dll
+	set TEST_PHP_ARGS=-n -d foo=1 -d extension=%APPVEYOR_BUILD_FOLDER%\build\ext\php_tideways_xhprof.dll
 	set SKIP_DBGP_TESTS=1
 	set SKIP_IPV6_TESTS=1
 	set REPORT_EXIT_STATUS=1
