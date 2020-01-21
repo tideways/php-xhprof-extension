@@ -94,6 +94,31 @@ file_put_contents(
 );
 ```
 
+## Rendering with PHPStorm
+
+PHPStorm can render XHProf data when you convert it to Cachegrind first. We
+provide a simple converter class that can do this in one step for you:
+
+```php
+<?php
+
+tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_MEMORY | TIDEWAYS_XHPROF_FLAGS_CPU);
+
+my_application();
+
+require_once 'support/src/CachegrindConverter.php'; // copy file to your project
+file_put_contents(
+    sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'cachegrind.' . uniqid() . '.out',
+    (new \Tideways\Xhprof\CachegrindConverter)->convertToCachegrind(tideways_xhprof_disable())
+);
+```
+
+Then open up PHPStorm "Tools" => "Analyze XDebug Profiler Snapshot..." and open
+the generated file.
+
+Notice: The calls counter will not show the real call count and shows 1 for
+every call in this view instead.
+
 ## Data-Format
 
 The XHProf data format records performance data for each parent => child
