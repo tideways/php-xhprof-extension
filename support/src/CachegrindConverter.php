@@ -100,7 +100,7 @@ class CachegrindConverter
             $this->output .= "cfl=(1)\n";
             $this->output .= "cfn=({$this->aggregations[$child]['num']}) $child\n";
             $this->output .= "calls=1 0 0\n";
-            $this->output .= "1 {$this->data[$callPair]['wt']} {$this->data[$callPair]['ct']}\n";
+            $this->output .= "1 {$this->data[$callPair]['wt']} {$this->data[$callPair]['pmu']}\n";
         }
 
         $this->output .= "\n";
