@@ -163,5 +163,6 @@ is slower compared to other mechanisms that the kernel provides:
   use without having to force the current process to a specific CPU.
 
 Tideways on Linux defaults to using `clock_gettime(CLOCK_MONOTONIC)`, but if
-you are running on Xen based virtualization, you could try to reduce the
-overhead by setting `tideways.clock_use_rdtsc=1" in your PHP.ini.
+you are running on Xen based virtualization or Docker on Mac, you could try to
+reduce the overhead by setting `tideways_xhprof.clock_use_rdtsc=1" in your
+PHP.ini.
