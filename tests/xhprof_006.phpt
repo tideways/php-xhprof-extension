@@ -39,4 +39,3 @@ string(1) "1"
 Clock Source => %s
 main()                                  : ct=       1; wt=*;
 main()==>foo                            : ct=       1; wt=*;
-main()==>tideways_xhprof_disable        : ct=       1; wt=*;

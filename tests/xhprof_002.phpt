@@ -46,7 +46,6 @@ foo@2==>foo@3                           : ct=       1; wt=*;
 foo@3==>foo@4                           : ct=       1; wt=*;
 main()                                  : ct=       1; wt=*;
 main()==>foo                            : ct=       1; wt=*;
-main()==>tideways_xhprof_disable        : ct=       1; wt=*;
 
 Indirect Recursion
 bar==>foo@1                             : ct=       1; wt=*;
@@ -59,4 +58,3 @@ foo@2==>bar@2                           : ct=       1; wt=*;
 foo@3==>bar@3                           : ct=       1; wt=*;
 main()                                  : ct=       1; wt=*;
 main()==>foo                            : ct=       1; wt=*;
-main()==>tideways_xhprof_disable        : ct=       1; wt=*;

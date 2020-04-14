@@ -64,4 +64,3 @@ main()==>C::__construct                 : ct=       1; wt=*;
 main()==>C::__destruct                  : ct=       1; wt=*;
 main()==>C::get_attr                    : ct=       1; wt=*;
 main()==>C::outer_static                : ct=       1; wt=*;
-main()==>tideways_xhprof_disable        : ct=       1; wt=*;
