@@ -198,12 +198,6 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_xhprof_disable, ZEND_SEND_BY_VAL, ZEND_RETURN_VALUE, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_xhprof_enable, ZEND_SEND_BY_VAL, ZEND_RETURN_VALUE, 0)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_xhprof_disable, ZEND_SEND_BY_VAL, ZEND_RETURN_VALUE, 0)
-ZEND_END_ARG_INFO()
-
 const zend_function_entry tideways_xhprof_functions[] = {
     PHP_FE(tideways_xhprof_enable,	arginfo_tideways_xhprof_enable)
     PHP_FE(tideways_xhprof_disable,	arginfo_tideways_xhprof_disable)
