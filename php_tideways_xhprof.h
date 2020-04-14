@@ -14,6 +14,14 @@ extern zend_module_entry tideways_xhprof_module_entry;
 #define TIDEWAYS_XHPROF_CLOCK_QPC 4
 #define TIDEWAYS_XHPROF_CLOCK_NONE 255
 
+#ifndef TSRMLS_CC
+#define TSRMLS_FETCH()
+#define TSRMLS_CC
+#define TSRMLS_DC
+#define TSRMLS_D
+#define TSRMLS_C
+#endif
+
 #ifdef ZTS
 #include "TSRM.h"
 #endif
