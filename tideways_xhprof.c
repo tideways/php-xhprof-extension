@@ -39,10 +39,6 @@ static void tracer_observer_end(zend_execute_data *ex/*, zval *return_value*/) {
 static zend_instrument_handlers tracer_observer_instrument(zend_function *func) {
     zend_instrument_handlers handlers = {NULL, NULL};
 
-    if (!TXRG(enabled) || (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_NO_BUILTINS) > 0) {
-        return handlers;
-    }
-
     if (!func->common.function_name) {
         return handlers;
     }
