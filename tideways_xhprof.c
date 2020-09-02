@@ -11,7 +11,10 @@
 ZEND_DECLARE_MODULE_GLOBALS(tideways_xhprof)
 
 #include "tracing.h"
-#include "Zend/zend_instrument.h"
+#include "Zend/zend_observer.h"
+
+static void (*_zend_execute_internal) (zend_execute_data *execute_data, zval *return_value);
+ZEND_DLEXPORT void tideways_xhprof_execute_internal(zend_execute_data *execute_data, zval *return_value);
 
 PHP_INI_BEGIN()
     STD_PHP_INI_ENTRY("tideways_xhprof.clock_use_rdtsc", "0", PHP_INI_SYSTEM, OnUpdateBool, clock_use_rdtsc, zend_tideways_xhprof_globals, tideways_xhprof_globals)
@@ -25,7 +28,7 @@ static void tracer_observer_begin(zend_execute_data *ex) {
     tracing_enter_frame_callgraph(NULL, ex);
 }
 
-static void tracer_observer_end(zend_execute_data *ex/*, zval *return_value*/) {
+static void tracer_observer_end(zend_execute_data *ex, zval *return_value) {
     if (!TXRG(enabled)) {
         return;
     }
@@ -36,17 +39,12 @@ static void tracer_observer_end(zend_execute_data *ex/*, zval *return_value*/) {
 }
 
 
-static zend_instrument_handlers tracer_observer_instrument(zend_function *func) {
-    zend_instrument_handlers handlers = {NULL, NULL};
-
+static zend_observer_fcall tracer_observer(zend_function *func) {
     if (!func->common.function_name) {
-        return handlers;
+        return (zend_observer_fcall){NULL, NULL};
     }
 
-    handlers.begin = tracer_observer_begin;
-    handlers.end = tracer_observer_end;
-
-    return handlers;
+    return (zend_observer_fcall){tracer_observer_begin, tracer_observer_end};
 }
 
 
@@ -93,7 +91,10 @@ PHP_MINIT_FUNCTION(tideways_xhprof)
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC", TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU", TIDEWAYS_XHPROF_FLAGS_MEMORY_ALLOC_AS_MU, CONST_CS | CONST_PERSISTENT);
 
-    zend_instrument_register(tracer_observer_instrument);
+    _zend_execute_internal = zend_execute_internal;
+    zend_execute_internal = tideways_xhprof_execute_internal;
+
+    zend_observer_fcall_register(tracer_observer);
 
     return SUCCESS;
 }
@@ -186,6 +187,27 @@ PHP_MINFO_FUNCTION(tideways_xhprof)
 
     php_info_print_box_end();
 
+}
+
+ZEND_DLEXPORT void tideways_xhprof_execute_internal(zend_execute_data *execute_data, zval *return_value) {
+    int is_profiling = 1;
+
+    if (!TXRG(enabled) || (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_NO_BUILTINS) > 0) {
+        execute_internal(execute_data, return_value TSRMLS_CC);
+        return;
+    }
+
+    is_profiling = tracing_enter_frame_callgraph(NULL, execute_data TSRMLS_CC);
+
+    if (!_zend_execute_internal) {
+        execute_internal(execute_data, return_value TSRMLS_CC);
+    } else {
+        _zend_execute_internal(execute_data, return_value TSRMLS_CC);
+    }
+
+    if (is_profiling == 1 && TXRG(callgraph_frames)) {
+        tracing_exit_frame_callgraph(TSRMLS_C);
+    }
 }
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_xhprof_enable, ZEND_SEND_BY_VAL, ZEND_RETURN_VALUE, 0)
