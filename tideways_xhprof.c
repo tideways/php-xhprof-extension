@@ -7,11 +7,12 @@
 #include "SAPI.h"
 #include "ext/standard/info.h"
 #include "php_tideways_xhprof.h"
+#include "tideways_xhprof_arginfo.h"
 
 ZEND_DECLARE_MODULE_GLOBALS(tideways_xhprof)
 
 #include "tracing.h"
-#include "Zend/zend_observer.h"
+#include "zend_observer.h"
 
 static void (*_zend_execute_internal) (zend_execute_data *execute_data, zval *return_value);
 ZEND_DLEXPORT void tideways_xhprof_execute_internal(zend_execute_data *execute_data, zval *return_value);
@@ -39,12 +40,14 @@ static void tracer_observer_end(zend_execute_data *ex, zval *return_value) {
 }
 
 
-static zend_observer_fcall tracer_observer(zend_function *func) {
+static zend_observer_fcall_handlers tracer_observer(zend_execute_data *execute_data) {
+    zend_function *func = execute_data->func;
+
     if (!func->common.function_name) {
-        return (zend_observer_fcall){NULL, NULL};
+        return (zend_observer_fcall_handlers){NULL, NULL};
     }
 
-    return (zend_observer_fcall){tracer_observer_begin, tracer_observer_end};
+    return (zend_observer_fcall_handlers){tracer_observer_begin, tracer_observer_end};
 }
 
 
@@ -209,12 +212,6 @@ ZEND_DLEXPORT void tideways_xhprof_execute_internal(zend_execute_data *execute_d
         tracing_exit_frame_callgraph(TSRMLS_C);
     }
 }
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_xhprof_enable, ZEND_SEND_BY_VAL, ZEND_RETURN_VALUE, 0)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_tideways_xhprof_disable, ZEND_SEND_BY_VAL, ZEND_RETURN_VALUE, 0)
-ZEND_END_ARG_INFO()
 
 const zend_function_entry tideways_xhprof_functions[] = {
     PHP_FE(tideways_xhprof_enable,	arginfo_tideways_xhprof_enable)
