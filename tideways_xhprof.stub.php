@@ -1,4 +1,15 @@
 <?php
 
-function tideways_xhprof_enable(int $flags = 0): void {}
-function tideways_xhprof_disable(): array {}
+/**
+ * @param int|null $options
+ * @return void
+ *
+ * @generate-legacy-arginfo
+ */
+function tideways_xhprof_enable($options = null) {}
+/**
+ * @return array
+ *
+ * @generate-legacy-arginfo
+ */
+function tideways_xhprof_disable() {}
