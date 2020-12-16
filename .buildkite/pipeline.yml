@@ -2,6 +2,13 @@ env:
     NO_INTERACTION: 1
 
 steps:
+    - label: ":php: 8.0 amd64"
+      command: ./.buildkite/build_extension.sh 8.0
+      agents:
+          phpbuild: "no-debug"
+          queue: "build"
+          arch: "x86_64"
+
     - label: ":php: 7.4 amd64"
       command: ./.buildkite/build_extension.sh 7.4
       agents:
@@ -32,6 +39,13 @@ steps:
 
     - label: ":php: 7.0 amd64"
       command: ./.buildkite/build_extension.sh 7.0
+      agents:
+          phpbuild: "no-debug"
+          queue: "build"
+          arch: "x86_64"
+
+    - label: ":php: 8.0-zts amd64"
+      command: ./.buildkite/build_extension.sh 8.0-zts
       agents:
           phpbuild: "no-debug"
           queue: "build"
