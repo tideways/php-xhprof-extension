@@ -4,7 +4,7 @@
 extern zend_module_entry tideways_xhprof_module_entry;
 #define phpext_tideways_xhprof_ptr &tideways_xhprof_module_entry
 
-#define PHP_TIDEWAYS_XHPROF_VERSION "5.0.2"
+#define PHP_TIDEWAYS_XHPROF_VERSION "5.0.4"
 #define TIDEWAYS_XHPROF_CALLGRAPH_COUNTER_SIZE 1024
 #define TIDEWAYS_XHPROF_CALLGRAPH_SLOTS 8192
 #define TIDEWAYS_XHPROF_CLOCK_CGT 0
