@@ -5,13 +5,9 @@ xhprof: internal functions calling userland functions
 
 include_once dirname(__FILE__).'/common.php';
 
-function double($x) {
-    return $x * 2;
-}
-
 tideways_xhprof_enable();
 
-$doubles = array_map('double', range(1, 10));
+require_once __DIR__ . "/xhprof_008.inc";
 
 $output = tideways_xhprof_disable();
 
