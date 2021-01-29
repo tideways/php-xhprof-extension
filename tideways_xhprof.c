@@ -85,6 +85,10 @@ PHP_FUNCTION(tideways_xhprof_enable)
         return;
     }
 
+    if (TXRG(enabled) == 1) {
+        return;
+    }
+
     tracing_begin(flags TSRMLS_CC);
     tracing_enter_root_frame(TSRMLS_C);
 }
