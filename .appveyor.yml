@@ -8,11 +8,31 @@ environment:
   PHP_BUILD_CACHE_BASE_DIR: c:\build-cache
   PHP_BUILD_OBJ_DIR: c:\obj
   PHP_BUILD_CACHE_SDK_DIR: c:\build-cache\sdk
-  PHP_BUILD_SDK_BRANCH: php-sdk-2.2.0beta6
+  PHP_BUILD_SDK_BRANCH: php-sdk-2.2.0
   SDK_REMOTE: https://github.com/OSTC/php-sdk-binary-tools.git
-  SDK_BRANCH: php-sdk-2.2.0beta6
+  SDK_BRANCH: php-sdk-2.2.0
 
   matrix:
+    - PHP_REL: 8.0
+      ARCHITECTURE: x64
+      ZTS_STATE: enable
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
+      PHP_BUILD_CRT: vs16
+    - PHP_REL: 8.0
+      ARCHITECTURE: x64
+      ZTS_STATE: disable
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
+      PHP_BUILD_CRT: vs16
+    - PHP_REL: 8.0
+      ARCHITECTURE: x86
+      ZTS_STATE: enable
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
+      PHP_BUILD_CRT: vs16
+    - PHP_REL: 8.0
+      ARCHITECTURE: x86
+      ZTS_STATE: disable
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
+      PHP_BUILD_CRT: vs16
     - PHP_REL: 7.4
       ARCHITECTURE: x64
       ZTS_STATE: enable
@@ -28,11 +48,6 @@ environment:
       ZTS_STATE: enable
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       PHP_BUILD_CRT: vc15
-    - PHP_REL: 7.1
-      ARCHITECTURE: x64
-      ZTS_STATE: enable
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
-      PHP_BUILD_CRT: vc14
     - PHP_REL: 7.4
       ARCHITECTURE: x64
       ZTS_STATE: disable
@@ -48,11 +63,6 @@ environment:
       ZTS_STATE: disable
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       PHP_BUILD_CRT: vc15
-    - PHP_REL: 7.1
-      ARCHITECTURE: x64
-      ZTS_STATE: disable
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
-      PHP_BUILD_CRT: vc14
     - PHP_REL: 7.4
       ARCHITECTURE: x86
       ZTS_STATE: enable
@@ -68,11 +78,6 @@ environment:
       ZTS_STATE: enable
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       PHP_BUILD_CRT: vc15
-    - PHP_REL: 7.1
-      ARCHITECTURE: x86
-      ZTS_STATE: enable
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
-      PHP_BUILD_CRT: vc14
     - PHP_REL: 7.4
       ARCHITECTURE: x86
       ZTS_STATE: disable
@@ -88,11 +93,6 @@ environment:
       ZTS_STATE: disable
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       PHP_BUILD_CRT: vc15
-    - PHP_REL: 7.1
-      ARCHITECTURE: x86
-      ZTS_STATE: disable
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
-      PHP_BUILD_CRT: vc14
 
 install:
   - .appveyor\install.cmd
