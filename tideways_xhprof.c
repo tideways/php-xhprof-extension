@@ -26,6 +26,7 @@ ZEND_DLEXPORT void tideways_xhprof_execute_internal(zend_execute_data *execute_d
 
 #if PHP_VERSION_ID >= 80000
 #include "zend_observer.h"
+#include "Zend/zend_attributes.h"
 
 static void tracer_observer_begin(zend_execute_data *ex) {
     if (!TXRG(enabled)) {
@@ -48,6 +49,26 @@ static void tracer_observer_end(zend_execute_data *ex, zval *return_value) {
 
 static zend_observer_fcall_handlers tracer_observer(zend_execute_data *execute_data) {
     zend_function *func = execute_data->func;
+
+    if (func->common.scope != NULL &&
+        func->common.scope->attributes != NULL &&
+        zend_get_attribute_str(func->common.scope->attributes, "attribute", sizeof("attribute")-1) != NULL) {
+        /*
+         * This condition is a workaround for PHP bug #81430
+         * (https://bugs.php.net/bug.php?id=81430) which was introduced in PHP
+         * 8.0.12. We created a pull request
+         * (https://github.com/php/php-src/pull/7665) which will hopefully be
+         * merged and fix this bug in PHP 8.0.14.
+         *
+         * In PHP 8.0.12 a new check was introduced to
+         * zend_observer_fcall_end() which expects the run_time_cache of
+         * functions to be properly initialized. However, there are dummy
+         * frames where the run_time_cache__ptr is simply NULL, so where the
+         * cache is not properly initialized. This condition ensures that
+         * attribute based dummy frames have no observers.
+         */
+        return (zend_observer_fcall_handlers) {NULL, NULL};
+    }
 
     if (!func->common.function_name) {
         return (zend_observer_fcall_handlers){NULL, NULL};
