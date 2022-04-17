@@ -144,8 +144,8 @@ PHP_MSHUTDOWN_FUNCTION(tideways_xhprof)
 
 PHP_RINIT_FUNCTION(tideways_xhprof)
 {
-    tracing_request_init(TSRMLS_C);
     TXRG(clock_source) = determine_clock_source(TXRG(clock_use_rdtsc));
+    tracing_request_init(TSRMLS_C);
 
     CG(compiler_options) = CG(compiler_options) | ZEND_COMPILE_NO_BUILTINS;
 
