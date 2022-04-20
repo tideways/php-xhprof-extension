@@ -101,11 +101,16 @@ static zend_always_inline zend_string* tracing_get_function_name(zend_execute_da
 
 zend_always_inline static int tracing_enter_frame_callgraph(zend_string *root_symbol, zend_execute_data *execute_data TSRMLS_DC)
 {
-    zend_string *function_name = (root_symbol != NULL) ? zend_string_copy(root_symbol) : tracing_get_function_name(execute_data TSRMLS_CC);
+    zend_string *function_name;
     xhprof_frame_t *current_frame;
     xhprof_frame_t *p;
     int recurse_level = 0;
+    uint64 wt_start, wt_stop, wt_diff;
 
+    // Measure the start of the function.
+    wt_start = time_milliseconds(TXRG(clock_source), TXRG(timebase_factor));
+
+    function_name = (root_symbol != NULL) ? zend_string_copy(root_symbol) : tracing_get_function_name(execute_data TSRMLS_CC);
     if (function_name == NULL) {
         return 0;
     }
@@ -115,7 +120,7 @@ zend_always_inline static int tracing_enter_frame_callgraph(zend_string *root_sy
     current_frame->function_name = function_name;
     current_frame->previous_frame = TXRG(callgraph_frames);
     current_frame->recurse_level = 0;
-    current_frame->wt_start = time_milliseconds(TXRG(clock_source), TXRG(timebase_factor));
+    current_frame->wt_start = wt_start;
 
     if (TXRG(flags) & TIDEWAYS_XHPROF_FLAGS_CPU) {
         current_frame->cpu_start = cpu_timer();
@@ -154,6 +159,12 @@ zend_always_inline static int tracing_enter_frame_callgraph(zend_string *root_sy
     /* Init current function's recurse level */
     current_frame->recurse_level = recurse_level;
 
+    wt_stop = time_milliseconds(TXRG(clock_source), TXRG(timebase_factor));
+    wt_diff = time_milliseconds(TXRG(clock_source), TXRG(timebase_factor)) - wt_stop;
+    // Account for measuring overhead on exit already.
+    current_frame->overhead = wt_stop - wt_start + 6 * wt_diff;
+    TXRG(profiler_overhead) += current_frame->overhead;
+
     return 1;
 }
 
@@ -161,7 +172,12 @@ zend_always_inline static void tracing_exit_frame_callgraph(TSRMLS_D)
 {
     xhprof_frame_t *current_frame = TXRG(callgraph_frames);
     xhprof_frame_t *previous = current_frame->previous_frame;
-    zend_long duration = time_milliseconds(TXRG(clock_source), TXRG(timebase_factor)) - current_frame->wt_start;
+    uint64 wt_start;
+    zend_long duration, overhead;
+
+    // Measure the start of the function.
+    wt_start = time_milliseconds(TXRG(clock_source), TXRG(timebase_factor));
+    duration = wt_start - current_frame->wt_start - current_frame->overhead;
 
     zend_ulong key = tracing_callgraph_bucket_key(current_frame);
     unsigned int slot = (unsigned int)key % TIDEWAYS_XHPROF_CALLGRAPH_SLOTS;
@@ -222,4 +238,13 @@ zend_always_inline static void tracing_exit_frame_callgraph(TSRMLS_D)
 
     TXRG(callgraph_frames) = TXRG(callgraph_frames)->previous_frame;
     tracing_fast_free_frame(current_frame TSRMLS_CC);
+
+    // Measure overhead of this function.
+    overhead = time_milliseconds(TXRG(clock_source), TXRG(timebase_factor)) - wt_start;
+    TXRG(profiler_overhead) += overhead;
+
+    // While technically free'd the record still is valid till we return.
+    if (previous) {
+      previous->overhead += current_frame->overhead + overhead;
+    }
 }

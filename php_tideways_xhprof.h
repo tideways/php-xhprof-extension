@@ -69,6 +69,7 @@ struct xhprof_frame_t {
     long int            pmu_start;              /* peak memory usage */
     long int            num_alloc, num_free;
     long int            amount_alloc;
+    uint64              overhead;           /* measured overhead */
     int                 recurse_level;
     zend_ulong          hash_code;          /* hash_code for the function name  */
 };
@@ -89,6 +90,7 @@ ZEND_BEGIN_MODULE_GLOBALS(tideways_xhprof)
     long int num_alloc;
     long int num_free;
     long int amount_alloc;
+    uint64 profiler_overhead;
 ZEND_END_MODULE_GLOBALS(tideways_xhprof)
 
 #if defined(__GNUC__) && __GNUC__ >= 4
