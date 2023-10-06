@@ -1,5 +1,7 @@
 > [!IMPORTANT]
-> This PHP extension is archived in favor of the revitalized [PECL XHProf extension](https://pecl.php.net/package/xhprof) ([GitHub](https://github.com/longxinH/xhprof)) that is also using the modern PHP profiling abilities and performant timer APIs.
+> This XHProf PHP extension fork has outlived its purpose and is archived in favor of the revitalized [PECL XHProf extension](https://pecl.php.net/package/xhprof) ([GitHub](https://github.com/longxinH/xhprof)) that is also using the modern PHP profiling abilities and performant timer APIs.
+>
+> If you are looking for a full-stack Profiling Experience from Trigger through the Browser to modern UI [try out Tideways](https://tideways.com).
 
 # Tideways XHProf Extension
 
