@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> This PHP extension is archived in favor of the revitalized [PECL XHProf extension](https://pecl.php.net/package/xhprof) ([GitHub](https://github.com/longxinH/xhprof)) that is also using the modern PHP profiling abilities and performant timer APIs.
+
 # Tideways XHProf Extension
 
 Home of the `tideways_xhprof` extension - a hierarchical Profiler for PHP.
