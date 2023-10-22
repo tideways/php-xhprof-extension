@@ -53,6 +53,8 @@ void tracing_end(TSRMLS_D)
         }
 
         while (TXRG(callgraph_frames)) {
+            // All overhead is added to the main and disable functions.
+            TXRG(callgraph_frames)->wt_start -= TXRG(profiler_overhead);
             tracing_exit_frame_callgraph(TSRMLS_C);
         }
 
@@ -259,6 +261,7 @@ void tracing_begin(zend_long flags TSRMLS_DC)
 
     TXRG(flags) = flags;
     TXRG(callgraph_frames) = NULL;
+    TXRG(profiler_overhead) = 0;
 
     for (i = 0; i < TIDEWAYS_XHPROF_CALLGRAPH_SLOTS; i++) {
         TXRG(callgraph_buckets)[i] = NULL;
